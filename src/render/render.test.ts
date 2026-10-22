@@ -32,11 +32,11 @@ function halves(left: string, right: string): RenderSource {
   return { image: c, width: 200, height: 200 };
 }
 
-function draw(doc: TokenDocument, art: RenderSource | null, size = outputSize(doc.size.squares)) {
+function draw(doc: TokenDocument, art: RenderSource | null, size = outputSize(doc.size.squares), opts?: Parameters<typeof renderToken>[4]) {
   const canvas = createCanvas(size, size);
   const ctx = canvas.getContext('2d');
   const assets = new Map(art ? [['asset:a', art]] : []);
-  renderToken(ctx as unknown as Ctx, { ...doc, art: { ...doc.art, assetId: art ? 'asset:a' : null } }, assets, size);
+  renderToken(ctx as unknown as Ctx, { ...doc, art: { ...doc.art, assetId: art ? 'asset:a' : null } }, assets, size, opts);
   const data = ctx.getImageData(0, 0, size, size).data;
   const at = (x: number, y: number) => {
     const i = (Math.round(y) * size + Math.round(x)) * 4;
@@ -144,6 +144,18 @@ describe('renderer', () => {
     expect(draw(none, clear).at(128, 128)[3]).toBe(0);
   });
 
+  it('the Frame highlights colour recolours only frames that have highlights', () => {
+    const frameOf = (style: TokenDocument['frame']['style'], highlightColor: string | null) =>
+      doc({ frame: { ...createDocument().frame, presetId: style, style, color: '#c4622c', highlightColor } });
+    const differs = (a: ReturnType<typeof draw>, b: ReturnType<typeof draw>) => Buffer.compare(Buffer.from(a.data), Buffer.from(b.data)) !== 0;
+    const art = solid('#808080');
+    // Monk's jade beads turn red; leaving it unset is the same as picking the default jade.
+    expect(differs(draw(frameOf('beads', null), art), draw(frameOf('beads', '#ff0000'), art))).toBe(true);
+    expect(differs(draw(frameOf('beads', null), art), draw(frameOf('beads', '#3d8c6a'), art))).toBe(false);
+    // Stamped has no highlights, so the setting changes nothing.
+    expect(differs(draw(frameOf('stamped', null), art), draw(frameOf('stamped', '#ff0000'), art))).toBe(false);
+  });
+
   it('renders the same picture at any resolution (preview vs export)', () => {
     const d = doc();
     const small = draw(d, sampleArt(make), 128);
@@ -204,5 +216,16 @@ describe('renderer', () => {
       expect(out.at(c, c).slice(0, 3)).toEqual([255, 0, 255]);
       expect(out.at(c + out.size / 4, c).slice(0, 3)).toEqual([0x3c, 0x8c, 0x32]);
     });
+  });
+});
+
+describe('frame fade while brushing', () => {
+  it('draws the frame see-through only when asked (never in exports)', () => {
+    const d = createDocument();
+    const normal = draw(d, solid('#ff0000'));
+    const faded = draw(d, solid('#ff0000'), undefined, { frameAlpha: 0.5 });
+    const bandX = 128 - 128 * (1 - 0.17);
+    expect(faded.at(bandX, 128)).not.toEqual(normal.at(bandX, 128));
+    expect(faded.at(128, 128)).toEqual(normal.at(128, 128)); // the art itself is unchanged
   });
 });

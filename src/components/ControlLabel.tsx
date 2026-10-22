@@ -1,8 +1,12 @@
 import type { ReactNode } from 'react';
 import type { HelpId } from '../help/helpContent';
-import { HelpTip } from './HelpTip';
+import { LabelTip } from './LabelTip';
 
-/** The label row above a control: name, "?" tip, and an optional value on the right. */
+/**
+ * The label row above a control: its name and an optional value on the right.
+ * Only section headings get a "?" button; a control's help card opens when
+ * you hover its name (or long-press it on a touch screen).
+ */
 export function ControlLabel({
   htmlFor,
   id,
@@ -18,14 +22,17 @@ export function ControlLabel({
 }) {
   return (
     <div className="control-label">
-      {htmlFor ? (
+      {helpId ? (
+        <LabelTip helpId={helpId} htmlFor={htmlFor} id={id}>
+          {label}
+        </LabelTip>
+      ) : htmlFor ? (
         <label htmlFor={htmlFor} id={id}>
           {label}
         </label>
       ) : (
         <span id={id}>{label}</span>
       )}
-      {helpId && <HelpTip id={helpId} />}
       {aside !== undefined && <span className="control-label__aside">{aside}</span>}
     </div>
   );

@@ -59,15 +59,18 @@ To see the phone layout on your computer: in Chrome or Edge press `F12`, then cl
   - a Pinterest pin, including `pin.it` short links (the full-size picture loads).
 
   You can also paste a link anywhere on the page with `Ctrl+V`, or drag a picture from another browser tab onto the page. If a site won't share its pictures you'll get a message suggesting right-click → **Copy image address**, or saving the picture and uploading it.
-- **Move the art:** drag it. **Zoom:** mouse wheel, or pinch on a touch screen. **Rotate:** the round handle above the art, or twist two fingers. The square corner handles resize it.
-- The toolbar above the canvas has zoom, rotate 90°, flip, fit, fill, "Keep the frame filled" (lock) and reset.
+- **Move the art:** drag it. **Resize:** the square corner handles, the toolbar's zoom slider, or pinch on a touch screen. **Rotate:** the round handle above the art, or twist two fingers.
+- **Look closer:** scroll the mouse wheel over the token to zoom the view in (the art itself doesn't change). Hold Space or the middle mouse button and drag to look around, and click **View … · Reset** to see the whole token again. Scrolling anywhere else over the canvas scrolls the settings panel.
+- The toolbar above the canvas has zoom, rotate 90°, flip sideways, flip upside down, fit, fill and reset.
+- Only one settings section is open at a time. Sliders have a small notch under them marking the default value. Frames with details in their own colour (like the beads on Monk) have a **Frame highlights colour** option.
 - **Frame & shape** (right-hand panel, or the **Frame** tab on a phone): pick a shape, one of 27 frames, a colour, thickness and spacing.
 - **Size:** Tiny to Gargantuan or Custom. The border stays the same thickness on the map at every size.
 - **Image (Phase 3):** open the **Image** section (the **Image** tab on a phone).
   - **Brightness, Contrast, Saturation** are always there; **Advanced** has Hue, Temperature, Tint, Exposure, Highlights, Shadows, Sharpness, Blur, Vibrance, Grayscale, Sepia and Invert. **Reset adjustments** puts them all back.
   - **Remove flat background** makes a plain background see-through. The colour is found from the picture's edges; if it picks the wrong one, click **Pick colour** and click the background (**Auto** goes back). **Intensity** removes more or less; **Edge softness** softens the cut.
-  - **Erase / restore brush:** click **Use the brush**, then paint on the picture. **Erase** hides what you paint, **Restore** brings it back. While the brush is on, removed parts show red inside the frame. Pick **Brush size** (Advanced: softness, pen pressure). Two fingers still move and zoom. Press **Done** (or `Esc`) to go back to moving the art. Each stroke is one undo step.
+  - **Erase / restore brush:** click **Use the brush**, then paint on the picture. **Erase** hides what you paint, **Restore** brings it back. While the brush is on, the frame turns half see-through and removed parts show red inside it. Pick **Brush size** (Advanced: softness, pen pressure). Two fingers still move and zoom. Press **Done** (or `Esc`) to go back to moving the art. Each stroke is one undo step.
   - Nothing you do here changes your original picture, so you can always change your mind.
+  - Hover over a control's name (or press and hold it on a phone) to see what it does, with a before/after picture.
 - **Undo/Redo:** the arrows in the top bar, or `Ctrl+Z` / `Ctrl+Y`. A whole drag counts as one step.
 - **Export PNG** (bottom bar) downloads the token at 256 pixels per grid square.
 - Your token is saved in the browser as you work, so refreshing the page keeps it. **New** starts again.

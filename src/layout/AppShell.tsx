@@ -30,7 +30,7 @@ function boot() {
  */
 export function AppShell() {
   const wide = useMediaQuery('(min-width: 768px)');
-  const [open, setOpenSections] = useState<ReadonlySet<SectionId>>(() => new Set(['import', 'frame']));
+  const [open, setOpenSections] = useState<ReadonlySet<SectionId>>(() => new Set(['import']));
   const dropping = useGlobalImport();
   useShortcuts();
   useEffect(boot, []);
@@ -43,13 +43,8 @@ export function AppShell() {
     [],
   );
 
-  const setOpen = (id: SectionId, isOpen: boolean) =>
-    setOpenSections((prev) => {
-      const next = new Set(prev);
-      if (isOpen) next.add(id);
-      else next.delete(id);
-      return next;
-    });
+  // One section open at a time: opening one closes the rest, so the panel stays short.
+  const setOpen = (id: SectionId, isOpen: boolean) => setOpenSections(isOpen ? new Set([id]) : new Set());
 
   return (
     <>

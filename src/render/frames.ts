@@ -187,6 +187,11 @@ function drawFinish(ctx: Ctx, g: FrameGeometry, finish: Finish): void {
   }
 }
 
+/** The default "Frame highlights colour" of a style, or undefined if every part follows the frame colour. */
+export function frameAccent(style: FrameStyle): string | undefined {
+  return style === 'none' || style === 'stamped' ? undefined : FINISHES[style].accent;
+}
+
 export function drawFrame(ctx: Ctx, style: FrameStyle, g: FrameGeometry): void {
   if (style === 'none' || g.inner <= g.outer) return;
   ctx.save();

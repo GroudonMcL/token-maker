@@ -24,11 +24,13 @@ async function exportPng(page: Page, isMobile: boolean) {
 
 /** Opens the panel holding a section (phone: its tab in the bottom sheet). */
 async function openSection(page: Page, isMobile: boolean, section: string, tab: string) {
+  let panel;
   if (isMobile) {
     await page.getByRole('tab', { name: tab }).click();
-    return page.getByRole('tabpanel');
+    panel = page.getByRole('tabpanel');
+  } else {
+    panel = page.getByRole('complementary', { name: 'Token settings' });
   }
-  const panel = page.getByRole('complementary', { name: 'Token settings' });
   const toggle = panel.getByRole('button', { name: section, exact: true });
   if ((await toggle.getAttribute('aria-expanded')) === 'false') await toggle.click();
   return panel;
@@ -132,4 +134,42 @@ test('the token survives a page reload (autosave)', async ({ page, isMobile }) =
   await expect(page.locator('.token-summary__name').first()).toHaveText('Goblin Boss');
   const panel2 = await openSection(page, !!isMobile, 'Frame & shape', 'Frame');
   await expect(panel2.getByRole('radio', { name: 'Hexagon' })).toHaveAttribute('aria-checked', 'true');
+});
+
+test('opening one panel section closes the others', async ({ page, isMobile }) => {
+  test.skip(!!isMobile, 'side panel');
+  const panel = page.getByRole('complementary', { name: 'Token settings' });
+  const importBtn = panel.getByRole('button', { name: 'Import', exact: true });
+  const frameBtn = panel.getByRole('button', { name: 'Frame & shape', exact: true });
+  await expect(importBtn).toHaveAttribute('aria-expanded', 'true');
+  await frameBtn.click();
+  await expect(frameBtn).toHaveAttribute('aria-expanded', 'true');
+  await expect(importBtn).toHaveAttribute('aria-expanded', 'false');
+});
+
+test('the wheel zooms the view over the token and scrolls the panel elsewhere', async ({ page, isMobile }) => {
+  test.skip(!!isMobile, 'mouse wheel');
+  await upload(page);
+  const canvas = page.getByTestId('token-canvas');
+  const box = (await canvas.boundingBox())!;
+  const readout = page.locator('.float-toolbar__readout');
+  const artZoom = await readout.textContent();
+
+  // Over the token: the view zooms in (the token gets bigger on screen) but the art's own zoom is unchanged.
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.wheel(0, -400);
+  await expect.poll(async () => (await canvas.boundingBox())!.width).toBeGreaterThan(box.width * 1.3);
+  await expect(readout).toHaveText(artZoom!);
+  await page.getByRole('button', { name: /Reset view/ }).click();
+  await expect.poll(async () => (await canvas.boundingBox())!.width).toBeCloseTo(box.width, 0);
+
+  // Away from the token and art: the side panel scrolls instead.
+  const panel = page.getByRole('complementary', { name: 'Token settings' });
+  await panel.getByRole('button', { name: 'Frame & shape', exact: true }).click();
+  await panel.evaluate((el) => (el.scrollTop = 0));
+  const stage = (await page.locator('.stage').boundingBox())!;
+  await page.mouse.move(stage.x + 30, stage.y + stage.height - 120);
+  await page.mouse.wheel(0, 300);
+  await expect.poll(() => panel.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+  expect((await canvas.boundingBox())!.width).toBeCloseTo(box.width, 0);
 });

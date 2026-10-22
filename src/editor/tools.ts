@@ -25,7 +25,7 @@ export const BRUSH_MIN = 4;
 export const BRUSH_MAX = 200;
 
 const PREFS_KEY = 'token-maker:brush';
-const DEFAULTS: ToolState = { tool: 'move', brushMode: 'erase', brushSize: 40, brushSoftness: 40, usePressure: true, showRemoved: true };
+export const DEFAULTS: ToolState = { tool: 'move', brushMode: 'erase', brushSize: 40, brushSoftness: 40, usePressure: true, showRemoved: true };
 
 function loadPrefs(): Partial<ToolState> {
   try {

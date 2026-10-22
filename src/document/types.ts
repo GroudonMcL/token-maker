@@ -108,13 +108,14 @@ export interface FrameSettings {
   presetId: string;
   style: FrameStyle;
   color: string;
+  /** "Frame highlights colour" for details that don't follow `color` (Monk's beads…); null = the frame's own default. */
+  highlightColor: string | null;
   /** Per square. */
   thickness: number;
   /** Gap between the image edge and the frame, per square. */
   outerSpacing: number;
   /** Gap between the frame and the art, filled with the backing, per square. */
   innerSpacing: number;
-  opacity: number;
   backingColor: string;
   backingOpacity: number;
 }
