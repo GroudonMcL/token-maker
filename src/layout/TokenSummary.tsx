@@ -23,7 +23,7 @@ export function TokenSummary() {
       const px = Math.round(36 * Math.min(2, window.devicePixelRatio || 1));
       c.width = px;
       c.height = px;
-      renderToken(ctx, doc, assets, px);
+      renderToken(ctx, doc, assets, px, { artMaxSide: 256 });
     }, 150);
     return () => clearTimeout(id);
   }, [doc, assets, hasArt]);

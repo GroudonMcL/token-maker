@@ -1,14 +1,18 @@
-import { ImagePlus, ScanSearch } from 'lucide-react';
+import { Check, Eraser, ImagePlus, Paintbrush, ScanSearch } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { useStore } from 'zustand';
 import type { ArtTransform } from '../document/types';
 import { HelpTip } from '../components/HelpTip';
 import { artCorners, baseScale, imageClipPolygon, rotateAround, zoomAround } from '../render/geometry';
+import { needsHeavyWork, processArt } from '../image/processArt';
 import { renderToken } from '../render/render';
 import type { Point } from '../render/shapes';
 import { assetStore } from '../state/assets';
-import { commitDoc, useDoc } from '../state/tokenStore';
+import { brushSoftness, setBrush, setTool, toolStore, useTool } from '../state/toolStore';
+import { cancelDoc, commitDoc, useChanging, useDoc } from '../state/tokenStore';
+import { toast } from '../ui/toast';
 import { setTransform } from './artActions';
+import { extendStroke, pickBackground, startStroke } from './brushActions';
 import { UploadButton } from './UploadButton';
 
 const PADDING = 40;
@@ -18,6 +22,8 @@ const HANDLE_MARGIN = 18;
 const VIEW_MAX = 8;
 /** The token canvas never gets bigger than this many pixels across, however far the view is zoomed. */
 const MAX_CANVAS = 4096;
+/** While a slider that needs the slow recompute is dragged, the art is processed this small. */
+const PREVIEW_SIDE = 768;
 
 /** How far the view (not the art) is zoomed in, and where the token centre has moved to. */
 interface View {
@@ -30,6 +36,8 @@ const HOME: View = { scale: 1, x: 0, y: 0 };
 type Gesture =
   | { kind: 'pan'; start: ArtTransform; x: number; y: number; distance: number; angle: number }
   | { kind: 'view'; start: View; x: number; y: number }
+  | { kind: 'viewPinch'; start: View; mid: Point; distance: number }
+  | { kind: 'stroke'; id: string }
   | { kind: 'scale' | 'rotate'; start: ArtTransform; centre: Point; startPoint: Point };
 
 /**
@@ -50,6 +58,13 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
   const gesture = useRef<Gesture | null>(null);
   const [viewState, setViewState] = useState({ key: '', view: HOME });
   const [spaceHeld, setSpaceHeld] = useState(false);
+  const tool = useTool((s) => s.tool);
+  const brush = useTool((s) => s.brush);
+  const brushing = !!art && (tool === 'erase' || tool === 'restore');
+  const picking = !!art && tool === 'pick';
+  const changing = useChanging();
+  /** Where the brush outline is drawn (stage coordinates), or null when the pointer is away. */
+  const [cursor, setCursor] = useState<Point | null>(null);
 
   useLayoutEffect(() => {
     const el = stageRef.current;
@@ -92,6 +107,15 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
     };
   };
 
+  // Escape leaves the brush or eyedropper.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && toolStore.getState().tool !== 'move' && !gesture.current) setTool('move');
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   // Space + drag looks around a zoomed-in view, like most drawing apps.
   useEffect(() => {
     const typing = (e: KeyboardEvent) => (e.target as HTMLElement | null)?.closest?.('input, textarea, select, [contenteditable]');
@@ -117,6 +141,11 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
   // Draw on the next frame whenever anything visual changes.
   useEffect(() => {
     if (!box.width || !box.height) return;
+    const opts = {
+      artMaxSide: art && changing && needsHeavyWork(art, doc.art) ? PREVIEW_SIDE : undefined,
+      frameAlpha: brushing ? 0.5 : undefined,
+      ghostArt: brushing ? 0.3 : undefined,
+    };
     const frame = requestAnimationFrame(() => {
       const dpr = Math.min(3, window.devicePixelRatio || 1);
       const token = tokenRef.current;
@@ -127,7 +156,7 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
           token.height = px;
         }
         const tctx = token.getContext('2d');
-        if (tctx) renderToken(tctx, doc, assets, px);
+        if (tctx) renderToken(tctx, doc, assets, px, opts);
       }
       const context = contextRef.current;
       if (context) {
@@ -147,7 +176,7 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
           ctx.rotate((t.rotation * Math.PI) / 180);
           ctx.scale(t.flipX ? -s : s, t.flipY ? -s : s);
           ctx.imageSmoothingQuality = 'medium';
-          ctx.drawImage(art.image, -art.width / 2, -art.height / 2);
+          ctx.drawImage(processArt(art, doc.art, opts.artMaxSide).image, -art.width / 2, -art.height / 2, art.width, art.height);
           ctx.restore();
         }
       }
@@ -155,7 +184,7 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
     return () => cancelAnimationFrame(frame);
     // clip is derived from doc
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [box, R, cx, cy, doc, assets, art]);
+  }, [box, R, cx, cy, doc, assets, art, changing, brushing]);
 
   /** Client position → R units from the token centre. */
   const toUnits = (clientX: number, clientY: number): Point => {
@@ -190,10 +219,40 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
       return;
     }
     if (e.button > 0) return;
+    if (picking) {
+      if (pickBackground(toUnits(e.clientX, e.clientY))) setTool('move');
+      else toast('Click on the picture to pick its background colour.');
+      return;
+    }
     stageRef.current?.setPointerCapture(e.pointerId);
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     setDragging(true);
+    if (brushing) {
+      if (pointers.current.size === 1) {
+        const radius = brush.size / 2 / R;
+        const id = startStroke(tool as 'erase' | 'restore', toUnits(e.clientX, e.clientY), pressureOf(e), radius, brushSoftness(brush));
+        gesture.current = id ? { kind: 'stroke', id } : null;
+      } else {
+        // A second finger: drop the stroke just started and pinch the view instead.
+        if (gesture.current?.kind === 'stroke') cancelDoc();
+        startViewPinch();
+      }
+      return;
+    }
     startPan();
+  };
+
+  /** Two fingers while brushing zoom and move the view, so the brush can reach fine detail on a phone. */
+  const startViewPinch = () => {
+    const [a, b] = [...pointers.current.values()];
+    if (!a || !b) return;
+    const rect = stageRef.current!.getBoundingClientRect();
+    gesture.current = {
+      kind: 'viewPinch',
+      start: view,
+      mid: { x: (a.x + b.x) / 2 - rect.left, y: (a.y + b.y) / 2 - rect.top },
+      distance: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
+    };
   };
 
   const onPointerMove = (e: ReactPointerEvent) => {
@@ -202,8 +261,36 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
       setView(clampView({ ...g.start, x: g.start.x + e.clientX - g.x, y: g.start.y + e.clientY - g.y }));
       return;
     }
+    if (brushing && e.pointerType !== 'touch') {
+      const rect = stageRef.current!.getBoundingClientRect();
+      setCursor({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+    }
     if (!g || !pointers.current.has(e.pointerId)) return;
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (g.kind === 'stroke') {
+      // Coalesced events keep fast strokes smooth where the browser offers them.
+      const events = typeof e.nativeEvent.getCoalescedEvents === 'function' ? e.nativeEvent.getCoalescedEvents() : [];
+      const list = events.length ? events : [e.nativeEvent];
+      extendStroke(g.id, list.map((ev) => ({ p: toUnits(ev.clientX, ev.clientY), pressure: pressureOf(ev) })));
+      return;
+    }
+    if (g.kind === 'viewPinch') {
+      const [a, b] = [...pointers.current.values()];
+      if (!a || !b) return;
+      const rect = stageRef.current!.getBoundingClientRect();
+      const mid = { x: (a.x + b.x) / 2 - rect.left, y: (a.y + b.y) / 2 - rect.top };
+      const scale = Math.min(VIEW_MAX, Math.max(1, (g.start.scale * Math.hypot(a.x - b.x, a.y - b.y)) / g.distance));
+      const k = scale / g.start.scale;
+      // The point under the fingers' midpoint follows the fingers.
+      setView(
+        clampView({
+          scale,
+          x: mid.x - (g.mid.x - (cx0 + g.start.x)) * k - cx0,
+          y: mid.y - (g.mid.y - (cy0 + g.start.y)) * k - cy0,
+        }),
+      );
+      return;
+    }
     if (g.kind !== 'pan') return;
     const pts = [...pointers.current.values()];
     const x = pts.reduce((s, p) => s + p.x, 0) / pts.length;
@@ -229,9 +316,11 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
     if (!pointers.current.delete(e.pointerId)) return;
     if (pointers.current.size === 0) {
       setDragging(false);
+      if (gesture.current?.kind !== 'viewPinch') commitDoc();
       gesture.current = null;
-      commitDoc();
-    } else {
+    } else if (gesture.current?.kind === 'viewPinch') {
+      gesture.current = { kind: 'view', start: view, x: [...pointers.current.values()][0]!.x, y: [...pointers.current.values()][0]!.y };
+    } else if (gesture.current?.kind !== 'stroke') {
       startPan(); // a finger lifted: carry on with the rest
     }
   };
@@ -275,6 +364,10 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
 
   const onKeyDown = (e: ReactKeyboardEvent) => {
     if (!art || e.target !== stageRef.current) return;
+    if (brushing && (e.key === '[' || e.key === ']')) {
+      setBrush({ size: brush.size * (e.key === ']' ? 1.2 : 1 / 1.2) });
+      return;
+    }
     const step = e.shiftKey ? 0.08 : 0.015;
     const moves: Record<string, [number, number]> = {
       ArrowLeft: [-step, 0],
@@ -316,7 +409,7 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
   };
   const moveHandle = (e: ReactPointerEvent) => {
     const g = gesture.current;
-    if (!g || g.kind === 'pan' || g.kind === 'view') return;
+    if (!g || (g.kind !== 'scale' && g.kind !== 'rotate')) return;
     const rect = stageRef.current!.getBoundingClientRect();
     const p = { x: e.clientX - rect.left, y: e.clientY - rect.top };
     const from = { x: g.startPoint.x - g.centre.x, y: g.startPoint.y - g.centre.y };
@@ -346,12 +439,22 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
       data-has-art={!!art || undefined}
       data-look={(spaceHeld && !!art) || undefined}
       data-view-zoomed={view.scale > 1 || undefined}
+      data-tool={art && tool !== 'move' ? tool : undefined}
       tabIndex={art ? 0 : -1}
-      aria-label={art ? 'Token preview. Drag to move the art, scroll to zoom the view, arrow keys to nudge.' : undefined}
+      aria-label={
+        !art
+          ? undefined
+          : brushing
+            ? `Token preview. Drag to ${tool} parts of the picture; [ and ] change the brush size; Escape stops brushing.`
+            : picking
+              ? 'Token preview. Click the background colour to remove.'
+              : 'Token preview. Drag to move the art, scroll to zoom the view, arrow keys to nudge.'
+      }
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={endPointer}
       onPointerCancel={endPointer}
+      onPointerLeave={() => setCursor(null)}
       onKeyDown={onKeyDown}
     >
       <canvas ref={contextRef} className="stage__context" aria-hidden="true" />
@@ -369,6 +472,7 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
         </svg>
       )}
       {art &&
+        tool === 'move' &&
         corners.map((p, i) => {
           const q = keepIn(p);
           if (offScreen(p)) return null;
@@ -385,7 +489,7 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
             />
           );
         })}
-      {art && !offScreen(rotateAt) && (
+      {art && tool === 'move' && !offScreen(rotateAt) && (
         <span
           className="stage__handle stage__handle--rotate"
           style={{ left: rotateHandle.x, top: rotateHandle.y }}
@@ -395,6 +499,36 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
           onPointerUp={endHandle}
           onPointerCancel={endHandle}
         />
+      )}
+      {brushing && cursor && (
+        <span
+          className="stage__brush"
+          data-mode={tool}
+          aria-hidden="true"
+          style={{ left: cursor.x, top: cursor.y, width: brush.size, height: brush.size }}
+        />
+      )}
+      {art && tool !== 'move' && (
+        <div className="stage__toolbar" role="toolbar" aria-label="Image tool" style={{ top: reserveTop + 4 }}>
+          {picking ? (
+            <span className="stage__toolbar-label">Click the background colour to remove</span>
+          ) : (
+            <>
+              <button type="button" className="btn btn--ghost" aria-pressed={tool === 'erase'} onClick={() => setTool('erase')}>
+                <Eraser size={16} aria-hidden="true" />
+                Erase
+              </button>
+              <button type="button" className="btn btn--ghost" aria-pressed={tool === 'restore'} onClick={() => setTool('restore')}>
+                <Paintbrush size={16} aria-hidden="true" />
+                Restore
+              </button>
+            </>
+          )}
+          <button type="button" className="btn btn--primary" onClick={() => setTool('move')}>
+            <Check size={16} aria-hidden="true" />
+            {picking ? 'Cancel' : 'Done'}
+          </button>
+        </div>
       )}
       {art && view.scale > 1 && (
         <button
@@ -428,6 +562,11 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
       )}
     </div>
   );
+}
+
+/** Pen pressure, 0–1. Mice and fingers report no real pressure, so they count as full. */
+function pressureOf(e: { pointerType: string; pressure: number }): number {
+  return e.pointerType === 'pen' && e.pressure > 0 ? e.pressure : 1;
 }
 
 /** Is `p` inside the convex polygon `poly` (either winding)? */

@@ -38,6 +38,10 @@ export function updateDoc(recipe: (doc: TokenDocument) => TokenDocument, opts?: 
 }
 
 export const commitDoc = () => docHistory.getState().commit();
+export const cancelDoc = () => docHistory.getState().cancel();
+
+/** True while a drag (slider, gesture or brush stroke) is in progress. */
+export const useChanging = () => useStore(docHistory, (s) => s.pendingBase !== null);
 export const undo = () => docHistory.getState().undo();
 export const redo = () => docHistory.getState().redo();
 

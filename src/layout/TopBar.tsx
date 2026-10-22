@@ -25,7 +25,7 @@ export function TopBar({ compact }: { compact: boolean }) {
         {!compact && <span className="topbar__name">Token Maker</span>}
       </Link>
       <div className="topbar__spacer" />
-      <Toggle label="Batch" helpId="topbar.batch" checked={batch} onChange={setBatch} />
+      <Toggle label="Batch" helpId="topbar.batch" checked={batch} onChange={setBatch} helpButton />
       <div className="topbar__group" role="group" aria-label="History">
         <button type="button" className="icon-btn" aria-label="Undo" title="Undo (Ctrl+Z)" disabled={!canUndo} onClick={undo}>
           <Undo2 size={18} />

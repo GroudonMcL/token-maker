@@ -7,6 +7,7 @@ import type { OuterShadow, TokenDocument } from '../document/types';
 import { parseHex, rgba } from './color';
 import { tracePolygon, type Ctx } from './frameKit';
 import { drawFrame } from './frames';
+import { newCanvas, processArt } from '../image/processArt';
 import { baseScale } from './geometry';
 import { shapePolygon } from './shapes';
 
@@ -20,8 +21,18 @@ export interface RenderSource {
 /** Images referenced by the document, by asset id. */
 export type AssetMap = ReadonlyMap<string, RenderSource>;
 
+/** Editor-only extras. Exports never pass these, so they always get the finished token. */
+export interface RenderOptions {
+  /** Process the art at no more than this many pixels across (smooth previews while dragging). */
+  artMaxSide?: number;
+  /** Draw the frame see-through (0–1), e.g. 0.5 while brushing so the art under it shows. */
+  frameAlpha?: number;
+  /** Draw the unprocessed art faintly underneath (0–1), so brushed-away parts can still be seen. */
+  ghostArt?: number;
+}
+
 /** Paints `doc` into a `size`×`size` area starting at the context's origin. */
-export function renderToken(ctx: Ctx, doc: TokenDocument, assets: AssetMap, size: number): void {
+export function renderToken(ctx: Ctx, doc: TokenDocument, assets: AssetMap, size: number, opts: RenderOptions = {}): void {
   const R = size / 2;
   const sq = doc.size.squares;
   const px = (perSquare: number) => perSquareToPx(perSquare, sq, size);
@@ -53,9 +64,10 @@ export function renderToken(ctx: Ctx, doc: TokenDocument, assets: AssetMap, size
   // 3. Background layer — Phase 4.
   // 4. Effects behind the art — Phase 6.
 
-  // 5. Processed art, clipped to the inner shape. (Adjustments, background
-  // removal and lighting join this step in Phases 3–4.)
+  // 5. Processed art, clipped to the inner shape: adjustments, background
+  // removal and brush strokes (src/image/processArt.ts); lighting joins in Phase 4.
   if (art && clip.length) {
+    const processed = processArt(art, doc.art, opts.artMaxSide);
     ctx.save();
     tracePolygon(ctx, clip);
     ctx.clip();
@@ -67,38 +79,50 @@ export function renderToken(ctx: Ctx, doc: TokenDocument, assets: AssetMap, size
     ctx.scale(t.flipX ? -s : s, t.flipY ? -s : s);
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(art.image, -art.width / 2, -art.height / 2, art.width, art.height);
+    if (opts.ghostArt && processed !== art) {
+      ctx.globalAlpha = opts.ghostArt;
+      ctx.drawImage(art.image, -art.width / 2, -art.height / 2, art.width, art.height);
+      ctx.globalAlpha = 1;
+    }
+    ctx.drawImage(processed.image, -art.width / 2, -art.height / 2, art.width, art.height);
     ctx.restore();
   }
 
   // 6. Foreground overlays — Phase 4.
   // 7. Effects over the art — Phase 6.
 
+  // 8–9 go on their own layer when the frame is to be see-through, so its
+  // overlapping strokes fade evenly (editor only, never in exports).
+  const fadeFrame = opts.frameAlpha !== undefined && opts.frameAlpha < 1 && hasFrame;
+  const layer = fadeFrame ? createCanvas(size) : null;
+  const fctx = layer ? (layer.getContext('2d') as Ctx) : ctx;
+  if (layer) fctx.translate(R, R);
+
   // 8. Inner shadow: the frame's shadow onto the art.
   const inner = doc.shadows.inner;
   if (hasFrame && inner.enabled && inner.strength > 0 && clip.length) {
     const band = (insets.frameInner - insets.frameOuter) * R;
     const fall = shadowVector(doc.shadows.outer, doc.lighting.direction);
-    ctx.save();
-    tracePolygon(ctx, clip);
-    ctx.clip();
-    ctx.shadowColor = `rgba(0, 0, 0, ${inner.strength})`;
-    ctx.shadowBlur = px(inner.softness);
-    ctx.shadowOffsetX = fall.x * px(0.024);
-    ctx.shadowOffsetY = fall.y * px(0.024);
+    fctx.save();
+    tracePolygon(fctx, clip);
+    fctx.clip();
+    fctx.shadowColor = `rgba(0, 0, 0, ${inner.strength})`;
+    fctx.shadowBlur = px(inner.softness);
+    fctx.shadowOffsetX = fall.x * px(0.024);
+    fctx.shadowOffsetY = fall.y * px(0.024);
     // A thick ring just outside the clip whose shadow falls inwards.
     const ring = Math.max(band, px(0.1));
-    tracePolygon(ctx, shapePolygon(doc.shape, R, Math.max(0, insets.image * R - ring / 2)));
-    ctx.lineWidth = ring;
-    ctx.strokeStyle = '#000';
-    ctx.stroke();
-    ctx.restore();
+    tracePolygon(fctx, shapePolygon(doc.shape, R, Math.max(0, insets.image * R - ring / 2)));
+    fctx.lineWidth = ring;
+    fctx.strokeStyle = '#000';
+    fctx.stroke();
+    fctx.restore();
   }
 
   // 9. Frame.
   if (hasFrame) {
-    ctx.save();
-    drawFrame(ctx, doc.frame.style, {
+    fctx.save();
+    drawFrame(fctx, doc.frame.style, {
       shape: doc.shape,
       R,
       outer: insets.frameOuter * R,
@@ -106,6 +130,13 @@ export function renderToken(ctx: Ctx, doc: TokenDocument, assets: AssetMap, size
       color: doc.frame.color,
       accent: doc.frame.highlightColor ?? undefined,
     });
+    fctx.restore();
+  }
+
+  if (layer) {
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, opts.frameAlpha!);
+    ctx.drawImage(layer as CanvasImageSource, -R, -R);
     ctx.restore();
   }
 
@@ -157,15 +188,9 @@ function outerShadow(
   ctx.restore();
 }
 
-/** Creates a canvas in the browser (main thread or worker). */
+/** Creates a canvas in the browser (main thread or worker), or a test's canvas. */
 export function createCanvas(size: number): HTMLCanvasElement | OffscreenCanvas {
-  if (typeof document !== 'undefined') {
-    const c = document.createElement('canvas');
-    c.width = size;
-    c.height = size;
-    return c;
-  }
-  return new OffscreenCanvas(size, size);
+  return newCanvas(size, size);
 }
 
 /** render(doc, assets, outputSize) → canvas (DESIGN.md §4.1). */

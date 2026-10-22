@@ -1,4 +1,5 @@
-// Makes the test picture used by the end-to-end tests: e2e/fixtures/goblin-boss.png
+// Makes the test pictures used by the end-to-end tests:
+// e2e/fixtures/goblin-boss.png and e2e/fixtures/flat-knight.png (flat background, for removal).
 import { createCanvas } from '@napi-rs/canvas';
 import { writeFileSync } from 'node:fs';
 
@@ -35,3 +36,23 @@ a.fillStyle = '#7a2e2e'; // body
 a.fillRect(170, 410, 260, 400);
 writeFileSync('e2e/fixtures/goblin-boss.png', c.toBuffer('image/png'));
 console.log('Wrote e2e/fixtures/goblin-boss.png');
+
+// A knight on a flat white background with a grey shadow at its feet.
+const k = createCanvas(600, 600);
+const b = k.getContext('2d');
+b.fillStyle = '#ffffff';
+b.fillRect(0, 0, 600, 600);
+b.fillStyle = '#9a9a9a';
+b.beginPath();
+b.ellipse(300, 560, 170, 26, 0, 0, Math.PI * 2);
+b.fill();
+b.fillStyle = '#2f4f7f'; // body
+b.fillRect(200, 260, 200, 300);
+b.fillStyle = '#c9ced6'; // helmet
+b.beginPath();
+b.arc(300, 180, 90, 0, Math.PI * 2);
+b.fill();
+b.fillStyle = '#ffffff'; // a white visor slot, enclosed by the helmet
+b.fillRect(250, 170, 100, 18);
+writeFileSync('e2e/fixtures/flat-knight.png', k.toBuffer('image/png'));
+console.log('Wrote e2e/fixtures/flat-knight.png');

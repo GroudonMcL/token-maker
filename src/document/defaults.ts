@@ -1,4 +1,4 @@
-import type { ArtTransform, OuterShadow, SizePreset, TokenDocument } from './types';
+import type { ArtTransform, BackgroundRemoval, ImageAdjustments, OuterShadow, SizePreset, TokenDocument } from './types';
 import { SCHEMA_VERSION } from './types';
 
 /** Creature sizes (DESIGN.md §2). Tiny is half a square. */
@@ -24,6 +24,32 @@ export const DEFAULT_TRANSFORM: ArtTransform = {
   lockFill: false,
 };
 
+export const DEFAULT_ADJUST: ImageAdjustments = {
+  brightness: 0,
+  contrast: 0,
+  saturation: 0,
+  hue: 0,
+  temperature: 0,
+  tint: 0,
+  exposure: 0,
+  highlights: 0,
+  shadows: 0,
+  sharpness: 0,
+  blur: 0,
+  vibrance: 0,
+  grayscale: 0,
+  sepia: 0,
+  invert: false,
+};
+
+export const DEFAULT_REMOVAL: BackgroundRemoval = {
+  enabled: false,
+  color: null,
+  seed: null,
+  intensity: 20,
+  softness: 30,
+};
+
 // The extension's Stamped band: 0.14 thick with 0.1 around it for the shadow.
 const OUTER_SHADOW: OuterShadow = {
   enabled: true,
@@ -41,7 +67,7 @@ export function createDocument(name = 'Untitled token'): TokenDocument {
     name,
     size: { preset: 'medium', squares: 1 },
     shape: 'circle',
-    art: { assetId: null, transform: { ...DEFAULT_TRANSFORM } },
+    art: { assetId: null, transform: { ...DEFAULT_TRANSFORM }, adjust: { ...DEFAULT_ADJUST }, removal: { ...DEFAULT_REMOVAL }, strokes: [] },
     background: { kind: 'none' },
     foreground: [],
     lighting: { direction: 225 },

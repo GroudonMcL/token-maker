@@ -1,3 +1,5 @@
+import type { HelpPreview } from './BeforeAfter';
+
 /**
  * Every "?" help tip in the app (DESIGN.md §11), keyed by control id.
  * To change what a tip says, edit it here. A test fails if a control on
@@ -18,6 +20,8 @@ export interface HelpEntry {
   title: string;
   text: string;
   media?: HelpMedia;
+  /** A before/after picture drawn live by the image code (see BeforeAfter.tsx). */
+  preview?: HelpPreview;
 }
 
 export const helpContent = {
@@ -84,6 +88,58 @@ export const helpContent = {
     title: 'Token name',
     text: "Used for the downloaded file's name. It is filled in from the image's file name, and you can change it.",
   },
+
+  // ---- Image (Phase 3) ----
+  'image.brightness': { title: 'Brightness', text: 'Make the whole picture lighter or darker.', preview: { adjust: { brightness: 45 } } },
+  'image.contrast': { title: 'Contrast', text: 'Push the light and dark parts further apart for punch, or closer together for a softer look.', preview: { adjust: { contrast: 60 } } },
+  'image.saturation': { title: 'Saturation', text: 'Make every colour stronger, or weaker all the way down to grey.', preview: { adjust: { saturation: 80 } } },
+  'image.hue': { title: 'Hue', text: 'Shift every colour around the colour wheel, for example to turn a green goblin blue.', preview: { adjust: { hue: 120 } } },
+  'image.temperature': { title: 'Temperature', text: 'Warm the picture towards orange, or cool it towards blue.', preview: { adjust: { temperature: 70 } } },
+  'image.tint': { title: 'Tint', text: 'Shift the colours towards magenta, or towards green.', preview: { adjust: { tint: 70 } } },
+  'image.exposure': { title: 'Exposure', text: 'Like letting more or less light into a camera: up to two stops brighter or darker.', preview: { adjust: { exposure: 60 } } },
+  'image.highlights': { title: 'Highlights', text: 'Brighten or tone down only the light parts, for example to recover a bright sky.', preview: { adjust: { highlights: -100 } } },
+  'image.shadows': { title: 'Shadows', text: 'Lift or deepen only the dark parts, for example to see a face in shade.', preview: { adjust: { shadows: 100 } } },
+  'image.sharpness': { title: 'Sharpness', text: 'Make edges crisper, which helps small tokens read on the map.', preview: { adjust: { sharpness: 100 } } },
+  'image.blur': { title: 'Blur', text: 'Soften the whole picture.', preview: { adjust: { blur: 50 } } },
+  'image.vibrance': { title: 'Vibrance', text: 'A gentler saturation: it boosts dull colours more than ones that are already strong.', preview: { adjust: { vibrance: 100 } } },
+  'image.grayscale': { title: 'Grayscale', text: 'Fade the colour out, towards black and white.', preview: { adjust: { grayscale: 100 } } },
+  'image.sepia': { title: 'Sepia', text: 'An old-photograph brown tone.', preview: { adjust: { sepia: 100 } } },
+  'image.invert': { title: 'Invert', text: 'Swap every colour for its opposite, like a photo negative.', preview: { adjust: { invert: true } } },
+  'image.reset': { title: 'Reset adjustments', text: 'Put every slider in this section back to its default. You can undo this.' },
+  'removal.enabled': {
+    title: 'Remove background',
+    text: 'Makes a flat, single-colour background see-through. It only hides pixels, so you can turn it off or fix it with the brush at any time.',
+    preview: { removal: {} },
+  },
+  'removal.color': {
+    title: 'Background colour',
+    text: 'The colour being removed. Auto finds it from the picture\'s edges; the eyedropper lets you click it, which also clears enclosed areas of it.',
+    preview: { removal: {} },
+  },
+  'removal.intensity': {
+    title: 'Intensity',
+    text: 'How different a colour can be from the background and still be removed. Raise it for shaded backgrounds; lower it if parts of your subject vanish.',
+    preview: { removal: { intensity: 40 } },
+  },
+  'removal.softness': {
+    title: 'Edge softness',
+    text: 'How gently the cut edge fades out. Softer edges hide jagged pixels and leftover background colour.',
+    preview: { removal: { softness: 100 } },
+  },
+  'brush.tool': {
+    title: 'Erase / restore brush',
+    text: 'Paint on the token to hide parts of the picture (Erase) or bring them back (Restore). Hidden parts show faintly and the frame fades while you paint.',
+    preview: { brush: 'erase' },
+  },
+  'brush.erase': { title: 'Erase', text: 'Paint to hide leftover background or anything else you don\'t want.', preview: { brush: 'erase' } },
+  'brush.restore': { title: 'Restore', text: 'Paint to bring back parts that were removed by mistake.', preview: { brush: 'restore' } },
+  'brush.simple': { title: 'Simple brush', text: 'One slider for the brush size, with a medium-soft edge. Turn it off to set the softness too.' },
+  'brush.size': {
+    title: 'Brush size',
+    text: 'How big the brush is on screen (shortcut: [ and ]). Zoom the view in, by scrolling over the token or pinching with two fingers, for finer detail.',
+  },
+  'brush.softness': { title: 'Brush softness', text: 'Hard brushes make crisp edges; soft ones blend in. A pen also makes thinner lines when pressed lightly.' },
+  'brush.clear': { title: 'Clear brush strokes', text: 'Remove every erase and restore stroke from this picture. You can undo this.' },
 
   // ---- Frame & shape ----
   'frame.shape': { title: 'Shape', text: 'The outline of the token. Hexagons suit hex-grid maps.' },

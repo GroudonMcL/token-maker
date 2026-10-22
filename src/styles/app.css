@@ -288,6 +288,67 @@ button:disabled {
   cursor: move;
 }
 
+.stage[data-tool='erase'],
+.stage[data-tool='restore'] {
+  cursor: none;
+}
+
+.stage[data-tool='pick'] {
+  cursor: crosshair;
+}
+
+/* The brush outline that follows the mouse or pen. */
+.stage__brush {
+  position: absolute;
+  z-index: 2;
+  border: 1.5px solid #fff;
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.7),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.7);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.stage__brush[data-mode='restore'] {
+  border-style: dashed;
+}
+
+/* Shown while the brush or eyedropper is active. */
+.stage__toolbar {
+  position: absolute;
+  left: 50%;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: calc(100% - 24px);
+  padding: var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-md);
+  transform: translateX(-50%);
+}
+
+.stage__toolbar .btn {
+  min-height: 36px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-pill);
+}
+
+.stage__toolbar .btn[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.stage__toolbar-label {
+  padding: 0 var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
 /* Shown while the view is zoomed in: how far, and a way back to the whole token. */
 .stage__view {
   position: absolute;
@@ -1432,4 +1493,94 @@ input[type='range']::-moz-range-thumb {
   display: flex;
   gap: var(--space-2);
   margin-bottom: var(--space-4);
+}
+
+/* ---------- Image section (Phase 3) ---------- */
+.btn--small {
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  font-size: var(--text-sm);
+  justify-self: start;
+}
+
+@media (pointer: coarse) {
+  .btn--small {
+    min-height: var(--hit);
+  }
+}
+
+.btn[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+/* A titled group of controls inside a section. */
+.control-group {
+  display: grid;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+.advanced__body .control-group:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.control-group__title {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.tool-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+
+.removal-color {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.removal-color__chip {
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+}
+
+.removal-color__text {
+  flex: 1;
+  min-width: 6em;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+/* Before/after pictures in a help card. */
+.before-after {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+.before-after__item {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.before-after canvas {
+  width: 88px;
+  height: 88px;
+  border-radius: var(--radius-sm);
 }

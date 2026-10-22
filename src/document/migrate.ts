@@ -3,8 +3,8 @@
 // defaults, so a damaged or partial file can never crash the editor.
 
 import { FRAME_STYLES, SHAPES } from '../render/catalog';
-import { createDocument, MAX_SQUARES, MIN_SQUARES, SIZE_PRESETS } from './defaults';
-import { SCHEMA_VERSION, type TokenDocument } from './types';
+import { createDocument, DEFAULT_ADJUST, MAX_SQUARES, MIN_SQUARES, SIZE_PRESETS } from './defaults';
+import { SCHEMA_VERSION, type BrushStroke, type ImageAdjustments, type TokenDocument } from './types';
 
 type Json = Record<string, unknown>;
 
@@ -49,6 +49,24 @@ const hex = (v: unknown, fallback: string) => (typeof v === 'string' && /^#[0-9a
 const obj = (v: unknown): Json => (isObject(v) ? v : {});
 const arr = (v: unknown) => (Array.isArray(v) ? v.filter(isObject) : []);
 
+/** Allowed range of each numeric adjustment (DESIGN.md §6.2). */
+export const ADJUST_RANGES: Partial<Record<keyof ImageAdjustments, [number, number]>> = {
+  brightness: [-100, 100],
+  contrast: [-100, 100],
+  saturation: [-100, 100],
+  hue: [-180, 180],
+  temperature: [-100, 100],
+  tint: [-100, 100],
+  exposure: [-100, 100],
+  highlights: [-100, 100],
+  shadows: [-100, 100],
+  sharpness: [0, 100],
+  blur: [0, 100],
+  vibrance: [-100, 100],
+  grayscale: [0, 100],
+  sepia: [0, 100],
+};
+
 /** Checks every field of a current-version document, using defaults for anything missing or invalid. */
 export function sanitize(raw: Json): TokenDocument {
   const d = createDocument();
@@ -74,6 +92,9 @@ export function sanitize(raw: Json): TokenDocument {
   };
   const inner = obj(shadows.inner);
   const assetId = art.assetId;
+  const adjust = obj(art.adjust);
+  const removal = obj(art.removal);
+  const seed = obj(removal.seed);
 
   return {
     schemaVersion: SCHEMA_VERSION,
@@ -95,6 +116,32 @@ export function sanitize(raw: Json): TokenDocument {
         // There is no longer a button for this, so older saves come back unlocked.
         lockFill: false,
       },
+      adjust: Object.fromEntries(
+        Object.entries(DEFAULT_ADJUST).map(([k, v]) => {
+          const [min, max] = ADJUST_RANGES[k as keyof ImageAdjustments] ?? [0, 0];
+          return [k, typeof v === 'boolean' ? bool(adjust[k], v) : num(adjust[k], v, min, max)];
+        }),
+      ) as unknown as ImageAdjustments,
+      removal: {
+        enabled: bool(removal.enabled, d.art.removal.enabled),
+        color: hex(removal.color, '') || null,
+        seed: typeof seed.x === 'number' && typeof seed.y === 'number' ? { x: num(seed.x, 0, 0, 1), y: num(seed.y, 0, 0, 1) } : null,
+        intensity: num(removal.intensity, d.art.removal.intensity, 0, 100),
+        softness: num(removal.softness, d.art.removal.softness, 0, 100),
+      },
+      strokes: arr(art.strokes).flatMap((s): BrushStroke[] => {
+        const points = Array.isArray(s.points) ? s.points.filter((n): n is number => typeof n === 'number' && Number.isFinite(n)) : [];
+        if (points.length < 3 || (s.mode !== 'erase' && s.mode !== 'restore')) return [];
+        return [
+          {
+            id: str(s.id, Math.random().toString(36).slice(2)),
+            mode: s.mode,
+            radius: num(s.radius, 0.02, 0.0005, 1),
+            softness: num(s.softness, 0.5, 0, 1),
+            points: points.slice(0, points.length - (points.length % 3)),
+          },
+        ];
+      }),
     },
     background: d.background,
     foreground: arr(raw.foreground) as TokenDocument['foreground'],

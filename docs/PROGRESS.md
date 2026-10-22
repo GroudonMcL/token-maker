@@ -43,15 +43,15 @@ A checklist of build phases, following [`BUILD-PROMPTS.md`](BUILD-PROMPTS.md). D
   - [ ] Tests: SSRF rules, HTML image extraction (srcset, og:image), Pinterest parsing from saved sample HTML
   - **Done when:** an image link, a normal page link and a Pinterest pin link each get an image into the editor
 
-- [ ] **Phase 3 — Image editing, background removal and brushes**
-  - [ ] Brightness, Contrast, Saturation; Advanced: Hue, Temperature, Tint, Exposure, Highlights, Shadows, Sharpness, Blur, Vibrance, Grayscale, Sepia, Invert
-  - [ ] Cached "processed art" bitmap (transform → adjustments → removal mask → lighting hook), smooth on phones
-  - [ ] Flat-colour background removal (auto from edges or eyedropper), Intensity and Edge softness, stored as a mask
-  - [ ] Erase/restore brush (size, softness, simple mode, pressure), undoable
-  - [ ] While the brush is active, draw the frame at 50% opacity so the art under it shows (preview only)
-  - [ ] Help tips with before/after images
-  - [ ] Tests: adjustment and mask pixel tests; Playwright brushing on desktop and phone
-  - **Done when:** remove a flat background, tidy it with the brush, tune the image, and the export matches the preview
+- [x] **Phase 3 — Image editing, background removal and brushes** *(done before Phase 2, at the owner's request; Phase 2 is still to do)*
+  - [x] Brightness, Contrast, Saturation; Advanced: Hue, Temperature, Tint, Exposure, Highlights, Shadows, Sharpness, Blur, Vibrance, Grayscale, Sepia, Invert
+  - [x] Cached "processed art" bitmap (adjustments → removal mask → brush strokes; lighting hook for Phase 4), smaller preview while a slow slider is dragged, only the new part of a stroke repainted
+  - [x] Flat-colour background removal (auto from edges or eyedropper), Intensity and Edge softness, stored as a mask
+  - [x] Erase/restore brush (size, softness, simple mode, pen pressure), one undo step per stroke; two fingers zoom the view while brushing
+  - [x] While the brush is active the frame is drawn at 50% opacity and brushed-away parts show faintly (preview only)
+  - [x] Help cards with live before/after pictures (hover a control's name, or long-press on touch)
+  - [x] Tests: pixel tests for every adjustment, removal and the brush; renderer and cache tests; Playwright removal + brushing (mouse and real touch) + export-matches-preview on desktop, tablet and phone
+  - **Done when:** remove a flat background, tidy it with the brush, tune the image, and the export matches the preview ✔
 
 - [ ] **Phase 4 — Background, foreground overlays and lighting**
   - [ ] Background: colour, gradient (simple + Advanced multi-stop), image (library, own image, token's own art), blur, own move/zoom

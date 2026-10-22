@@ -30,6 +30,13 @@ export async function importImageFile(file: File | Blob, fileName = (file as Fil
   updateDoc((doc) => ({
     ...doc,
     name: name || (doc.art.assetId ? doc.name : createDocument().name),
-    art: { assetId: id, transform: initialTransform(decoded.width, decoded.height, imageClipPolygon(doc)) },
+    art: {
+      ...doc.art,
+      assetId: id,
+      transform: initialTransform(decoded.width, decoded.height, imageClipPolygon(doc)),
+      // Adjustments and removal settings carry over like a style; what belongs to the old picture doesn't.
+      removal: { ...doc.art.removal, color: null, seed: null },
+      strokes: [],
+    },
   }));
 }

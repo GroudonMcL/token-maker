@@ -140,3 +140,17 @@ export function artCorners(t: ArtTransform, w: number, h: number, clip: Point[])
     return { x: r.x + t.offsetX, y: r.y + t.offsetY };
   });
 }
+
+/**
+ * A point in R units from the token centre → the art image's own pixel
+ * coordinates (the inverse of how the renderer places the art). The result
+ * may lie outside the image.
+ */
+export function toImagePoint(t: ArtTransform, w: number, h: number, clip: Point[], p: Point): Point {
+  const s = baseScale(w, h, clip) * t.zoom;
+  const q = rotatePoint({ x: p.x - t.offsetX, y: p.y - t.offsetY }, (-t.rotation * Math.PI) / 180);
+  return { x: (q.x / s) * (t.flipX ? -1 : 1) + w / 2, y: (q.y / s) * (t.flipY ? -1 : 1) + h / 2 };
+}
+
+/** How many image pixels one R unit covers at the current zoom. */
+export const imagePixelsPerUnit = (t: ArtTransform, w: number, h: number, clip: Point[]) => 1 / (baseScale(w, h, clip) * t.zoom);

@@ -1,6 +1,7 @@
 import { createDocument, DEFAULT_TRANSFORM } from '../document/defaults';
 import type { ArtTransform } from '../document/types';
 import {
+  toImagePoint,
   artCorners,
   clampTransform,
   fillTransform,
@@ -64,5 +65,19 @@ describe('crop geometry', () => {
   it('starts tall portraits higher up, where faces usually are', () => {
     expect(initialTransform(300, 800, clip).offsetY).toBeGreaterThan(0);
     expect(initialTransform(800, 800, clip).offsetY).toBe(0);
+  });
+});
+
+describe('toImagePoint', () => {
+  it('undoes the art transform, including rotation and flips', () => {
+    const t: ArtTransform = { ...DEFAULT_TRANSFORM, zoom: 1.7, offsetX: 0.2, offsetY: -0.1, rotation: 33, flipX: true };
+    const corners = artCorners(t, 400, 200, clip);
+    // artCorners ignores flips, so with flipX the top-left screen corner is the image's top-right.
+    const tl = toImagePoint(t, 400, 200, clip, corners[0]!);
+    expect(tl.x).toBeCloseTo(400, 6);
+    expect(tl.y).toBeCloseTo(0, 6);
+    const c = toImagePoint(t, 400, 200, clip, { x: t.offsetX, y: t.offsetY });
+    expect(c.x).toBeCloseTo(200, 6);
+    expect(c.y).toBeCloseTo(100, 6);
   });
 });

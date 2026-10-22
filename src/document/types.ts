@@ -46,6 +46,72 @@ export interface ArtLayer {
   /** e.g. "asset:abc123", or null before an image is imported. */
   assetId: string | null;
   transform: ArtTransform;
+  /** Image section (DESIGN.md §6.2). None of these change the original pixels. */
+  adjust: ImageAdjustments;
+  removal: BackgroundRemoval;
+  /** Erase/restore brush strokes on the removal mask, oldest first. */
+  strokes: BrushStroke[];
+}
+
+/** Slider values as shown in the panel. 0 (and `invert: false`) means "no change". */
+export interface ImageAdjustments {
+  /** −100…100 */
+  brightness: number;
+  /** −100…100 */
+  contrast: number;
+  /** −100…100 */
+  saturation: number;
+  /** −180…180 degrees */
+  hue: number;
+  /** −100 (cool) … 100 (warm) */
+  temperature: number;
+  /** −100 (green) … 100 (magenta) */
+  tint: number;
+  /** −100…100 = −2…+2 stops */
+  exposure: number;
+  /** −100…100 */
+  highlights: number;
+  /** −100…100 */
+  shadows: number;
+  /** 0…100 */
+  sharpness: number;
+  /** 0…100 */
+  blur: number;
+  /** −100…100 */
+  vibrance: number;
+  /** 0…100 */
+  grayscale: number;
+  /** 0…100 */
+  sepia: number;
+  invert: boolean;
+}
+
+/** Flat-colour background removal (the extension's method), kept as a mask. */
+export interface BackgroundRemoval {
+  enabled: boolean;
+  /** Picked with the eyedropper; null = found automatically from the image's edges. */
+  color: string | null;
+  /** Where the eyedropper clicked, as fractions of the image's width and height: removal also spreads from here. */
+  seed: { x: number; y: number } | null;
+  /** 0…100: how similar a colour must be to the background to be removed. */
+  intensity: number;
+  /** 0…100: how soft the cut edge is. */
+  softness: number;
+}
+
+/**
+ * One brush stroke, in the art image's own coordinates, so it follows the art
+ * when it is moved, zoomed, rotated or flipped (and works at any resolution).
+ */
+export interface BrushStroke {
+  id: string;
+  mode: 'erase' | 'restore';
+  /** Brush radius as a fraction of the image's longer side. */
+  radius: number;
+  /** 0 = hard edge, 1 = very soft. */
+  softness: number;
+  /** Flat list of (x, y, pressure) triples; x and y are fractions of the image's longer side, pressure 0…1. */
+  points: number[];
 }
 
 export interface FrameSettings {

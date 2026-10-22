@@ -17,6 +17,8 @@ export interface HistoryState<T> {
   pendingBase: T | null;
   set: (next: T, opts?: { transient?: boolean }) => void;
   commit: () => void;
+  /** Throws away the current transient change (e.g. a stroke cut short by a second finger). */
+  cancel: () => void;
   undo: () => void;
   redo: () => void;
   reset: (value: T) => void;
@@ -53,6 +55,11 @@ export function createHistoryStore<T>(initial: T, limit = 200): StoreApi<History
         return;
       }
       set({ past: trim([...past, pendingBase]), future: [], pendingBase: null });
+    },
+
+    cancel: () => {
+      const { pendingBase } = get();
+      if (pendingBase !== null) set({ present: pendingBase, pendingBase: null });
     },
 
     undo: () => {

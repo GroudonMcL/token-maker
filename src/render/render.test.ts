@@ -8,6 +8,11 @@ import { FRAME_PRESETS, SHAPES } from './catalog';
 import type { Ctx } from './frameKit';
 import { renderToken, type RenderSource } from './render';
 import { sampleArt } from './sampleArt';
+import { DEFAULT_ADJUST, DEFAULT_REMOVAL } from '../document/defaults';
+import type { ArtLayer, BrushStroke } from '../document/types';
+import { needsHeavyWork, processArt, setCanvasFactory } from '../image/processArt';
+
+setCanvasFactory((w, h) => createCanvas(w, h) as unknown as HTMLCanvasElement);
 
 const make = (w: number, h: number) => createCanvas(w, h) as unknown as HTMLCanvasElement;
 
@@ -29,11 +34,11 @@ function halves(left: string, right: string): RenderSource {
   return { image: c, width: 200, height: 200 };
 }
 
-function draw(doc: TokenDocument, art: RenderSource | null, size = outputSize(doc.size.squares)) {
+function draw(doc: TokenDocument, art: RenderSource | null, size = outputSize(doc.size.squares), opts?: Parameters<typeof renderToken>[4]) {
   const canvas = createCanvas(size, size);
   const ctx = canvas.getContext('2d');
   const assets = new Map(art ? [['asset:a', art]] : []);
-  renderToken(ctx as unknown as Ctx, { ...doc, art: { ...doc.art, assetId: art ? 'asset:a' : null } }, assets, size);
+  renderToken(ctx as unknown as Ctx, { ...doc, art: { ...doc.art, assetId: art ? 'asset:a' : null } }, assets, size, opts);
   const data = ctx.getImageData(0, 0, size, size).data;
   const at = (x: number, y: number) => {
     const i = (Math.round(y) * size + Math.round(x)) * 4;
@@ -168,3 +173,113 @@ describe('renderer', () => {
     }
   });
 });
+
+/** A figure (red disc) on a flat green background. */
+function figureOnGreen(size = 200): RenderSource {
+  const c = make(size, size);
+  const ctx = c.getContext('2d')!;
+  ctx.fillStyle = '#28c83c';
+  ctx.fillRect(0, 0, size, size);
+  ctx.fillStyle = '#c81e1e';
+  ctx.beginPath();
+  ctx.arc(size / 2, size / 2, size * 0.22, 0, Math.PI * 2);
+  ctx.fill();
+  return { image: c, width: size, height: size };
+}
+
+const withArt = (patch: Partial<ArtLayer>, base = createDocument()) =>
+  ({ ...base, frame: { ...base.frame, style: 'none' as const, backingOpacity: 0 }, shadows: { ...base.shadows, outer: { ...base.shadows.outer, enabled: false } }, art: { ...base.art, ...patch } });
+
+describe('processed art (Phase 3)', () => {
+  const removeGreen = { removal: { ...DEFAULT_REMOVAL, enabled: true, softness: 0 } };
+
+  it('adjustments change the token and the original image is untouched', () => {
+    const art = solid('#806040');
+    const plain = draw(withArt({}), art).at(128, 128);
+    const bright = draw(withArt({ adjust: { ...DEFAULT_ADJUST, brightness: 60 } }), art).at(128, 128);
+    expect(bright[0]).toBeGreaterThan(plain[0] + 40);
+    expect(draw(withArt({}), art).at(128, 128)).toEqual(plain);
+  });
+
+  it('background removal makes the background see-through and keeps the figure', () => {
+    const out = draw(withArt(removeGreen), figureOnGreen());
+    expect(out.at(128, 128)).toEqual([200, 30, 30, 255]);
+    expect(out.at(128, 60)[3]).toBe(0);
+  });
+
+  it('erase and restore strokes, in the art image\'s own coordinates', () => {
+    const erase: BrushStroke = { id: 'e', mode: 'erase', radius: 0.05, softness: 0, points: [0.5, 0.5, 1] };
+    const restore: BrushStroke = { id: 'r', mode: 'restore', radius: 0.05, softness: 0, points: [0.5, 0.2, 1] };
+    const out = draw(withArt({ ...removeGreen, strokes: [erase, restore] }), figureOnGreen());
+    expect(out.at(128, 128)[3]).toBe(0); // the figure's middle was erased
+    expect(out.at(128, 128 - 0.3 * 256 * 0.98)[3]).toBe(255); // background brought back near the top
+  });
+
+  it('the brush follows the art when it is flipped', () => {
+    const erase: BrushStroke = { id: 'e', mode: 'erase', radius: 0.08, softness: 0, points: [0.3, 0.5, 1] };
+    const t = createDocument().art.transform;
+    const left = draw(withArt({ strokes: [erase] }), figureOnGreen());
+    const flipped = draw(withArt({ strokes: [erase], transform: { ...t, flipX: true } }), figureOnGreen());
+    const x = 128 - 0.2 * 256 * 0.98;
+    expect(left.at(x, 128)[3]).toBe(0);
+    expect(flipped.at(x, 128)[3]).toBe(255);
+    expect(flipped.at(256 - x, 128)[3]).toBe(0);
+  });
+
+  it('a low-resolution preview looks like the full export', () => {
+    const d = withArt({ ...removeGreen, adjust: { ...DEFAULT_ADJUST, contrast: 30, blur: 20, hue: 40 } });
+    const art = figureOnGreen(400);
+    const full = draw(d, art);
+    const preview = draw(d, art, undefined, { artMaxSide: 120 });
+    for (const [x, y] of [[128, 128], [128, 70], [90, 128]] as const) {
+      const a = full.at(x, y);
+      const b = preview.at(x, y);
+      for (let i = 0; i < 4; i++) expect(Math.abs(a[i]! - b[i]!)).toBeLessThan(25);
+    }
+  });
+
+  it('a stroke painted as it is drawn ends up the same as painting it in one go, and undo rebuilds', () => {
+    const art = figureOnGreen();
+    const settings = { adjust: DEFAULT_ADJUST, removal: removeGreen.removal, strokes: [] as BrushStroke[] };
+    const pts = [0.2, 0.3, 1, 0.5, 0.5, 0.7, 0.8, 0.4, 1];
+    processArt(art, settings);
+    let strokes: BrushStroke[] = [];
+    for (let n = 1; n <= 3; n++) {
+      strokes = [{ id: 's', mode: 'erase', radius: 0.04, softness: 0.4, points: pts.slice(0, n * 3) }];
+      processArt(art, { ...settings, strokes });
+    }
+    const live = readPixels(processArt(art, { ...settings, strokes }));
+    const fresh = readPixels(processArt(figureOnGreen(), { ...settings, strokes }));
+    expect(Buffer.compare(Buffer.from(live), Buffer.from(fresh))).toBe(0);
+    const undone = readPixels(processArt(art, settings));
+    expect(Buffer.compare(Buffer.from(undone), Buffer.from(readPixels(processArt(figureOnGreen(), settings))))).toBe(0);
+  });
+
+  it('only new adjustment or removal settings count as slow work', () => {
+    const art = figureOnGreen();
+    const settings = { adjust: { ...DEFAULT_ADJUST, saturation: 20 }, removal: DEFAULT_REMOVAL, strokes: [] as BrushStroke[] };
+    expect(needsHeavyWork(art, settings)).toBe(true);
+    processArt(art, settings);
+    expect(needsHeavyWork(art, settings)).toBe(false);
+    expect(needsHeavyWork(art, { ...settings, strokes: [{ id: 'x', mode: 'erase', radius: 0.1, softness: 0, points: [0.5, 0.5, 1] }] })).toBe(false);
+    expect(needsHeavyWork(art, { ...settings, adjust: { ...DEFAULT_ADJUST, saturation: 21 } })).toBe(true);
+  });
+
+  it('the editor can fade the frame and show the brushed-away art faintly; exports never do', () => {
+    const d = { ...createDocument(), art: { ...createDocument().art, strokes: [{ id: 'e', mode: 'erase' as const, radius: 0.5, softness: 0, points: [0.5, 0.5, 1] }] } };
+    const art = solid('#ff0000');
+    const normal = draw(d, art);
+    const editing = draw(d, art, undefined, { frameAlpha: 0.5, ghostArt: 0.3 });
+    const bandX = 128 - 128 * (1 - 0.17);
+    expect(editing.at(bandX, 128)).not.toEqual(normal.at(bandX, 128));
+    expect(normal.at(128, 128)[0]).toBeLessThan(60); // erased: the dark backing shows
+    expect(editing.at(128, 128)[0]).toBeGreaterThan(normal.at(128, 128)[0] + 40); // the ghost shows through
+  });
+});
+
+function readPixels(src: RenderSource): Uint8ClampedArray {
+  const c = createCanvas(src.width, src.height);
+  const ctx = c.getContext('2d');
+  ctx.drawImage(src.image as unknown as Parameters<typeof ctx.drawImage>[0], 0, 0, src.width, src.height);
+  return ctx.getImageData(0, 0, src.width, src.height).data as unknown as Uint8ClampedArray;
+}

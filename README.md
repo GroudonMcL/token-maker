@@ -63,6 +63,13 @@ To see the phone layout on your computer: in Chrome or Edge press `F12`, then cl
 - **Export PNG** (bottom bar) downloads the token at 256 pixels per grid square.
 - Your token is saved in the browser as you work, so refreshing the page keeps it. **New** starts again.
 
+### Image tools (Phase 3)
+
+- **Image** section: Brightness, Contrast and Saturation, plus more under **Advanced** (colour, light, detail and style). Hover over a control's name (or press and hold it on a phone) to see what it does, with a before/after picture.
+- **Remove background:** turn it on for pictures with a flat, single-colour background. It finds the colour from the picture's edges, or click **Pick** and then the background. **Intensity** and **Edge softness** fine-tune the cut.
+- **Erase / Restore brush:** pick one, then paint on the token. The frame turns see-through and removed parts show faintly while you paint. Press **Done** (or `Esc`) to go back to moving the art. `[` and `]` change the brush size. Scroll over the token (or pinch with two fingers on a phone) to zoom in for detail.
+- Nothing you do here changes your original picture: every change can be undone, turned off or reset.
+
 Useful pages while developing:
 
 - `/` — the editor
@@ -126,8 +133,9 @@ src/document/          The TokenDocument: types, defaults, migrations, per-squar
 src/render/            The renderer: shapes, the 27 frames, crop maths, render()
 src/state/             Undo/redo history, the token store, images in memory, autosave
 src/import/            Decoding images and naming tokens from file names
+src/image/             Image editing: adjustments, background removal, the brush, the processed-art cache
 src/editor/            The canvas (Stage), toolbar actions, drop/paste, shortcuts
-src/sections/          Panel sections that are built (Import, Frame & shape, Size, Export)
+src/sections/          Panel sections that are built (Import, Image, Frame & shape, Size, Export)
 src/export/            PNG download
 scripts/               frame-sheet.ts, make-fixture.ts (the test picture)
 src/styles/tokens.css  Design tokens: every colour, font, size, radius and shadow
