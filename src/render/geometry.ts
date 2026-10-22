@@ -104,8 +104,10 @@ export function normaliseAngle(deg: number): number {
   return ((((deg + 180) % 360) + 360) % 360) - 180;
 }
 
+/** Zooms just enough to cover the frame (clamped as if locked, but leaves the art free to move afterwards). */
 export function fillTransform(t: ArtTransform, w: number, h: number, clip: Point[]): ArtTransform {
-  return clampTransform({ ...t, lockFill: true, zoom: minZoomToCover(w, h, clip, t.rotation) }, w, h, clip);
+  const filled = clampTransform({ ...t, lockFill: true, zoom: minZoomToCover(w, h, clip, t.rotation) }, w, h, clip);
+  return { ...filled, lockFill: t.lockFill };
 }
 
 export function fitTransform(t: ArtTransform, w: number, h: number, clip: Point[]): ArtTransform {

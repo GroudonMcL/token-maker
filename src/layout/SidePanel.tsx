@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { Section } from '../components';
 import { SECTIONS, type SectionId } from './sections';
 import { SectionPlaceholder } from './SectionPlaceholder';
@@ -11,8 +12,14 @@ export function SidePanel({
   openSections: ReadonlySet<SectionId>;
   setOpen: (id: SectionId, open: boolean) => void;
 }) {
+  const ref = useRef<HTMLElement>(null);
+  const opened = [...openSections][0];
+  // The sections above it may have just closed, so bring the opened one into view.
+  useEffect(() => {
+    if (opened) ref.current?.querySelector(`#section-${opened}`)?.scrollIntoView?.({ block: 'nearest' });
+  }, [opened]);
   return (
-    <aside className="side-panel" aria-label="Token settings">
+    <aside ref={ref} className="side-panel" aria-label="Token settings">
       {SECTIONS.map((s) => {
         const Content = SECTION_CONTENT[s.id];
         return (

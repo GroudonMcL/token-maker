@@ -53,8 +53,10 @@ To see the phone layout on your computer: in Chrome or Edge press `F12`, then cl
 ### Using the editor (Phase 1)
 
 - **Get a picture in:** click **Upload image**, drag a picture file anywhere onto the page, or copy an image and press `Ctrl+V`.
-- **Move the art:** drag it. **Zoom:** mouse wheel, or pinch on a touch screen. **Rotate:** the round handle above the art, or twist two fingers. The square corner handles resize it.
-- The toolbar above the canvas has zoom, rotate 90°, flip, fit, fill, "Keep the frame filled" (lock) and reset.
+- **Move the art:** drag it. **Resize:** the square corner handles, the toolbar's zoom slider, or pinch on a touch screen. **Rotate:** the round handle above the art, or twist two fingers.
+- **Look closer:** scroll the mouse wheel over the token to zoom the view in (the art itself doesn't change). Hold Space or the middle mouse button and drag to look around, and click **View … · Reset** to see the whole token again. Scrolling anywhere else over the canvas scrolls the settings panel.
+- The toolbar above the canvas has zoom, rotate 90°, flip sideways, flip upside down, fit, fill and reset.
+- Only one settings section is open at a time. Sliders have a small notch under them marking the default value. Frames with details in their own colour (like the beads on Monk) have a **Frame highlights colour** option.
 - **Frame & shape** (right-hand panel, or the **Frame** tab on a phone): pick a shape, one of 27 frames, a colour, thickness and spacing.
 - **Size:** Tiny to Gargantuan or Custom. The border stays the same thickness on the map at every size.
 - **Undo/Redo:** the arrows in the top bar, or `Ctrl+Z` / `Ctrl+Y`. A whole drag counts as one step.

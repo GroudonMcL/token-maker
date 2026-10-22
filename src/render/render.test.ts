@@ -141,6 +141,18 @@ describe('renderer', () => {
     expect(draw(none, clear).at(128, 128)[3]).toBe(0);
   });
 
+  it('the Frame highlights colour recolours only frames that have highlights', () => {
+    const frameOf = (style: TokenDocument['frame']['style'], highlightColor: string | null) =>
+      doc({ frame: { ...createDocument().frame, presetId: style, style, color: '#c4622c', highlightColor } });
+    const differs = (a: ReturnType<typeof draw>, b: ReturnType<typeof draw>) => Buffer.compare(Buffer.from(a.data), Buffer.from(b.data)) !== 0;
+    const art = solid('#808080');
+    // Monk's jade beads turn red; leaving it unset is the same as picking the default jade.
+    expect(differs(draw(frameOf('beads', null), art), draw(frameOf('beads', '#ff0000'), art))).toBe(true);
+    expect(differs(draw(frameOf('beads', null), art), draw(frameOf('beads', '#3d8c6a'), art))).toBe(false);
+    // Stamped has no highlights, so the setting changes nothing.
+    expect(differs(draw(frameOf('stamped', null), art), draw(frameOf('stamped', '#ff0000'), art))).toBe(false);
+  });
+
   it('renders the same picture at any resolution (preview vs export)', () => {
     const d = doc();
     const small = draw(d, sampleArt(make), 128);

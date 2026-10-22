@@ -27,6 +27,8 @@ export function BottomSheet() {
   const [snap, setSnap] = useState<SheetSnap>('peek');
   const [dragHeight, setDragHeight] = useState<number | null>(null);
   const [tab, setTab] = useState(PHONE_TABS[0]!.id);
+  // Tabs holding more than one section open one at a time, starting with the first.
+  const [openSection, setOpenSection] = useState<string | null>(PHONE_TABS[0]!.sections[0]!);
   const drag = useRef<{ startY: number; startH: number; moved: boolean } | null>(null);
   const panelId = useId();
 
@@ -82,6 +84,7 @@ export function BottomSheet() {
 
   const chooseTab = (id: string) => {
     setTab(id);
+    setOpenSection(PHONE_TABS.find((t) => t.id === id)!.sections[0]!);
     if (snap === 'peek') setSnap('half');
   };
 
@@ -150,7 +153,14 @@ export function BottomSheet() {
           const s = sectionById(sid);
           const Content = SECTION_CONTENT[sid];
           return (
-            <Section key={sid} title={s.title} helpId={s.helpId} icon={s.icon} defaultOpen>
+            <Section
+              key={sid}
+              title={s.title}
+              helpId={s.helpId}
+              icon={s.icon}
+              open={openSection === sid}
+              onOpenChange={(o) => setOpenSection(o ? sid : null)}
+            >
               {Content ? <Content /> : <SectionPlaceholder text={s.placeholder} />}
             </Section>
           );

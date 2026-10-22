@@ -24,6 +24,14 @@ A checklist of build phases, following [`BUILD-PROMPTS.md`](BUILD-PROMPTS.md). D
   - [x] Temporary PNG export at 256 px per square from the same renderer
   - [x] Tests: migrations, undo/redo, per-square maths, pixel tests for every frame and shape, `npm run frame-sheet`, Playwright import → download (and size, frames, handles, drop/paste, autosave) on desktop, tablet and phone
   - **Done when:** drop an image in, frame it with any of the 27 frames, move it with handles, change to Large with the border staying the same thickness, download a PNG ✔
+  - [x] Feedback round after Phase 1:
+    - [x] Flip icons swapped; "Keep the frame filled" button removed (art is free by default); no "?" next to the zoom slider
+    - [x] "?" buttons only on section headings (control help shows as a hover tooltip); "Image" label removed from Import
+    - [x] One panel section open at a time (side panel and phone tabs)
+    - [x] Mouse wheel over the token/art zooms the view (up to 800%, Space/middle-drag to look around, "Reset view" button); elsewhere it scrolls the side panel
+    - [x] Frame highlights colour for frames with fixed-colour details (Monk, Warlock, Paladin, Rogue, Ranger, Bard, Starfield)
+    - [x] Default-value notch on every slider
+    - [x] Frame opacity removed (frames are always solid)
 
 - [ ] **Phase 2 — Import from the web (web addresses and Pinterest links)**
   - [ ] `/api/fetch-image` and `/api/page-images` Pages Functions with the extension's SSRF rules + per-IP rate limiting
@@ -40,6 +48,7 @@ A checklist of build phases, following [`BUILD-PROMPTS.md`](BUILD-PROMPTS.md). D
   - [ ] Cached "processed art" bitmap (transform → adjustments → removal mask → lighting hook), smooth on phones
   - [ ] Flat-colour background removal (auto from edges or eyedropper), Intensity and Edge softness, stored as a mask
   - [ ] Erase/restore brush (size, softness, simple mode, pressure), undoable
+  - [ ] While the brush is active, draw the frame at 50% opacity so the art under it shows (preview only)
   - [ ] Help tips with before/after images
   - [ ] Tests: adjustment and mask pixel tests; Playwright brushing on desktop and phone
   - **Done when:** remove a flat background, tidy it with the brush, tune the image, and the export matches the preview

@@ -18,6 +18,7 @@ export function Slider({
   max,
   step = 1,
   unit = '',
+  defaultValue,
   disabled,
   onChange,
   onCommit,
@@ -29,6 +30,8 @@ export function Slider({
   max: number;
   step?: number;
   unit?: string;
+  /** Marked with a small notch under the track. */
+  defaultValue?: number;
   disabled?: boolean;
   onChange: (value: number) => void;
   onCommit?: (value: number) => void;
@@ -74,6 +77,7 @@ export function Slider({
   };
 
   const pct = ((value - min) / (max - min)) * 100;
+  const defaultPct = defaultValue === undefined ? null : ((Math.min(max, Math.max(min, defaultValue)) - min) / (max - min)) * 100;
 
   return (
     <div className="slider" data-control="slider" data-help-id={helpId}>
@@ -109,29 +113,32 @@ export function Slider({
           </span>
         }
       />
-      <input
-        id={id}
-        className="slider__range"
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        disabled={disabled}
-        style={{ '--fill': `${pct}%` } as CSSProperties}
-        onPointerDown={() => {
-          dragging.current = true;
-        }}
-        onChange={(e) => {
-          latest.current = Number(e.target.value);
-          onChange(latest.current);
-        }}
-        onKeyUp={(e) => {
-          if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(e.key)) {
-            onCommit?.(latest.current);
-          }
-        }}
-      />
+      <div className="slider__track">
+        <input
+          id={id}
+          className="slider__range"
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          disabled={disabled}
+          style={{ '--fill': `${pct}%` } as CSSProperties}
+          onPointerDown={() => {
+            dragging.current = true;
+          }}
+          onChange={(e) => {
+            latest.current = Number(e.target.value);
+            onChange(latest.current);
+          }}
+          onKeyUp={(e) => {
+            if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(e.key)) {
+              onCommit?.(latest.current);
+            }
+          }}
+        />
+        {defaultPct !== null && <span className="slider__notch" aria-hidden="true" style={{ left: `calc(var(--thumb) / 2 + (100% - var(--thumb)) * ${defaultPct / 100})` }} />}
+      </div>
     </div>
   );
 }

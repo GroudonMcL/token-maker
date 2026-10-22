@@ -30,9 +30,9 @@ Reuse its proven parts, but **do not** copy anything about LegendKeeper, Owlbear
 
 **Worth reusing (read the code in `extension/` before building the renderer):**
 
-- The canvas token renderer: 5 shapes (Circle, Rounded, Square, Hexagon, Flat hex) and 27 code-drawn frames in three groups — **Classic** (Stamped, Gilded, Engraved, Arcane, Infernal, Double line, Polished, No frame), **Textures** (Oak, Cobblestone, Magma, Harlequin, Knotwork, Starfield) and **Classes** (one per D&D class plus Artificer). All are built like Stamped: a band lit from the top left, a pressed-in inner step, a drop shadow and a shadow cast onto the art. Every frame takes any colour, thickness, spacing, backing and opacity.
+- The canvas token renderer: 5 shapes (Circle, Rounded, Square, Hexagon, Flat hex) and 27 code-drawn frames in three groups — **Classic** (Stamped, Gilded, Engraved, Arcane, Infernal, Double line, Polished, No frame), **Textures** (Oak, Cobblestone, Magma, Harlequin, Knotwork, Starfield) and **Classes** (one per D&D class plus Artificer). All are built like Stamped: a band lit from the top left, a pressed-in inner step, a drop shadow and a shadow cast onto the art. Every frame takes any colour, thickness, spacing and backing.
 - "The export comes from the same renderer as the preview" — keep this rule.
-- Crop geometry (drag, wheel/pinch zoom around the cursor, rotate, flip, fit/fill/reset, dimmed art outside the frame).
+- Crop geometry (drag, pinch zoom, rotate, flip, fit/fill/reset, dimmed art outside the frame).
 - Brightness/contrast/saturation and flat-background removal.
 - Creature sizes: Tiny ½, Small 1, Medium 1, Large 2, Huge 3, Gargantuan 4 grid squares.
 - The SSRF-safe image fetching rules from `server/` (https only, refuse private IPs and local names, size caps, content sniffing).
@@ -83,7 +83,7 @@ interface TokenDocument {
 }
 ```
 
-*(Phase 1: the real type is in `src/document/types.ts`, defaults in `src/document/defaults.ts`. Later-phase layers have placeholder types. `art` holds the asset id plus its transform (zoom, offset, rotation, flipX, flipY, lockFill); `frame` holds the selected preset id, style, colour, thickness, outer/inner spacing, opacity, backing colour and backing opacity; `shadows` holds outer, inner and pop-out settings. Saved documents go through `migrateDocument()` in `src/document/migrate.ts`, which runs version-by-version migrations and then checks every field, falling back to defaults.)*
+*(Phase 1: the real type is in `src/document/types.ts`, defaults in `src/document/defaults.ts`. Later-phase layers have placeholder types. `art` holds the asset id plus its transform (zoom, offset, rotation, flipX, flipY, lockFill); `frame` holds the selected preset id, style, colour, highlights colour (`highlightColor`, null = the frame's own default), thickness, outer/inner spacing, backing colour and backing opacity (there is no frame opacity: frames are always solid); `shadows` holds outer, inner and pop-out settings. Saved documents go through `migrateDocument()` in `src/document/migrate.ts`, which runs version-by-version migrations and then checks every field, falling back to defaults.)*
 
 Images themselves are **not** stored inside the document — the document holds asset ids (e.g. `asset:abc123`) that point to images held in memory/IndexedDB. This keeps presets small and shareable.
 
@@ -144,7 +144,7 @@ Rules:
 
 ## 6. Features
 
-Every control has a **? help tip** (see §11).
+Every section heading has a **? help tip** (see §11); the controls inside a section show their help as a tooltip on their name.
 
 ### 6.1 Importing an image
 
@@ -172,8 +172,9 @@ The import file's name (without extension, tidied) becomes the token name; the u
   - Detail: Sharpness, Blur
   - Style: Vibrance, Grayscale, Sepia, Invert
 - **Background removal (flat colour):** the extension's method — pick the background colour automatically (from the edges) or with an eyedropper; **Intensity** slider (how similar a colour must be to be removed) and **Edge softness** slider.
-- **Erase / restore brush** to fix mistakes: brush size, softness, and a simple mode where the user just drags one slider. Works with touch and pen. The removal result is stored as a mask (not by destroying pixels), so it can be changed later.
-- **Transform:** drag to move, wheel/pinch to zoom around the pointer, **on-canvas handles** for scale and rotate (two-finger rotate on touch), flip horizontal/vertical, fit, fill, reset, and the existing "Keep the frame filled" option. *(Phase 1: four corner handles resize the art around its centre and a round handle above it rotates it (hold Shift to snap to 15°). Handles stay on screen even when the art's corners are off the canvas. "Keep the frame filled" is on by default for new tokens. A whole drag, pinch or burst of scrolling is one undo step.)*
+- **Erase / restore brush** to fix mistakes: brush size, softness, and a simple mode where the user just drags one slider. Works with touch and pen. The removal result is stored as a mask (not by destroying pixels), so it can be changed later. **While the brush is active, the frame (and anything else over the art's edge) is drawn at 50% opacity** so the user can see what they are painting underneath it; the export is unaffected.
+- **Transform:** drag to move, **on-canvas handles** for scale and rotate (pinch and two-finger rotate on touch), the toolbar's zoom slider, flip horizontal/vertical, fit, fill, reset. *(Phase 1: four corner handles resize the art around its centre and a round handle above it rotates it (hold Shift to snap to 15°). Handles stay on screen even when the art's corners are off the canvas. A whole drag or pinch is one undo step.)*
+- **View zoom (changed after Phase 1):** the **mouse wheel over the token or the art zooms the view**, not the art: the whole token gets bigger on screen (up to 800%, around the pointer) for close-up work such as brushing. Hold Space or the middle mouse button and drag to look around; a "View n% · Reset" button brings the whole token back. Handles that end up off screen are hidden while zoomed. The view isn't saved and resets for a new image. The **wheel anywhere else over the canvas scrolls the side panel**. The extension's "Keep the frame filled" option was dropped: the art moves freely by default and Fill covers the frame on demand.
 
 ### 6.3 Background
 
@@ -235,7 +236,7 @@ All version-1 effects are static images (animation is a future feature, but desi
 
 **Frames**
 
-- **Code-drawn frames:** all 5 shapes and 27 frames from the extension, with colour, thickness, frame opacity, outer spacing, inner spacing, backing colour and backing opacity.
+- **Code-drawn frames:** all 5 shapes and 27 frames from the extension, with colour, thickness, outer spacing, inner spacing, backing colour and backing opacity. Frames are always fully opaque. Frames with details in a fixed colour of their own (Monk's jade beads, Warlock's eyes, Paladin's gold crosses, Rogue's stitching, Ranger's red fletching, Bard's notes, Starfield's stars) also get a **Frame highlights colour** control; it shows only for those frames and resets to the frame's default when another frame is picked.
 - **Image (PNG) frames:** a built-in set plus user uploads. On upload, the site finds the frame's hole automatically (the transparent area connected to the centre) and uses it as the art's clipping shape; the user can nudge it if needed. Uploaded frames are kept in IndexedDB. Image frames scale with the token.
 
 **Decorations** (gems, skulls, horns, wings, ribbons, laurels, class icons, stars, chains, etc.)
@@ -295,7 +296,7 @@ Security rules (port from the extension's `server/`):
 
 Desktop and phone are **equally important**.
 
-**Desktop (≥ 1024 px):** top bar (logo, Batch toggle, Undo/Redo, New) · large canvas in the centre with a floating toolbar (zoom slider, rotate, flip, fit, fill, lock, undo — as in the extension) · right-hand panel of collapsible sections · bottom bar with token thumbnail, name, size, final pixel size, **Export** button.
+**Desktop (≥ 1024 px):** top bar (logo, Batch toggle, Undo/Redo, New) · large canvas in the centre with a floating toolbar (zoom slider, rotate, flip sideways, flip upside down, fit, fill, reset) · right-hand panel of collapsible sections · bottom bar with token thumbnail, name, size, final pixel size, **Export** button.
 
 **Phone (< 768 px):** canvas fills the top part of the screen; a **bottom sheet** with icon tabs for each section (Import, Image, Background, Foreground, Lighting, Effects, Frame, Decor, Label, Export) that can be dragged up/down; big touch targets (≥ 44 px); pinch to zoom, two-finger rotate; brushes work with finger and pen.
 
@@ -304,6 +305,8 @@ Desktop and phone are **equally important**.
 **Phone tabs → sections** (Phase 0): the ten phone tabs hold the thirteen sections like this: Image = Image + Pop-out; Frame = Frame & shape + Size + Presets; every other tab holds the one section of the same name. On phones, the token summary and the Export button sit at the top of the bottom sheet instead of in a separate bottom bar.
 
 **Panel sections** (in this order): Import · Image (adjust, background removal, brush) · Background · Foreground · Lighting & shadows · Pop-out · Effects · Frame & shape · Decorations · Size · Label · Presets · Export.
+
+**One section open at a time:** opening a section closes the others, to cut clutter and scrolling (in the side panel, and between the sections that share a phone tab). Import is open to begin with.
 
 **Ad slot:** reserved space **below the editor** (the user scrolls down to see it), never covering the tool, behind a feature flag that is **off** for version 1. When on, a small notice explains ads keep the site free. *(The flag is `VITE_FEATURE_ADS=true`, read in `src/config/features.ts`.)*
 
@@ -355,7 +358,7 @@ Type scale: 12 / 13 / 15 (body) / 18 (section titles) / 22 / 28 px.
 
 **Sizes:** controls are at least 32 px tall with a mouse and **44 px on touch screens** (`--hit`). Top bar 52 px, bottom bar 56 px, side panel 360 px (290 px on tablets).
 
-**Components** (in `src/components/`, demonstrated at `/kit`): collapsible `Section` with an `Advanced` sub-drop-down, `Slider` (shows its value, accepts typed numbers, one undo step per drag), `ColorSwatches` (swatches + picker + hex box), `SegmentedButtons`, `TileGrid` (grouped picture tiles, like the frame picker), `ImageStrip`, `Toggle`, `HelpTip`. Every one takes a required `helpId`.
+**Components** (in `src/components/`, demonstrated at `/kit`): collapsible `Section` with an `Advanced` sub-drop-down, `Slider` (shows its value, accepts typed numbers, one undo step per drag, and a small notch under the track marking the default value), `ColorSwatches` (swatches + picker + hex box), `SegmentedButtons`, `TileGrid` (grouped picture tiles, like the frame picker), `ImageStrip`, `Toggle`, `HelpTip`. Every one takes a required `helpId`.
 
 **Motion:** 120 ms for hovers, 220 ms for opening and closing, all switched off for `prefers-reduced-motion`.
 
@@ -366,7 +369,7 @@ Type scale: 12 / 13 / 15 (body) / 18 (section titles) / 22 / 28 px.
 ## 10. Accessibility
 
 - Every control reachable and usable by keyboard; visible focus.
-- Sliders show values and accept typed numbers.
+- Sliders show values, accept typed numbers and mark their default value with a notch.
 - Help tips readable by screen readers; don't rely on hover alone (tap/click to open on touch).
 - Respect `prefers-reduced-motion` (help GIFs paused, show a still).
 
@@ -374,7 +377,7 @@ Type scale: 12 / 13 / 15 (body) / 18 (section titles) / 22 / 28 px.
 
 ## 11. Help tips ("?")
 
-- A `?` icon next to every section and non-obvious control.
+- A `?` icon next to every **section heading** (and the top-bar items). *(Changed after Phase 1: controls inside a section — Brightness, Contrast, Thickness, the toolbar's zoom slider, Advanced… — no longer get their own `?`; it was too cluttered. Their help text shows as a hover tooltip on the control's name instead, and every control still needs a help entry.)*
 - Hover (desktop) or tap (touch) opens a small card: one or two plain sentences + a before/after picture or short looping clip (WebP/MP4, small file size).
 - All help content lives in one file (e.g. `src/help/helpContent.ts`) keyed by control id, so it's easy to edit and spot missing entries. A test fails if a control has no help entry.
 

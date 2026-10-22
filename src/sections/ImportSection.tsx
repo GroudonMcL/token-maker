@@ -12,7 +12,6 @@ export function ImportSection() {
   return (
     <>
       <div className="control" data-control="upload" data-help-id="import.upload">
-        <ControlLabel label="Image" helpId="import.upload" />
         <UploadButton className="btn btn--wide">
           <Upload size={18} aria-hidden="true" />
           Upload image

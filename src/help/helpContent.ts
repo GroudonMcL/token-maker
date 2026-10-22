@@ -99,7 +99,10 @@ export const helpContent = {
     title: 'Thickness',
     text: 'How wide the border is, as a share of one grid square, so it looks the same on the map at every creature size.',
   },
-  'frame.opacity': { title: 'Frame opacity', text: 'Make the frame see-through. 100% is solid.' },
+  'frame.highlight': {
+    title: 'Frame highlights colour',
+    text: 'Some frames have details in a colour of their own, like the jade beads on Monk or the eyes on Warlock. Change those here.',
+  },
   'frame.outerSpacing': {
     title: 'Outer spacing',
     text: 'Empty space between the edge of the image and the frame, which leaves room for the drop shadow.',
@@ -130,7 +133,7 @@ export const helpContent = {
   // ---- Canvas ----
   'canvas.stage': {
     title: 'Editing the art',
-    text: 'Drag to move the art, scroll or pinch to zoom, and twist two fingers to rotate. The corner handles resize it and the round handle above it rotates it.',
+    text: 'Drag to move the art, use the corner handles to resize it and the round handle to rotate it (or pinch and twist with two fingers). Scroll over the token to zoom the view in for a closer look, and hold Space or the middle mouse button and drag to look around.',
   },
 
   // ---- Top bar ----
@@ -146,7 +149,7 @@ export const helpContent = {
   // ---- Floating canvas toolbar ----
   'toolbar.zoom': {
     title: 'Zoom',
-    text: 'Make the art bigger or smaller inside the frame. You can also scroll the mouse wheel or pinch with two fingers.',
+    text: 'Make the art bigger or smaller inside the frame. You can also drag the corner handles or pinch with two fingers.',
   },
   'toolbar.rotate': { title: 'Rotate', text: 'Turn the art a quarter turn clockwise. Use the round handle on the canvas, or two fingers, for any angle.' },
   'toolbar.flip': { title: 'Flip sideways', text: 'Mirror the art left to right, so the creature faces the other way.' },
@@ -154,10 +157,6 @@ export const helpContent = {
   'toolbar.reset': { title: 'Reset', text: 'Put the art back to how it was first placed: centred, unrotated and filling the frame.' },
   'toolbar.fit': { title: 'Fit', text: 'Shrink the art so all of it is visible inside the frame.' },
   'toolbar.fill': { title: 'Fill', text: 'Enlarge the art so it covers the whole inside of the frame with no gaps.' },
-  'toolbar.lock': {
-    title: 'Keep the frame filled',
-    text: 'When on, the art can never be moved or zoomed so far that an empty gap shows inside the frame.',
-  },
 
   // ---- Shared component examples (UI kit page) ----
   'kit.slider': {

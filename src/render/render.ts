@@ -98,13 +98,13 @@ export function renderToken(ctx: Ctx, doc: TokenDocument, assets: AssetMap, size
   // 9. Frame.
   if (hasFrame) {
     ctx.save();
-    ctx.globalAlpha = Math.min(1, Math.max(0, doc.frame.opacity));
     drawFrame(ctx, doc.frame.style, {
       shape: doc.shape,
       R,
       outer: insets.frameOuter * R,
       inner: insets.frameInner * R,
       color: doc.frame.color,
+      accent: doc.frame.highlightColor ?? undefined,
     });
     ctx.restore();
   }

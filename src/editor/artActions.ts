@@ -40,7 +40,6 @@ export const artActions = {
   flipY: () => setTransform((t) => ({ ...t, flipY: !t.flipY })),
   fit: () => setTransform((t, s) => fitTransform(t, s.w, s.h, s.clip), { noClamp: true }),
   fill: () => setTransform((t, s) => fillTransform(t, s.w, s.h, s.clip)),
-  toggleLock: () => setTransform((t) => ({ ...t, lockFill: !t.lockFill })),
   reset: () => setTransform((_t, s) => resetTransform(s.w, s.h, s.clip)),
 };
 

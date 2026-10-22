@@ -284,6 +284,23 @@ button:disabled {
   cursor: grabbing;
 }
 
+.stage[data-look] {
+  cursor: move;
+}
+
+/* Shown while the view is zoomed in: how far, and a way back to the whole token. */
+.stage__view {
+  position: absolute;
+  left: 12px;
+  z-index: 2;
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  font-size: var(--text-xs);
+  box-shadow: var(--shadow-sm);
+}
+
 .stage:focus-visible {
   outline-offset: -4px;
 }
@@ -933,6 +950,30 @@ input[type='range'] {
   width: 100%;
 }
 
+/* Wraps a range input so a notch can mark the default value under the track. */
+.slider__track {
+  --thumb: 18px;
+  position: relative;
+  display: block;
+}
+
+.float-toolbar__zoom .slider__track {
+  display: flex;
+  align-items: center;
+}
+
+.slider__notch {
+  position: absolute;
+  top: calc(50% + 5px);
+  width: 2px;
+  height: 6px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--text-muted);
+  opacity: 0.8;
+  pointer-events: none;
+}
+
 input[type='range']:disabled {
   cursor: not-allowed;
   opacity: 0.45;
@@ -971,6 +1012,10 @@ input[type='range']::-moz-range-thumb {
 }
 
 @media (pointer: coarse) {
+  .slider__track {
+    --thumb: 26px;
+  }
+
   input[type='range']::-webkit-slider-thumb {
     width: 26px;
     height: 26px;
