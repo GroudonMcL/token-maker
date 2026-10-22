@@ -35,7 +35,7 @@ describe('AppShell (desktop)', () => {
     expect(screen.getAllByRole('button', { name: 'Undo' }).length).toBeGreaterThan(0);
     expect(screen.getByRole('toolbar', { name: 'Image tools' })).toBeInTheDocument();
     const bottomBar = container.querySelector<HTMLElement>('.bottom-bar')!;
-    expect(within(bottomBar).getByRole('button', { name: 'Export' })).toBeInTheDocument();
+    expect(within(bottomBar).getByRole('button', { name: 'Export PNG' })).toBeInTheDocument();
   });
 });
 

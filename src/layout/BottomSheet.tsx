@@ -3,6 +3,8 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent
 import { Section } from '../components';
 import { PHONE_TABS, sectionById } from './sections';
 import { SectionPlaceholder } from './SectionPlaceholder';
+import { SECTION_CONTENT } from '../sections';
+import { exportCurrentToken } from '../editor/useExport';
 import { TokenSummary } from './TokenSummary';
 
 export type SheetSnap = 'peek' | 'half' | 'full';
@@ -119,7 +121,7 @@ export function BottomSheet() {
             type="button"
             className="btn btn--primary"
             onPointerDown={(e) => e.stopPropagation()}
-            onClick={() => chooseTab('export')}
+            onClick={exportCurrentToken}
           >
             <Download size={18} aria-hidden="true" />
             Export
@@ -146,9 +148,10 @@ export function BottomSheet() {
       <div className="bottom-sheet__content" id={panelId} role="tabpanel" aria-label={active.label} hidden={snap === 'peek' && dragHeight === null}>
         {active.sections.map((sid) => {
           const s = sectionById(sid);
+          const Content = SECTION_CONTENT[sid];
           return (
             <Section key={sid} title={s.title} helpId={s.helpId} icon={s.icon} defaultOpen>
-              <SectionPlaceholder text={s.placeholder} />
+              {Content ? <Content /> : <SectionPlaceholder text={s.placeholder} />}
             </Section>
           );
         })}

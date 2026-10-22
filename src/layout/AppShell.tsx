@@ -1,5 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useGlobalImport } from '../editor/useGlobalImport';
+import { useShortcuts } from '../editor/useShortcuts';
 import { useMediaQuery } from '../hooks/useMediaQuery';
+import { restore, startAutosave } from '../state/autosave';
+import { Toasts } from '../ui/Toasts';
 import { AdSlot } from './AdSlot';
 import { BottomBar } from './BottomBar';
 import { BottomSheet } from './BottomSheet';
@@ -9,6 +13,14 @@ import { SidePanel } from './SidePanel';
 import { TopBar } from './TopBar';
 import type { SectionId } from './sections';
 
+let booted = false;
+/** Restores the autosaved token once, then keeps saving. */
+function boot() {
+  if (booted) return;
+  booted = true;
+  void restore().finally(() => startAutosave());
+}
+
 /**
  * The editor layout (DESIGN.md §8).
  * - Desktop (≥ 1024px) and tablet (768–1023px, narrower panel): canvas + right panel + bottom bar.
@@ -17,7 +29,11 @@ import type { SectionId } from './sections';
  */
 export function AppShell() {
   const wide = useMediaQuery('(min-width: 768px)');
-  const [open, setOpenSections] = useState<ReadonlySet<SectionId>>(() => new Set(['import']));
+  const [open, setOpenSections] = useState<ReadonlySet<SectionId>>(() => new Set(['import', 'frame']));
+  const dropping = useGlobalImport();
+  useShortcuts();
+  useEffect(boot, []);
+
   const setOpen = (id: SectionId, isOpen: boolean) =>
     setOpenSections((prev) => {
       const next = new Set(prev);
@@ -26,25 +42,22 @@ export function AppShell() {
       return next;
     });
 
-  const goToExport = () => {
-    setOpen('export', true);
-    requestAnimationFrame(() => {
-      const el = document.getElementById('section-export');
-      el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      el?.querySelector<HTMLButtonElement>('.section__toggle')?.focus({ preventScroll: true });
-    });
-  };
-
   return (
     <>
       <div className={`editor ${wide ? 'editor--wide' : 'editor--phone'}`}>
         <TopBar compact={!wide} />
         <div className="editor__body">
-          <CanvasArea />
+          <CanvasArea phone={!wide} />
           {wide ? <SidePanel openSections={open} setOpen={setOpen} /> : <BottomSheet />}
         </div>
-        {wide && <BottomBar onExport={goToExport} />}
+        {wide && <BottomBar />}
+        {dropping && (
+          <div className="drop-overlay" aria-hidden="true">
+            <p>Drop the image to use it</p>
+          </div>
+        )}
       </div>
+      <Toasts />
       <AdSlot />
       <Footer />
     </>

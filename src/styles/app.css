@@ -253,42 +253,6 @@ button:disabled {
   background: radial-gradient(ellipse at 50% 45%, transparent 0%, color-mix(in srgb, var(--surface-sunken) 70%, transparent) 85%);
 }
 
-.canvas-area__stage {
-  display: grid;
-  place-items: center;
-  align-content: center;
-  gap: var(--space-4);
-  padding: 72px var(--space-4) var(--space-5);
-  text-align: center;
-}
-
-.editor--phone .canvas-area__stage {
-  padding-top: 64px;
-  /* keep the token centred in the part not covered by the bottom sheet */
-  padding-bottom: calc(140px + var(--space-4));
-}
-
-.empty-token {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: min(42vmin, 340px);
-  aspect-ratio: 1;
-  max-width: 100%;
-}
-
-.empty-token__ring {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  border: 2px dashed var(--border-strong);
-  background: radial-gradient(circle, var(--accent-soft), transparent 70%);
-}
-
-.empty-token__icon {
-  color: var(--accent);
-}
-
 .canvas-area__hint {
   display: grid;
   gap: 2px;
@@ -302,6 +266,167 @@ button:disabled {
   font-size: var(--text-md);
 }
 
+/* Stage: the live token, the dimmed art around it and the handles */
+.stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.stage[data-has-art] {
+  cursor: grab;
+}
+
+.stage[data-dragging] {
+  cursor: grabbing;
+}
+
+.stage:focus-visible {
+  outline-offset: -4px;
+}
+
+.stage__context {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.2;
+  transition: opacity var(--dur) var(--ease);
+  pointer-events: none;
+}
+
+.stage[data-dragging] .stage__context {
+  opacity: 0.42;
+}
+
+.stage__token {
+  position: absolute;
+  pointer-events: none;
+}
+
+.stage:not([data-has-art]) .stage__token {
+  border-radius: 50%;
+  outline: 2px dashed var(--border-strong);
+  outline-offset: -2px;
+  background: radial-gradient(circle, var(--accent-soft), transparent 70%);
+}
+
+.stage__overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.stage__outline {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+  opacity: 0.6;
+}
+
+.stage__handle {
+  position: absolute;
+  z-index: 1;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border: 2px solid var(--accent);
+  border-radius: 4px;
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-sm);
+  touch-action: none;
+  cursor: nwse-resize;
+}
+
+/* bigger invisible area to grab */
+.stage__handle::before {
+  content: '';
+  position: absolute;
+  inset: calc((12px - var(--hit)) / 2);
+}
+
+.stage__handle--rotate {
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: grab;
+}
+
+.stage[data-dragging] .stage__handle {
+  opacity: 0.5;
+}
+
+@media (pointer: coarse) {
+  .stage__handle {
+    width: 22px;
+    height: 22px;
+    margin: -11px 0 0 -11px;
+  }
+}
+
+.stage__help {
+  position: absolute;
+  right: var(--space-3);
+  z-index: 1;
+}
+
+.stage__empty {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: grid;
+  justify-items: center;
+  gap: var(--space-3);
+  padding: 0 var(--space-4);
+  text-align: center;
+}
+
+.drop-overlay {
+  position: absolute;
+  inset: var(--space-3);
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  border: 3px dashed var(--accent);
+  border-radius: var(--radius-lg);
+  background: var(--overlay);
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  pointer-events: none;
+}
+
+/* Toasts */
+.toasts {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--space-6) + env(safe-area-inset-bottom));
+  z-index: 200;
+  display: grid;
+  gap: var(--space-2);
+  width: min(420px, calc(100vw - 32px));
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.toast {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  color: var(--text);
+  box-shadow: var(--shadow-lg);
+  font-size: var(--text-sm);
+  animation: help-in var(--dur) var(--ease);
+}
+
+.toast[data-tone='error'] {
+  border-color: var(--danger);
+}
+
 /* Floating toolbar */
 .float-toolbar {
   position: absolute;
@@ -311,6 +436,7 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 2px;
+  z-index: 3;
   max-width: calc(100% - var(--space-4));
   padding: var(--space-1) var(--space-2);
   border: 1px solid var(--border);
@@ -333,6 +459,12 @@ button:disabled {
 
 .float-toolbar__zoom input {
   width: 110px;
+}
+
+.float-toolbar__readout {
+  min-width: 3.4em;
+  font-size: var(--text-xs);
+  text-align: right;
 }
 
 .float-toolbar__sep {
@@ -662,6 +794,48 @@ button:disabled {
   display: grid;
   gap: var(--space-4);
   padding-top: var(--space-2);
+}
+
+/* Generic control wrapper, text box, hints */
+.control {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.control__hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.text-input {
+  width: 100%;
+  min-height: var(--hit);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  font-size: var(--text-md);
+}
+
+.text-input:focus {
+  border-color: var(--accent);
+}
+
+.btn--wide {
+  width: 100%;
+}
+
+.tile__blank {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px dashed var(--border);
+}
+
+.token-summary__thumb--art {
+  border: 0;
+  background: none;
 }
 
 /* Placeholder content */

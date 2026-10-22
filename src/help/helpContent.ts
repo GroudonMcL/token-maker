@@ -75,6 +75,64 @@ export const helpContent = {
     text: 'Download the token as PNG, WebP or JPG at the size your virtual tabletop needs, or copy it to the clipboard.',
   },
 
+  // ---- Import ----
+  'import.upload': {
+    title: 'Upload an image',
+    text: 'Choose a picture from your device. You can also drag one anywhere onto the page, or paste it with Ctrl+V (long-press and Paste on a phone).',
+  },
+  'import.name': {
+    title: 'Token name',
+    text: "Used for the downloaded file's name. It is filled in from the image's file name, and you can change it.",
+  },
+
+  // ---- Frame & shape ----
+  'frame.shape': { title: 'Shape', text: 'The outline of the token. Hexagons suit hex-grid maps.' },
+  'frame.style': {
+    title: 'Frame',
+    text: 'The border drawn around the art. Every frame takes any colour, thickness and spacing.',
+  },
+  'frame.color': {
+    title: 'Frame colour',
+    text: "The frame's main colour. Lighting, texture and ornaments are recoloured to match.",
+  },
+  'frame.thickness': {
+    title: 'Thickness',
+    text: 'How wide the border is, as a share of one grid square, so it looks the same on the map at every creature size.',
+  },
+  'frame.opacity': { title: 'Frame opacity', text: 'Make the frame see-through. 100% is solid.' },
+  'frame.outerSpacing': {
+    title: 'Outer spacing',
+    text: 'Empty space between the edge of the image and the frame, which leaves room for the drop shadow.',
+  },
+  'frame.innerSpacing': {
+    title: 'Inner spacing',
+    text: 'A gap between the frame and the art, filled with the backing colour.',
+  },
+  'frame.backingColor': {
+    title: 'Backing colour',
+    text: 'The colour behind the art. It shows through the inner spacing and any transparent parts of the picture.',
+  },
+  'frame.backingOpacity': { title: 'Backing opacity', text: 'Set to 0% for no backing, so transparent parts of the art stay see-through.' },
+
+  // ---- Size ----
+  'size.preset': {
+    title: 'Creature size',
+    text: 'How many grid squares the creature covers: Tiny is half a square, Large is 2 × 2, Huge 3 × 3 and Gargantuan 4 × 4.',
+  },
+  'size.custom': { title: 'Squares', text: 'Any number of squares across, in half-square steps.' },
+
+  // ---- Export ----
+  'export.download': {
+    title: 'Download PNG',
+    text: 'Saves the token as a PNG with a transparent background at 256 pixels per grid square. More formats and sizes are coming.',
+  },
+
+  // ---- Canvas ----
+  'canvas.stage': {
+    title: 'Editing the art',
+    text: 'Drag to move the art, scroll or pinch to zoom, and twist two fingers to rotate. The corner handles resize it and the round handle above it rotates it.',
+  },
+
   // ---- Top bar ----
   'topbar.batch': {
     title: 'Batch mode',
@@ -90,8 +148,10 @@ export const helpContent = {
     title: 'Zoom',
     text: 'Make the art bigger or smaller inside the frame. You can also scroll the mouse wheel or pinch with two fingers.',
   },
-  'toolbar.rotate': { title: 'Rotate', text: 'Turn the art a quarter turn. Use the on-canvas handle or two fingers for any angle.' },
-  'toolbar.flip': { title: 'Flip', text: 'Mirror the art left to right, so the creature faces the other way.' },
+  'toolbar.rotate': { title: 'Rotate', text: 'Turn the art a quarter turn clockwise. Use the round handle on the canvas, or two fingers, for any angle.' },
+  'toolbar.flip': { title: 'Flip sideways', text: 'Mirror the art left to right, so the creature faces the other way.' },
+  'toolbar.flipV': { title: 'Flip upside down', text: 'Mirror the art top to bottom.' },
+  'toolbar.reset': { title: 'Reset', text: 'Put the art back to how it was first placed: centred, unrotated and filling the frame.' },
   'toolbar.fit': { title: 'Fit', text: 'Shrink the art so all of it is visible inside the frame.' },
   'toolbar.fill': { title: 'Fill', text: 'Enlarge the art so it covers the whole inside of the frame with no gaps.' },
   'toolbar.lock': {

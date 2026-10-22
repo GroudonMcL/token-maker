@@ -83,6 +83,8 @@ interface TokenDocument {
 }
 ```
 
+*(Phase 1: the real type is in `src/document/types.ts`, defaults in `src/document/defaults.ts`. Later-phase layers have placeholder types. `art` holds the asset id plus its transform (zoom, offset, rotation, flipX, flipY, lockFill); `frame` holds the selected preset id, style, colour, thickness, outer/inner spacing, opacity, backing colour and backing opacity; `shadows` holds outer, inner and pop-out settings. Saved documents go through `migrateDocument()` in `src/document/migrate.ts`, which runs version-by-version migrations and then checks every field, falling back to defaults.)*
+
 Images themselves are **not** stored inside the document — the document holds asset ids (e.g. `asset:abc123`) that point to images held in memory/IndexedDB. This keeps presets small and shareable.
 
 ### 4.2 Units: "per grid square"
@@ -94,6 +96,8 @@ Sizes that should look the same on the map no matter how big the creature is are
 - label text size and label shape size
 - shadow distance and blur
 - effect size (e.g. how far flames reach)
+
+**Unit (Phase 1):** per-square values are stored in *half grid squares* (1 = half a square, so the extension's 0.14 border means the same thing on a Medium token). The UI shows them as "% of a square" (value × 50). The maths lives in `src/document/sizing.ts`.
 
 So a Large (2×2) token's border is exactly as thick on the map as a Medium (1×1) token's — it is not doubled. Image (PNG) frames are the exception: they scale with the token (explain this in their help tip).
 
@@ -128,6 +132,8 @@ The same pipeline draws the preview and the export.
 13. **Pop-out art** — the *same processed art bitmap* from step 5, drawn through the pop-out mask, clipped only to the square output image.
 14. **Label.**
 
+*(Phase 1: `renderToken(ctx, doc, assets, size)` in `src/render/render.ts` draws layers 1, 2, 5, 8 and 9; the other layers have marked empty slots. The extension drew the drop shadow and the shadow onto the art as part of each frame; here they are separate layers 1 and 8, so they can be switched off, follow the light, and include pop-out parts later. The outer shadow is drawn shadow-only and then cleared under the token, so it never shows through transparent parts.)*
+
 Rules:
 
 - Pop-out art must be pixel-identical to the inside art where they meet — no seams. That is why both come from one processed bitmap.
@@ -153,7 +159,7 @@ Ways in (all lead to the same "image loaded" state):
    - If a site blocks fetching, show a friendly message suggesting right-click → "Copy image address", or downloading and uploading.
 5. **Pinterest pin link** — paste a pin URL (including `pin.it` short links). The server follows redirects, reads the pin page's main image (`og:image`, preferring the `/originals/` size) and loads it. (Browsing Pinterest boards with login is a future feature — §15.)
 
-The import file's name (without extension, tidied) becomes the token name; the user can edit it.
+The import file's name (without extension, tidied) becomes the token name; the user can edit it. *(Phase 1: separators become spaces, all-lowercase names get capital letters, and generic names such as "image.png" from a paste keep the current name. Dropped or pasted web links show a "coming in a later update" message until Phase 2.)*
 
 **Batch mode** (optional switch): import several images at once (multi-select upload, multi-file drop, or several links). One shared style applies to all; each image keeps its own position/zoom/rotation and name. A thumbnail strip switches between them. Export all as a ZIP (§6.10).
 
@@ -167,7 +173,7 @@ The import file's name (without extension, tidied) becomes the token name; the u
   - Style: Vibrance, Grayscale, Sepia, Invert
 - **Background removal (flat colour):** the extension's method — pick the background colour automatically (from the edges) or with an eyedropper; **Intensity** slider (how similar a colour must be to be removed) and **Edge softness** slider.
 - **Erase / restore brush** to fix mistakes: brush size, softness, and a simple mode where the user just drags one slider. Works with touch and pen. The removal result is stored as a mask (not by destroying pixels), so it can be changed later.
-- **Transform:** drag to move, wheel/pinch to zoom around the pointer, **on-canvas handles** for scale and rotate (two-finger rotate on touch), flip horizontal/vertical, fit, fill, reset, and the existing "Keep the frame filled" option.
+- **Transform:** drag to move, wheel/pinch to zoom around the pointer, **on-canvas handles** for scale and rotate (two-finger rotate on touch), flip horizontal/vertical, fit, fill, reset, and the existing "Keep the frame filled" option. *(Phase 1: four corner handles resize the art around its centre and a round handle above it rotates it (hold Shift to snap to 15°). Handles stay on screen even when the art's corners are off the canvas. "Keep the frame filled" is on by default for new tokens. A whole drag, pinch or burst of scrolling is one undo step.)*
 
 ### 6.3 Background
 

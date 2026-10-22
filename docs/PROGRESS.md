@@ -13,17 +13,17 @@ A checklist of build phases, following [`BUILD-PROMPTS.md`](BUILD-PROMPTS.md). D
   - [x] Placeholder About and Privacy pages
   - **Done when:** `npm run dev` shows the shell at desktop and phone widths, tests pass, README explains running and deploying ✔
 
-- [ ] **Phase 1 — Token document, renderer and basic import**
-  - [ ] Study the extension's `extension/` code; port the renderer, 5 shapes and 27 frames as a standalone module (no LegendKeeper/Owlbear code)
-  - [ ] TokenDocument with `schemaVersion` + migration helper; store with undo/redo and IndexedDB autosave (reuse `src/state/history.ts`)
-  - [ ] Pure `render(doc, assets, outputSize)` in DESIGN.md §5 order: backing, art, inner shadow, frame, outer drop shadow; empty hooks for the other layers
-  - [ ] Per-grid-square sizes; Size section (Tiny … Gargantuan, Custom)
-  - [ ] Import: file picker, drag and drop anywhere, paste; file name becomes the editable token name
-  - [ ] Canvas: drag, wheel/pinch zoom around the pointer, scale/rotate handles, two-finger rotate, flip, fit, fill, reset, "Keep the frame filled", dimmed art outside the frame (mouse, touch, pen)
-  - [ ] Frame & shape section: shapes, 27 frame tiles, colour, thickness, frame opacity, outer/inner spacing, backing colour and opacity
-  - [ ] Temporary PNG export at 256 px per square from the same renderer
-  - [ ] Tests: migrations, undo/redo, per-square maths, frame pixel tests + frame-sheet script, Playwright import → download on desktop and phone
-  - **Done when:** drop an image in, frame it with any of the 27 frames, move it with handles, change to Large with the border staying the same thickness, download a PNG
+- [x] **Phase 1 — Token document, renderer and basic import**
+  - [x] Studied the extension's `extension/` code; ported the renderer, 5 shapes and 27 frames to `src/render/` (no LegendKeeper/Owlbear code)
+  - [x] TokenDocument with `schemaVersion` + migration helper; store with undo/redo and IndexedDB autosave (built on `src/state/history.ts`)
+  - [x] Pure `renderToken(ctx, doc, assets, size)` / `render(doc, assets, size)` in DESIGN.md §5 order: outer drop shadow, backing, art, inner shadow, frame; empty slots for the other layers
+  - [x] Per-grid-square sizes; Size section (Tiny … Gargantuan, Custom)
+  - [x] Import: file picker, drag and drop anywhere, paste; file name becomes the editable token name
+  - [x] Canvas: drag, wheel/pinch zoom around the pointer, scale/rotate handles, two-finger rotate, flip both ways, fit, fill, reset, "Keep the frame filled", dimmed art outside the frame (mouse, touch, pen)
+  - [x] Frame & shape section: shapes, 27 frame tiles with live thumbnails, colour, thickness, frame opacity, outer/inner spacing, backing colour and opacity
+  - [x] Temporary PNG export at 256 px per square from the same renderer
+  - [x] Tests: migrations, undo/redo, per-square maths, pixel tests for every frame and shape, `npm run frame-sheet`, Playwright import → download (and size, frames, handles, drop/paste, autosave) on desktop, tablet and phone
+  - **Done when:** drop an image in, frame it with any of the 27 frames, move it with handles, change to Large with the border staying the same thickness, download a PNG ✔
 
 - [ ] **Phase 2 — Import from the web (web addresses and Pinterest links)**
   - [ ] `/api/fetch-image` and `/api/page-images` Pages Functions with the extension's SSRF rules + per-IP rate limiting

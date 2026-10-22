@@ -50,6 +50,17 @@ Open the address it prints (usually <http://localhost:5173>) in your browser. Th
 
 To see the phone layout on your computer: in Chrome or Edge press `F12`, then click the phone/tablet icon (top left of the panel) and pick a phone.
 
+### Using the editor (Phase 1)
+
+- **Get a picture in:** click **Upload image**, drag a picture file anywhere onto the page, or copy an image and press `Ctrl+V`.
+- **Move the art:** drag it. **Zoom:** mouse wheel, or pinch on a touch screen. **Rotate:** the round handle above the art, or twist two fingers. The square corner handles resize it.
+- The toolbar above the canvas has zoom, rotate 90°, flip, fit, fill, "Keep the frame filled" (lock) and reset.
+- **Frame & shape** (right-hand panel, or the **Frame** tab on a phone): pick a shape, one of 27 frames, a colour, thickness and spacing.
+- **Size:** Tiny to Gargantuan or Custom. The border stays the same thickness on the map at every size.
+- **Undo/Redo:** the arrows in the top bar, or `Ctrl+Z` / `Ctrl+Y`. A whole drag counts as one step.
+- **Export PNG** (bottom bar) downloads the token at 256 pixels per grid square.
+- Your token is saved in the browser as you work, so refreshing the page keeps it. **New** starts again.
+
 Useful pages while developing:
 
 - `/` — the editor
@@ -66,6 +77,7 @@ Useful pages while developing:
 | `npm run lint` | Checks code style and common bugs (ESLint). |
 | `npm run build` | Builds the finished site into the `dist` folder (this is what Cloudflare runs). |
 | `npm run preview` | Serves the built `dist` folder so you can try the real build. |
+| `npm run frame-sheet -- sheet.png` | Draws every frame on one picture so you can check them by eye. Add a shape and size, e.g. `npm run frame-sheet -- sheet.png hexagon 220 2` for Large hexagons. |
 
 Run them all before pushing:
 
@@ -108,6 +120,14 @@ docs/PROGRESS.md       Checklist of phases
 functions/api/         Cloudflare Pages Functions (server code). Only /api/health so far;
                        the image proxy (DESIGN.md §7) comes later.
 public/                Files copied as-is (favicon, _headers for Cloudflare)
+src/document/          The TokenDocument: types, defaults, migrations, per-square sizing
+src/render/            The renderer: shapes, the 27 frames, crop maths, render()
+src/state/             Undo/redo history, the token store, images in memory, autosave
+src/import/            Decoding images and naming tokens from file names
+src/editor/            The canvas (Stage), toolbar actions, drop/paste, shortcuts
+src/sections/          Panel sections that are built (Import, Frame & shape, Size, Export)
+src/export/            PNG download
+scripts/               frame-sheet.ts, make-fixture.ts (the test picture)
 src/styles/tokens.css  Design tokens: every colour, font, size, radius and shadow
 src/styles/app.css     The stylesheet for the whole UI
 src/components/        Shared controls (Section, Slider, ColorSwatches, SegmentedButtons,
@@ -116,7 +136,6 @@ src/help/helpContent.ts  Text for every "?" help tip
 src/layout/            The editor layout (top bar, canvas, toolbar, side panel,
                        phone bottom sheet, bottom bar, ad slot, footer)
 src/pages/             About, Privacy and the UI kit page
-src/state/history.ts   Undo/redo history helper
 src/config/features.ts Feature flags
 e2e/                   Playwright end-to-end tests
 ```

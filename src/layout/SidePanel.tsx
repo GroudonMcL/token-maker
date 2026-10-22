@@ -1,6 +1,7 @@
 import { Section } from '../components';
 import { SECTIONS, type SectionId } from './sections';
 import { SectionPlaceholder } from './SectionPlaceholder';
+import { SECTION_CONTENT } from '../sections';
 
 /** Desktop/tablet right-hand panel: every section, collapsible, in DESIGN.md §8 order. */
 export function SidePanel({
@@ -12,7 +13,9 @@ export function SidePanel({
 }) {
   return (
     <aside className="side-panel" aria-label="Token settings">
-      {SECTIONS.map((s) => (
+      {SECTIONS.map((s) => {
+        const Content = SECTION_CONTENT[s.id];
+        return (
         <Section
           key={s.id}
           id={`section-${s.id}`}
@@ -22,9 +25,10 @@ export function SidePanel({
           open={openSections.has(s.id)}
           onOpenChange={(o) => setOpen(s.id, o)}
         >
-          <SectionPlaceholder text={s.placeholder} />
+          {Content ? <Content /> : <SectionPlaceholder text={s.placeholder} />}
         </Section>
-      ))}
+        );
+      })}
     </aside>
   );
 }

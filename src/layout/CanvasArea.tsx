@@ -1,21 +1,15 @@
-import { ImagePlus } from 'lucide-react';
+import { Stage } from '../editor/Stage';
+import { useDoc } from '../state/tokenStore';
 import { FloatingToolbar } from './FloatingToolbar';
+import { PEEK_HEIGHT } from './BottomSheet';
 
-/** The central canvas well. Shows an empty state until the renderer arrives (later phase). */
-export function CanvasArea() {
+/** The central canvas area: the stage and its floating toolbar. */
+export function CanvasArea({ phone }: { phone: boolean }) {
+  const hasArt = useDoc((d) => d.art.assetId !== null);
   return (
     <main className="canvas-area" aria-label="Token preview">
-      <FloatingToolbar />
-      <div className="canvas-area__stage">
-        <div className="empty-token" aria-hidden="true">
-          <div className="empty-token__ring" />
-          <ImagePlus className="empty-token__icon" size={40} strokeWidth={1.4} />
-        </div>
-        <p className="canvas-area__hint">
-          <strong>Drop, paste or upload an image</strong>
-          <span>to start your token</span>
-        </p>
-      </div>
+      <FloatingToolbar disabled={!hasArt} />
+      <Stage reserveTop={64} reserveBottom={phone ? PEEK_HEIGHT : 0} />
     </main>
   );
 }

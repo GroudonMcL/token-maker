@@ -17,8 +17,8 @@ test.describe('app shell', () => {
     await expect(panel).toBeVisible();
     await panel.getByRole('button', { name: 'Background', exact: true }).click();
     await expect(panel.getByText('Colour, gradient or image behind the art.')).toBeVisible();
-    await page.locator('.bottom-bar').getByRole('button', { name: 'Export' }).click();
-    await expect(panel.getByRole('button', { name: 'Export', exact: true })).toHaveAttribute('aria-expanded', 'true');
+    // Export waits for an image.
+    await expect(page.locator('.bottom-bar').getByRole('button', { name: 'Export PNG' })).toBeDisabled();
   });
 
   test('phones have a bottom sheet with tabs that can be dragged open', async ({ page, isMobile }) => {

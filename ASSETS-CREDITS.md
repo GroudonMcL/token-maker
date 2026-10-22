@@ -8,3 +8,5 @@ Every font, icon, image and other asset bundled with Token Maker, with its sourc
 | Atkinson Hyperlegible (font) | Braille Institute, via [@fontsource/atkinson-hyperlegible](https://fontsource.org/fonts/atkinson-hyperlegible) | SIL Open Font License 1.1 |
 | Lucide icons | [lucide.dev](https://lucide.dev) (`lucide-react`) | ISC |
 | Placeholder logo / favicon | Made for the project | — |
+| 27 code-drawn frames and 5 shapes | Ported from the owner's own [LK-to-Owlbear-Combined](https://github.com/GroudonMcL/LK-to-Owlbear-Combined) extension | Owner's own code |
+| Sample art in frame tiles, frame sheet and tests | Drawn by code for the project (`src/render/sampleArt.ts`, `scripts/make-fixture.ts`) | — |
