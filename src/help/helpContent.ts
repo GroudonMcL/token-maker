@@ -51,7 +51,7 @@ export const helpContent = {
   },
   'section.popout': {
     title: 'Pop-out',
-    text: 'Paint over parts of the art, like a head or a sword, so they are drawn on top of the border.',
+    text: 'Paint over parts of the art, like horns, a head or a sword, so they are drawn on top of the border. They stay inside the square image, and cast a shadow onto the frame.',
   },
   'section.effects': {
     title: 'Effects',
@@ -298,6 +298,43 @@ export const helpContent = {
   'lighting.rimStrength': { title: 'Rim strength', text: 'How bright the rim is.' },
   'lighting.rimWidth': { title: 'Rim width', text: 'How thick the rim is.' },
   'lighting.background': { title: 'Light the background too', text: 'Lights the background picture the same way, so the art and the scene match.' },
+
+  // ---- Shadows (Phase 5) ----
+  'shadows.outer': {
+    title: 'Drop shadow',
+    text: "The shadow the whole token casts on the map, pop-out parts included. It falls away from the light unless you unlink it.",
+  },
+  'shadows.popOut': {
+    title: 'Pop-out shadow',
+    text: 'The shadow pop-out parts (like horns) cast onto the frame, so they look raised above it.',
+  },
+  'shadows.follow': {
+    title: 'Follow the light',
+    text: 'On: the shadow falls away from the light. Turn it off to set the direction, distance, blur, colour and opacity yourself.',
+  },
+  'shadows.angle': { title: 'Shadow direction', text: 'Which way the shadow falls: drag the dot round the dial.' },
+  'shadows.distance': {
+    title: 'Shadow distance',
+    text: 'How far the shadow falls from what casts it, as a share of one grid square, so it looks the same on the map at every size.',
+  },
+  'shadows.blur': { title: 'Shadow blur', text: 'How soft the shadow is, as a share of one grid square.' },
+  'shadows.color': { title: 'Shadow colour', text: 'Black for a plain shadow, or a dark colour to match the scene.' },
+  'shadows.opacity': { title: 'Shadow opacity', text: 'How dark the shadow is.' },
+  'shadows.inner': { title: 'Inner shadow', text: 'The shadow the frame casts onto the art, which makes the art look set into the token.' },
+  'shadows.innerStrength': { title: 'Inner shadow strength', text: 'How dark the shadow inside the frame is.' },
+  'shadows.innerSoftness': { title: 'Inner shadow softness', text: 'How far the shadow inside the frame spreads, as a share of one grid square.' },
+
+  // ---- Pop-out (Phase 5) ----
+  'popout.brush': {
+    title: 'Pop-out brush',
+    text: 'Paint over the parts of the art that should be drawn on top of the frame, like horns, a head or a sword. They stay on the art when you move, zoom, turn or flip it.',
+  },
+  'popout.mode': { title: 'Add or erase', text: 'Add paints more of the art over the frame; Erase takes it back behind the frame.' },
+  'popout.size': { title: 'Brush size', text: 'How big the pop-out brush is on screen. Zoom the view in for fine edges.' },
+  'popout.show': { title: 'Show the pop-out mask', text: 'Tints the painted parts teal while you paint, so you can see exactly what pops out. It never shows in the export.' },
+  'popout.enabled': { title: 'Pop-out on', text: 'Turn off to put everything back inside the frame without losing what you painted.' },
+  'popout.advanced': { title: 'More brush settings', text: 'Softness and pen pressure for the pop-out brush (shared with the erase/restore brush).' },
+  'popout.softness': { title: 'Softness', text: 'How gently the edge of the pop-out fades into the frame.' },
 
   // ---- Frame & shape ----
   'frame.shape': { title: 'Shape', text: 'The outline of the token. Hexagons suit hex-grid maps.' },

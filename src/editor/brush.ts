@@ -1,7 +1,9 @@
-// Turning pointer movement on the canvas into erase/restore strokes and
-// eyedropper picks, in the picture's own coordinates (DESIGN.md §6.2).
+// Turning pointer movement on the canvas into erase/restore strokes,
+// pop-out strokes and eyedropper picks, in the picture's own coordinates
+// (DESIGN.md §6.2, §6.6).
 
-import type { ArtTransform, MaskStroke } from '../document/types';
+import type { ArtTransform } from '../document/types';
+import type { AnyStroke } from '../image/strokes';
 import { toHex } from '../render/color';
 import { baseScale, imagePointAt } from '../render/geometry';
 import type { Point } from '../render/shapes';
@@ -23,26 +25,26 @@ export interface StrokeContext {
 export const screenScale = (c: StrokeContext) => baseScale(c.width, c.height, c.clip) * c.transform.zoom * c.R;
 
 /** A new stroke starting at `p` (token units), with the brush size given in screen pixels. */
-export function startStroke(
+export function startStroke<S extends AnyStroke>(
   c: StrokeContext,
   p: Point,
   pressure: number,
-  brush: { mode: MaskStroke['mode']; sizePx: number; softness: number },
-): MaskStroke {
+  brush: { mode: S['mode']; sizePx: number; softness: number },
+): S {
   const q = imagePointAt(c.transform, c.width, c.height, c.clip, p);
   return {
     mode: brush.mode,
     size: round(brush.sizePx / screenScale(c) / Math.max(c.width, c.height)),
     softness: round(brush.softness / 100),
     points: [round(q.x), round(q.y), round(pressure)],
-  };
+  } as S;
 }
 
 /**
  * The stroke with one more point, or the same stroke if the pointer has
  * moved less than about a pixel on screen (keeps documents small).
  */
-export function extendStroke(c: StrokeContext, s: MaskStroke, p: Point, pressure: number): MaskStroke {
+export function extendStroke<S extends AnyStroke>(c: StrokeContext, s: S, p: Point, pressure: number): S {
   const q = imagePointAt(c.transform, c.width, c.height, c.clip, p);
   const n = s.points.length;
   const lastX = s.points[n - 3]!;
