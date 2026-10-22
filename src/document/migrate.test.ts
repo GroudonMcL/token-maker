@@ -115,6 +115,40 @@ describe('migrateDocument', () => {
     ]);
   });
 
+  it('upgrades a version 3 document: the pop-out starts on with an empty mask', () => {
+    const v3 = { schemaVersion: 3, art: { assetId: 'asset:x', strokes: [{ mode: 'erase', size: 0.1, softness: 0, points: [0.5, 0.5, 1] }] } };
+    const doc = migrateDocument(v3);
+    expect(doc.schemaVersion).toBe(SCHEMA_VERSION);
+    expect(doc.art.assetId).toBe('asset:x');
+    expect(doc.art.strokes).toHaveLength(1);
+    expect(doc.art.popOut).toEqual({ enabled: true, strokes: [] });
+  });
+
+  it('checks pop-out strokes and shadows', () => {
+    const doc = migrateDocument({
+      schemaVersion: SCHEMA_VERSION,
+      art: {
+        popOut: {
+          enabled: false,
+          strokes: [
+            { mode: 'erase', size: 0.1, softness: 0.2, points: [0.5, 0.5, 1] },
+            { mode: 'restore', points: [0.1, 0.1, 1] },
+            { points: null },
+          ],
+        },
+      },
+      shadows: { popOut: { enabled: false, followLight: false, angle: 30, distance: 9, opacity: -1, color: 'red' } },
+    });
+    expect(doc.art.popOut).toEqual({
+      enabled: false,
+      strokes: [
+        { mode: 'erase', size: 0.1, softness: 0.2, points: [0.5, 0.5, 1] },
+        { mode: 'add', size: 0.05, softness: 0.5, points: [0.1, 0.1, 1] },
+      ],
+    });
+    expect(doc.shadows.popOut).toMatchObject({ enabled: false, followLight: false, angle: 30, distance: 1, opacity: 0, color: '#000000' });
+  });
+
   it('refuses documents from a newer version', () => {
     expect(() => migrateDocument({ schemaVersion: SCHEMA_VERSION + 1 })).toThrow(DocumentVersionError);
   });

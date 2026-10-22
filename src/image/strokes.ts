@@ -4,17 +4,20 @@
 // for the export. Each stroke is drawn into its own buffer first (keeping the
 // strongest coverage), so overlapping brush dabs don't build up darker.
 
-import type { MaskStroke } from '../document/types';
+import type { MaskStroke, PopOutStroke } from '../document/types';
+
+/** An erase/restore stroke or a pop-out stroke: "erase" takes away, anything else adds. */
+export type AnyStroke = MaskStroke | PopOutStroke;
 
 /** Brush radius at a given pen pressure: light pressure still leaves a thin line. */
 export const pressureRadius = (radius: number, pressure: number) => radius * (0.25 + 0.75 * Math.min(1, Math.max(0, pressure)));
 
 /** Applies strokes to a 0–255 keep-mask in place. */
-export function applyStrokes(mask: Uint8Array, w: number, h: number, strokes: readonly MaskStroke[]): void {
+export function applyStrokes(mask: Uint8Array, w: number, h: number, strokes: readonly AnyStroke[]): void {
   for (const s of strokes) applyStroke(mask, w, h, s);
 }
 
-export function applyStroke(mask: Uint8Array, w: number, h: number, s: MaskStroke): void {
+export function applyStroke(mask: Uint8Array, w: number, h: number, s: AnyStroke): void {
   const n = Math.floor(s.points.length / 3);
   if (!n || !w || !h) return;
   const radius = Math.max(0.75, (s.size * Math.max(w, h)) / 2);

@@ -7,6 +7,7 @@ import { FrameSection } from './FrameSection';
 import { ImageSection } from './ImageSection';
 import { ImportSection } from './ImportSection';
 import { LightingSection } from './LightingSection';
+import { PopOutSection } from './PopOutSection';
 import { SizeSection } from './SizeSection';
 
 /** Sections that have been built. Others show their placeholder. */
@@ -16,6 +17,7 @@ export const SECTION_CONTENT: Partial<Record<SectionId, ComponentType>> = {
   background: BackgroundSection,
   foreground: ForegroundSection,
   lighting: LightingSection,
+  popout: PopOutSection,
   frame: FrameSection,
   size: SizeSection,
   export: ExportSection,

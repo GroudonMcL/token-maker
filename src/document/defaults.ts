@@ -160,7 +160,7 @@ export function createDocument(name = 'Untitled token'): TokenDocument {
     name,
     size: { preset: 'medium', squares: 1 },
     shape: 'circle',
-    art: { assetId: null, transform: { ...DEFAULT_TRANSFORM }, adjust: { ...DEFAULT_ADJUST }, removal: { ...DEFAULT_REMOVAL }, strokes: [] },
+    art: { assetId: null, transform: { ...DEFAULT_TRANSFORM }, adjust: { ...DEFAULT_ADJUST }, removal: { ...DEFAULT_REMOVAL }, strokes: [], popOut: { enabled: true, strokes: [] } },
     background: { ...DEFAULT_BACKGROUND, gradient: copyGradient(DEFAULT_BACKGROUND.gradient) },
     foreground: [],
     lighting: { ...DEFAULT_LIGHTING, rim: { ...DEFAULT_LIGHTING.rim } },

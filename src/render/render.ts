@@ -4,6 +4,7 @@
 
 import { computeInsets, perSquareToPx } from '../document/sizing';
 import { artEdits } from '../image/process';
+import { hasPopOut, popOutArt } from '../image/popOut';
 import { newCanvas, processedArt } from '../image/processedArt';
 import type { OuterShadow, TokenDocument } from '../document/types';
 import { parseHex, rgba } from './color';
@@ -51,11 +52,46 @@ export function renderToken(ctx: Ctx, doc: TokenDocument, assets: AssetMap, size
 
   ctx.save();
   ctx.clearRect(0, 0, size, size);
+  // Nothing is ever drawn outside the square (DESIGN.md §5), so the token
+  // lines up 1:1 with the grid, even when drawn into a bigger canvas.
+  ctx.beginPath();
+  ctx.rect(0, 0, size, size);
+  ctx.clip();
   ctx.translate(R, R);
+
+  // The processed art (step 5), and the pop-out parts of it (step 13) on a
+  // layer of their own: the outer shadow and the pop-out shadow need them too.
+  const shown = art ? (options.processedArt ?? processedArt(art, artEdits(doc)).source) : null;
+  const placeArt = (c: Ctx) => {
+    const t = doc.art.transform;
+    const unitClip = clip.map((p) => ({ x: p.x / R, y: p.y / R }));
+    const s = baseScale(art!.width, art!.height, unitClip) * t.zoom * R;
+    c.translate(t.offsetX * R, t.offsetY * R);
+    c.rotate((t.rotation * Math.PI) / 180);
+    c.scale(t.flipX ? -s : s, t.flipY ? -s : s);
+    c.imageSmoothingEnabled = true;
+    c.imageSmoothingQuality = 'high';
+  };
+  let pop: ReturnType<typeof newCanvas> | null = null;
+  if (art && shown && clip.length && hasPopOut(doc.art.popOut)) {
+    const parts = popOutArt(art, shown, doc.art.popOut.strokes);
+    pop = newCanvas(size, size);
+    const pctx = pop.getContext('2d') as Ctx;
+    pctx.translate(R, R);
+    placeArt(pctx);
+    pctx.drawImage(parts.image, -art.width / 2, -art.height / 2, art.width, art.height);
+  }
+  /** Fills the token's whole outline: the shape, plus pop-out parts (and decorations in Phase 7). */
+  const paintSilhouette = (c: Ctx, dx = 0) => {
+    tracePolygon(c, silhouette.map((p) => ({ x: p.x + dx, y: p.y })));
+    c.fillStyle = '#000';
+    c.fill();
+    if (pop) c.drawImage(pop as CanvasImageSource, -R + dx, -R);
+  };
 
   // 1. Outer drop shadow of the whole silhouette.
   if (doc.shadows.outer.enabled && silhouette.length) {
-    outerShadow(ctx, silhouette, doc.shadows.outer, doc.lighting.direction, px, size);
+    outerShadow(ctx, paintSilhouette, doc.shadows.outer, doc.lighting.direction, px, size);
   }
 
   // 2. Backing: shows through inner spacing, transparent art and letterboxed fits.
@@ -73,20 +109,12 @@ export function renderToken(ctx: Ctx, doc: TokenDocument, assets: AssetMap, size
 
   // 5. Processed art, clipped to the inner shape: the picture after
   // adjustments, background removal and brush strokes (src/image/), drawn
-  // with the move/zoom/rotate transform. Lighting joins in Phase 4.
-  if (art && clip.length) {
-    const shown = options.processedArt ?? processedArt(art, artEdits(doc)).source;
+  // with the move/zoom/rotate transform, then lit (Phase 4).
+  if (art && shown && clip.length) {
     ctx.save();
     tracePolygon(ctx, clip);
     ctx.clip();
-    const t = doc.art.transform;
-    const unitClip = clip.map((p) => ({ x: p.x / R, y: p.y / R }));
-    const s = baseScale(art.width, art.height, unitClip) * t.zoom * R;
-    ctx.translate(t.offsetX * R, t.offsetY * R);
-    ctx.rotate((t.rotation * Math.PI) / 180);
-    ctx.scale(t.flipX ? -s : s, t.flipY ? -s : s);
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
+    placeArt(ctx);
     ctx.drawImage(shown.image, -art.width / 2, -art.height / 2, art.width, art.height);
     ctx.restore();
   }
@@ -146,7 +174,24 @@ export function renderToken(ctx: Ctx, doc: TokenDocument, assets: AssetMap, size
 
   // 10. Effects on the border — Phase 6.
   // 11. Decorations — Phase 7.
-  // 12. Pop-out shadow and 13. pop-out art — Phase 5 (reuse the art from step 5).
+
+  if (pop) {
+    // 12. Pop-out shadow: cast by the pop-out parts onto the frame band only
+    // (the outer drop shadow already covers the space around the token).
+    if (hasFrame && doc.shadows.popOut.enabled) {
+      ctx.save();
+      ctx.beginPath();
+      traceInto(ctx, shapePolygon(doc.shape, R, insets.frameOuter * R));
+      traceInto(ctx, shapePolygon(doc.shape, R, insets.frameInner * R));
+      ctx.clip('evenodd');
+      castShadow(ctx, (c, dx) => c.drawImage(pop as CanvasImageSource, -R + dx, -R), doc.shadows.popOut, doc.lighting.direction, px, size);
+      ctx.restore();
+    }
+    // 13. Pop-out art: the same processed bitmap as step 5, drawn through the
+    // pop-out mask and clipped only to the square.
+    ctx.drawImage(pop as CanvasImageSource, -R, -R);
+  }
+
   // 14. Label — Phase 8.
 
   ctx.restore();
@@ -160,13 +205,19 @@ function shadowVector(shadow: OuterShadow, lightFrom: number): { x: number; y: n
   return { x: Math.cos(a), y: Math.sin(a) };
 }
 
+/** Adds a closed polygon to the current path (for clips with holes). */
+function traceInto(ctx: Ctx, points: { x: number; y: number }[]): void {
+  points.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+  ctx.closePath();
+}
+
 /**
- * Draws only the shadow of the silhouette, then clears the area under the
- * silhouette so the shadow never shows through transparent parts of the token.
+ * Draws only the shadow of whatever `paint` draws: the shape is painted far
+ * off the canvas and only its shadow is moved back onto it.
  */
-function outerShadow(
+function castShadow(
   ctx: Ctx,
-  silhouette: { x: number; y: number }[],
+  paint: (c: Ctx, dx: number) => void,
   shadow: OuterShadow,
   lightFrom: number,
   px: (v: number) => number,
@@ -179,16 +230,27 @@ function outerShadow(
   ctx.shadowBlur = px(shadow.blur);
   ctx.shadowOffsetX = fall.x * px(shadow.distance) + far;
   ctx.shadowOffsetY = fall.y * px(shadow.distance);
-  ctx.translate(-far, 0);
-  tracePolygon(ctx, silhouette);
-  ctx.fillStyle = '#000';
-  ctx.fill();
+  paint(ctx, -far);
   ctx.restore();
+}
+
+/**
+ * The outer drop shadow: only the shadow of the silhouette, then the area
+ * under the silhouette is cleared so the shadow never shows through
+ * transparent parts of the token.
+ */
+function outerShadow(
+  ctx: Ctx,
+  paint: (c: Ctx, dx?: number) => void,
+  shadow: OuterShadow,
+  lightFrom: number,
+  px: (v: number) => number,
+  size: number,
+): void {
+  castShadow(ctx, paint, shadow, lightFrom, px, size);
   ctx.save();
   ctx.globalCompositeOperation = 'destination-out';
-  tracePolygon(ctx, silhouette);
-  ctx.fillStyle = '#000';
-  ctx.fill();
+  paint(ctx);
   ctx.restore();
 }
 

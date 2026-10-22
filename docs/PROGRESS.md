@@ -62,13 +62,14 @@ A checklist of build phases, following [`BUILD-PROMPTS.md`](BUILD-PROMPTS.md). D
   - [x] Tests: pixel tests for every background type, gradient stops, picture move/zoom/blur, every overlay, every blend mode, overlay order, lighting direction/colour/falloff/rim and the background lighting; document v2 → v3; Playwright blurred forest + vignette + torchlight with export-matches-preview on desktop, tablet and phone, overlay list and presets, own background picture moved on the canvas
   - **Done when:** a character on a blurred forest background with a vignette and torchlight from below, export matching the preview ✔
 
-- [ ] **Phase 5 — Pop-out art and shadows**
-  - [ ] Pop-out mask brush (add/erase, size, softness), coloured overlay with show/hide, stored in art-image coordinates
-  - [ ] Pop-out drawn from the same processed-art bitmap (no seam), clipped only to the square
-  - [ ] Shadows (in the "Lighting & shadows" section): outer drop shadow, pop-out shadow, inner shadow; follow the light unless unlinked; per grid square
-  - [ ] Outer shadow silhouette includes pop-out parts (and decorations later)
-  - [ ] Tests: no seam, mask stays aligned after transform, nothing outside the square, shadow follows the light
-  - **Done when:** a dragon's horns break over the border with a matching shadow and stay on the dragon when the art moves
+- [x] **Phase 5 — Pop-out art and shadows**
+  - [x] Pop-out mask brush (add/erase, size, softness, pen pressure), teal overlay with show/hide, Pop-out on/off, Clear; stored in art-image coordinates (document v3 → v4)
+  - [x] Pop-out drawn from the same processed-art bitmap (no seam), clipped only to the square (the whole render is now clipped to the square)
+  - [x] Shadows (in the "Lighting & shadows" section): outer drop shadow, pop-out shadow (onto the frame band), inner shadow; follow the light unless unlinked; per grid square
+  - [x] Outer shadow silhouette includes pop-out parts (decorations join it in Phase 7)
+  - [x] Help for every control
+  - [x] Tests: pixel-identical seam test, mask stays aligned after move/rotate/flip, nothing outside the square, pop-out and drop shadows follow the light (and unlinked angle), drop shadow includes pop-out parts, pop-out off, migration v3 → v4; Playwright pop-out paint → move → undo → off with export matching the preview, and unlinking the shadow, on desktop, tablet and phone
+  - **Done when:** a dragon's horns break over the border with a matching shadow and stay on the dragon when the art moves ✔
 
 - [ ] **Phase 6 — Styles and effects**
   - [ ] Reorderable effect list; placement (behind art / over art / on border); Intensity; Advanced: colour, size, spread, Shuffle seed

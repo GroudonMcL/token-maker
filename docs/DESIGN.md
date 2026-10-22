@@ -83,7 +83,7 @@ interface TokenDocument {
 }
 ```
 
-*(Phase 1: the real type is in `src/document/types.ts`, defaults in `src/document/defaults.ts`. Later-phase layers have placeholder types. `art` holds the asset id plus its transform (zoom, offset, rotation, flipX, flipY, lockFill); `frame` holds the selected preset id, style, colour, highlights colour (`highlightColor`, null = the frame's own default), thickness, outer/inner spacing, backing colour and backing opacity (there is no frame opacity: frames are always solid); `shadows` holds outer, inner and pop-out settings. Saved documents go through `migrateDocument()` in `src/document/migrate.ts`, which runs version-by-version migrations and then checks every field, falling back to defaults. Phase 3 (schema version 2) added `art.adjust`, `art.removal` and `art.strokes`.)*
+*(Phase 1: the real type is in `src/document/types.ts`, defaults in `src/document/defaults.ts`. Later-phase layers have placeholder types. `art` holds the asset id plus its transform (zoom, offset, rotation, flipX, flipY, lockFill); `frame` holds the selected preset id, style, colour, highlights colour (`highlightColor`, null = the frame's own default), thickness, outer/inner spacing, backing colour and backing opacity (there is no frame opacity: frames are always solid); `shadows` holds outer, inner and pop-out settings. Saved documents go through `migrateDocument()` in `src/document/migrate.ts`, which runs version-by-version migrations and then checks every field, falling back to defaults. Phase 3 (schema version 2) added `art.adjust`, `art.removal` and `art.strokes`. Phase 5 (schema version 4) added `art.popOut` (`enabled` and its own `strokes`, which add or erase).)*
 
 Images themselves are **not** stored inside the document — the document holds asset ids (e.g. `asset:abc123`) that point to images held in memory/IndexedDB. This keeps presets small and shareable.
 
@@ -133,6 +133,8 @@ The same pipeline draws the preview and the export.
 14. **Label.**
 
 *(Phase 1: `renderToken(ctx, doc, assets, size)` in `src/render/render.ts` draws layers 1, 2, 5, 8 and 9; the other layers have marked empty slots. The extension drew the drop shadow and the shadow onto the art as part of each frame; here they are separate layers 1 and 8, so they can be switched off, follow the light, and include pop-out parts later. The outer shadow is drawn shadow-only and then cleared under the token, so it never shows through transparent parts.)*
+
+*(Phase 5: the whole render is clipped to the square, so nothing can land outside it even when drawn into a bigger canvas. The pop-out parts are drawn once per render onto a square layer (the processed art with the pop-out mask applied to its alpha, at the processed bitmap's own pixel size, then drawn with the art's transform). That one layer is used three times: in the outer drop shadow's silhouette (layer 1, which is also cleared under it), for the pop-out shadow (layer 12, clipped to the frame band, between its outer and inner edges, because the drop shadow already covers the space around the token), and as the pop-out art itself (layer 13). Decorations will join the same silhouette in Phase 7.)*
 
 Rules:
 
@@ -229,12 +231,16 @@ Each overlay: opacity, blend mode (normal, multiply, screen, overlay, soft light
 - Pop-out parts may extend over the border and outer spacing but are clipped to the square output.
 - Show the mask as a coloured overlay while painting; a toggle hides it.
 
+*(Phase 5, as built: the Pop-out section has a **Paint pop-out** button (a canvas tool like the erase/restore brush, with Add / Erase / Done on the canvas), Add/Erase, brush size, "Show the pop-out mask", **Pop-out on** (off keeps the painting but draws nothing over the border) and **Clear pop-out**; Advanced holds softness and pen pressure. Size, softness and pen pressure are shared with the erase/restore brush; the mode and the mask toggle are remembered in localStorage. The mask is tinted teal over the whole art (not only inside the frame, since pop-out parts reach past it), and while painting the frame is drawn at 50 % like the other brush. Strokes are stored like the erase/restore strokes, in the picture's 0–1 coordinates, and drawn into a mask at the picture's working size (up to 2048 px), only redrawing the newest stroke while painting. A new picture starts with an empty pop-out mask. Changing the pop-out never recomputes the processed art.)*
+
 ### 6.7 Shadows
 
 - **Outer drop shadow** (outside the token).
 - **Pop-out shadow** (cast by pop-out parts onto the border).
 - **Inner shadow** (the frame's shadow onto the art): on/off, strength, softness.
 - Outer and pop-out shadows **follow the light direction by default**; an "unlink" toggle reveals angle, distance, blur, colour and opacity.
+
+*(Phase 5, as built: the shadow controls are in the Lighting & shadows section, under the light: Drop shadow, Pop-out shadow and Inner shadow, each with an on/off switch. Drop and pop-out shadows have "follow the light"; switching it off shows a direction dial (the way the shadow falls, starting from where it was, so nothing jumps), distance, blur, colour and opacity. Distance, blur and inner-shadow softness are per square and shown as "% of a square". The inner shadow has strength and softness and falls the same way as the drop shadow.)*
 
 ### 6.8 Styles & effects
 

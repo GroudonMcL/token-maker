@@ -1,10 +1,11 @@
-import { Check, Eraser, ImagePlus, ScanSearch, Undo2 } from 'lucide-react';
+import { Check, Eraser, ImagePlus, Paintbrush, ScanSearch, Undo2 } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { useStore } from 'zustand';
-import type { ArtTransform, MaskStroke } from '../document/types';
+import type { ArtTransform, MaskStroke, PopOutStroke, TokenDocument } from '../document/types';
 import { HelpTip } from '../components/HelpTip';
 import { requestFullArt, useProcessedVersion } from '../image/artWorker';
-import { maskOverlay } from '../image/maskOverlay';
+import { maskOverlay, popOutOverlay } from '../image/maskOverlay';
+import { popOutMask } from '../image/popOut';
 import { artEdits } from '../image/process';
 import { DRAFT_SIDE, peekProcessedArt, processedArt, sourcePixels } from '../image/processedArt';
 import { artCorners, baseScale, imageClipPolygon, imagePointAt, rotateAround, zoomAround } from '../render/geometry';
@@ -38,7 +39,8 @@ type Gesture =
   | { kind: 'pan'; start: ArtTransform; x: number; y: number; distance: number; angle: number }
   | { kind: 'view'; start: View; x: number; y: number }
   | { kind: 'scale' | 'rotate'; start: ArtTransform; centre: Point; startPoint: Point }
-  | { kind: 'brush'; stroke: MaskStroke; index: number }
+  | { kind: 'brush'; target: 'mask'; stroke: MaskStroke; index: number }
+  | { kind: 'brush'; target: 'popout'; stroke: PopOutStroke; index: number }
   | { kind: 'background'; x: number; y: number; offsetX: number; offsetY: number };
 
 /**
@@ -61,6 +63,8 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
   const tool = useTool((s) => (art ? s.tool : 'move'));
   const brushSize = useTool((s) => s.brushSize);
   const showRemoved = useTool((s) => s.showRemoved);
+  const showPopOut = useTool((s) => s.showPopOut);
+  const painting = tool === 'brush' || tool === 'popout';
   const [cursor, setCursor] = useState<Point | null>(null);
 
   // Processed art: the full-size result when ready, else a quick copy (DESIGN.md §5).
@@ -166,7 +170,7 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
           token.height = px;
         }
         const tctx = token.getContext('2d');
-        if (tctx) renderToken(tctx, doc, assets, px, { processedArt: display?.source, frameAlpha: tool === 'brush' ? 0.5 : undefined });
+        if (tctx) renderToken(tctx, doc, assets, px, { processedArt: display?.source, frameAlpha: painting ? 0.5 : undefined });
       }
       const context = contextRef.current;
       if (context) {
@@ -180,7 +184,7 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
         if (ctx) ctx.clearRect(0, 0, w, h);
         if (ctx && art && display) drawArt(ctx, display.source.image, dpr);
       }
-      // Removed parts tinted red while the brush is on.
+      // Removed parts tinted red while the brush is on; the pop-out mask tinted teal while it is painted.
       const maskCanvas = maskRef.current;
       if (maskCanvas) {
         const w = Math.round(box.width * dpr);
@@ -201,12 +205,17 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
           drawArt(ctx, maskOverlay(display.mask, display.maskWidth, display.maskHeight), dpr);
           ctx.restore();
         }
+        if (ctx && art && tool === 'popout' && showPopOut && doc.art.popOut.strokes.length) {
+          // Not clipped: pop-out parts reach over the frame.
+          const m = popOutMask(art, doc.art.popOut.strokes);
+          drawArt(ctx, popOutOverlay(m.mask, m.w, m.h), dpr);
+        }
       }
     });
     return () => cancelAnimationFrame(frame);
     // clip and drawArt are derived from doc
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [box, R, cx, cy, doc, assets, art, display, tool, showRemoved]);
+  }, [box, R, cx, cy, doc, assets, art, display, tool, showRemoved, showPopOut]);
 
   const strokeContext = (): StrokeContext | null =>
     art ? { transform: doc.art.transform, width: art.width, height: art.height, clip, R } : null;
@@ -234,7 +243,7 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
 
   /** Removes a stroke that was just started (a second finger turned it into a pinch). */
   const cancelStroke = (g: Extract<Gesture, { kind: 'brush' }>) => {
-    updateDoc((d) => ({ ...d, art: { ...d.art, strokes: d.art.strokes.filter((_, i) => i !== g.index) } }), { transient: true });
+    updateDoc((d) => withStroke(d, g.target, (list) => list.filter((_, i) => i !== g.index)), { transient: true });
   };
 
   const onPointerDown = (e: ReactPointerEvent) => {
@@ -263,17 +272,20 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
       gesture.current = null;
       return;
     }
-    if (pointers.current.size === 1 && tool === 'brush') {
+    if (pointers.current.size === 1 && painting) {
       const c = strokeContext()!;
-      const { brushMode, brushSize: sizePx, brushSoftness, usePressure } = toolStore.getState();
-      const stroke = startStroke(c, toUnits(e.clientX, e.clientY), pointerPressure(e, usePressure), {
-        mode: brushMode,
-        sizePx,
-        softness: brushSoftness,
-      });
-      const index = doc.art.strokes.length;
-      gesture.current = { kind: 'brush', stroke, index };
-      updateDoc((d) => ({ ...d, art: { ...d.art, strokes: [...d.art.strokes, stroke] } }), { transient: true });
+      const { brushMode, popOutMode, brushSize: sizePx, brushSoftness, usePressure } = toolStore.getState();
+      const at = toUnits(e.clientX, e.clientY);
+      const pressure = pointerPressure(e, usePressure);
+      if (tool === 'popout') {
+        const stroke = startStroke<PopOutStroke>(c, at, pressure, { mode: popOutMode, sizePx, softness: brushSoftness });
+        gesture.current = { kind: 'brush', target: 'popout', stroke, index: doc.art.popOut.strokes.length };
+      } else {
+        const stroke = startStroke<MaskStroke>(c, at, pressure, { mode: brushMode, sizePx, softness: brushSoftness });
+        gesture.current = { kind: 'brush', target: 'mask', stroke, index: doc.art.strokes.length };
+      }
+      const g = gesture.current;
+      updateDoc((d) => withStroke(d, g.target, (list) => [...list, g.stroke]), { transient: true });
       return;
     }
     startPan();
@@ -293,7 +305,7 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
   };
 
   const onPointerMove = (e: ReactPointerEvent) => {
-    if (tool === 'brush' && e.pointerType !== 'touch') {
+    if (painting && e.pointerType !== 'touch') {
       const rect = stageRef.current!.getBoundingClientRect();
       setCursor({ x: e.clientX - rect.left, y: e.clientY - rect.top });
     }
@@ -316,7 +328,7 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
       const next = extendStroke(c, g.stroke, toUnits(e.clientX, e.clientY), pointerPressure(e, toolStore.getState().usePressure));
       if (next === g.stroke) return;
       g.stroke = next;
-      updateDoc((d) => ({ ...d, art: { ...d.art, strokes: d.art.strokes.map((s, i) => (i === g.index ? next : s)) } }), { transient: true });
+      updateDoc((d) => withStroke(d, g.target, (list) => list.map((s, i) => (i === g.index ? next : s))), { transient: true });
       return;
     }
     if (g.kind !== 'pan') return;
@@ -520,7 +532,7 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
         />
       )}
       {tool !== 'move' && <ToolBar bottom={reserveBottom + 12} />}
-      {tool === 'brush' && cursor && (
+      {painting && cursor && (
         <span className="stage__brush-cursor" aria-hidden="true" style={{ left: cursor.x, top: cursor.y, width: brushSize, height: brushSize }} />
       )}
       {art && view.scale > 1 && (
@@ -561,14 +573,22 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
 function ToolBar({ bottom }: { bottom: number }) {
   const tool = useTool((s) => s.tool);
   const mode = useTool((s) => s.brushMode);
+  const popOutMode = useTool((s) => s.popOutMode);
+  const names: Record<string, string> = { brush: 'Brush', background: 'Move background', popout: 'Pop-out brush', eyedropper: 'Eyedropper' };
   return (
-    <div
-      className="stage__toolbar"
-      role="toolbar"
-      aria-label={tool === 'brush' ? 'Brush' : tool === 'background' ? 'Move background' : 'Eyedropper'}
-      style={{ bottom }}
-    >
-      {tool === 'brush' ? (
+    <div className="stage__toolbar" role="toolbar" aria-label={names[tool]} style={{ bottom }}>
+      {tool === 'popout' ? (
+        <>
+          <button type="button" className="stage__tool-btn" aria-pressed={popOutMode === 'add'} onClick={() => setBrush({ popOutMode: 'add' })}>
+            <Paintbrush size={16} aria-hidden="true" />
+            Add
+          </button>
+          <button type="button" className="stage__tool-btn" aria-pressed={popOutMode === 'erase'} onClick={() => setBrush({ popOutMode: 'erase' })}>
+            <Eraser size={16} aria-hidden="true" />
+            Erase
+          </button>
+        </>
+      ) : tool === 'brush' ? (
         <>
           <button type="button" className="stage__tool-btn" aria-pressed={mode === 'erase'} onClick={() => setBrush({ brushMode: 'erase' })}>
             <Eraser size={16} aria-hidden="true" />
@@ -590,6 +610,16 @@ function ToolBar({ bottom }: { bottom: number }) {
       </button>
     </div>
   );
+}
+
+/** The document with one of the art's stroke lists changed: the erase/restore mask's or the pop-out's. */
+function withStroke<S extends MaskStroke | PopOutStroke>(
+  d: TokenDocument,
+  target: 'mask' | 'popout',
+  change: (list: S[]) => S[],
+): TokenDocument {
+  if (target === 'popout') return { ...d, art: { ...d.art, popOut: { ...d.art.popOut, strokes: change(d.art.popOut.strokes as S[]) as PopOutStroke[] } } };
+  return { ...d, art: { ...d.art, strokes: change(d.art.strokes as S[]) as MaskStroke[] } };
 }
 
 /** Is `p` inside the convex polygon `poly` (either winding)? */

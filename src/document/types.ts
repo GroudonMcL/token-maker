@@ -3,7 +3,7 @@
 
 import type { FrameStyle, ShapeId } from '../render/catalog';
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 export type SizePreset = 'tiny' | 'small' | 'medium' | 'large' | 'huge' | 'gargantuan' | 'custom';
 
@@ -52,6 +52,8 @@ export interface ArtLayer {
   removal: BackgroundRemoval;
   /** Erase/restore brush strokes on the removal mask, in order (Phase 3). */
   strokes: MaskStroke[];
+  /** Parts painted to be drawn over the border (Phase 5). */
+  popOut: PopOutSettings;
 }
 
 /**
@@ -102,6 +104,23 @@ export interface MaskStroke {
   points: number[];
 }
 
+/** A pop-out brush stroke: like a mask stroke, but it adds to or erases the pop-out mask. */
+export interface PopOutStroke extends Omit<MaskStroke, 'mode'> {
+  mode: 'add' | 'erase';
+}
+
+/**
+ * Pop-out (DESIGN.md §6.6): the parts of the art drawn on top of the border.
+ * The mask starts empty and is painted with strokes, stored in the art
+ * image's own coordinates like the erase/restore strokes, so it moves,
+ * zooms, rotates and flips with the art.
+ */
+export interface PopOutSettings {
+  /** Off keeps the painted mask but draws nothing over the border. */
+  enabled: boolean;
+  strokes: PopOutStroke[];
+}
+
 export interface FrameSettings {
   kind: 'code';
   /** Which preset tile is selected (two presets can share a style, e.g. Arcane/Infernal). */
@@ -120,9 +139,10 @@ export interface FrameSettings {
   backingOpacity: number;
 }
 
+/** The outer drop shadow and the pop-out shadow share these settings. */
 export interface OuterShadow {
   enabled: boolean;
-  /** Follow the light direction (Phase 4/5); when false, `angle` is used. */
+  /** Follow the light direction; when false ("unlinked"), `angle` is used. */
   followLight: boolean;
   /** Direction the shadow falls, degrees (0 = right, 90 = down). */
   angle: number;
@@ -145,7 +165,7 @@ export interface InnerShadow {
 export interface ShadowSettings {
   outer: OuterShadow;
   inner: InnerShadow;
-  /** Pop-out shadow: Phase 5. */
+  /** The shadow pop-out parts cast onto the border. */
   popOut: OuterShadow;
 }
 

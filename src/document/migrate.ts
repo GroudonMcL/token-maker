@@ -15,6 +15,7 @@ import {
   type LightPresetId,
   type MaskStroke,
   type OverlayKind,
+  type PopOutStroke,
   type OverlayLayer,
   type TokenDocument,
 } from './types';
@@ -33,6 +34,8 @@ export const MIGRATIONS: Record<number, (doc: Json) => Json> = {
   // v2 → v3 (Phase 4): background, foreground overlays and lighting. The old
   // placeholders hold nothing worth keeping except the light direction.
   2: (doc) => doc,
+  // v3 → v4 (Phase 5): pop-out mask strokes start empty (filled in by sanitize).
+  3: (doc) => doc,
 };
 
 export class DocumentVersionError extends Error {}
@@ -157,14 +160,22 @@ function adjustments(raw: Json): ImageAdjustments {
 }
 
 function strokes(raw: unknown): MaskStroke[] {
-  const out: MaskStroke[] = [];
+  return brushStrokes(raw, (m) => (m === 'restore' ? 'restore' : 'erase'));
+}
+
+function popOutStrokes(raw: unknown): PopOutStroke[] {
+  return brushStrokes(raw, (m) => (m === 'erase' ? 'erase' : 'add'));
+}
+
+function brushStrokes<M extends string>(raw: unknown, mode: (m: unknown) => M): (Omit<MaskStroke, 'mode'> & { mode: M })[] {
+  const out: (Omit<MaskStroke, 'mode'> & { mode: M })[] = [];
   let total = 0;
   for (const s of arr(raw)) {
     const points = Array.isArray(s.points) ? s.points.filter((n): n is number => typeof n === 'number' && Number.isFinite(n)) : [];
     if (points.length < 3 || total + points.length > MAX_STROKE_NUMBERS) continue;
     total += points.length;
     out.push({
-      mode: s.mode === 'restore' ? 'restore' : 'erase',
+      mode: mode(s.mode),
       size: num(s.size, 0.05, 0.0005, 2),
       softness: num(s.softness, 0.5, 0, 1),
       points: points.slice(0, points.length - (points.length % 3)),
@@ -200,6 +211,7 @@ export function sanitize(raw: Json): TokenDocument {
   const assetId = art.assetId;
   const removal = obj(art.removal);
   const removalColor = removal.color === null ? null : hex(removal.color, '');
+  const popOut = obj(art.popOut);
 
   return {
     schemaVersion: SCHEMA_VERSION,
@@ -229,6 +241,7 @@ export function sanitize(raw: Json): TokenDocument {
         softness: num(removal.softness, d.art.removal.softness, 0, 100),
       },
       strokes: strokes(art.strokes),
+      popOut: { enabled: bool(popOut.enabled, d.art.popOut.enabled), strokes: popOutStrokes(popOut.strokes) },
     },
     background: background(obj(raw.background), d.background),
     foreground: arr(raw.foreground).slice(0, MAX_OVERLAYS).map((o, i) => overlay(o, i)),

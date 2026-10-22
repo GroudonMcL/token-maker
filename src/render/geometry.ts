@@ -153,3 +153,12 @@ export function imagePointAt(t: ArtTransform, w: number, h: number, clip: Point[
   const y = (r.y / s) * (t.flipY ? -1 : 1);
   return { x: (x + w / 2) / w, y: (y + h / 2) / h };
 }
+
+/** Where a spot on the picture (0–1 across its width and height) is drawn, in token units: the reverse of imagePointAt. */
+export function tokenPointAt(t: ArtTransform, w: number, h: number, clip: Point[], q: Point): Point {
+  const s = baseScale(w, h, clip) * t.zoom;
+  const x = (q.x * w - w / 2) * s * (t.flipX ? -1 : 1);
+  const y = (q.y * h - h / 2) * s * (t.flipY ? -1 : 1);
+  const r = rotatePoint({ x, y }, (t.rotation * Math.PI) / 180);
+  return { x: r.x + t.offsetX, y: r.y + t.offsetY };
+}
