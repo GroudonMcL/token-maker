@@ -2,9 +2,9 @@ import { Brush, Eraser, Pipette, RotateCcw, Sparkles, Undo2 } from 'lucide-react
 import { useMemo } from 'react';
 import { useStore } from 'zustand';
 import { Advanced, ControlLabel, SegmentedButtons, Slider, Toggle } from '../components';
-import { DEFAULT_ADJUST } from '../document/defaults';
+import { DEFAULT_ADJUST, DEFAULT_REMOVAL } from '../document/defaults';
 import type { BackgroundRemoval, ImageAdjustments } from '../document/types';
-import { BRUSH_MAX, BRUSH_MIN, setBrush, setTool, useTool } from '../editor/tools';
+import { BRUSH_MAX, BRUSH_MIN, DEFAULTS as TOOL_DEFAULTS, setBrush, setTool, useTool } from '../editor/tools';
 import type { HelpId } from '../help/helpContent';
 import { DRAFT_SIDE, sourcePixels } from '../image/processedArt';
 import { detectEdgeColor } from '../image/removal';
@@ -78,6 +78,7 @@ function AdjustSlider({ def, value }: { def: AdjustDef; value: number }) {
       max={def.max}
       unit={def.unit}
       value={value}
+      defaultValue={DEFAULT_ADJUST[def.key]}
       onChange={(v) => setAdjust({ [def.key]: v }, true)}
       onCommit={commitDoc}
     />
@@ -170,6 +171,7 @@ function BackgroundRemovalControls() {
           <Slider
             label="Intensity"
             helpId="image.intensity"
+            defaultValue={DEFAULT_REMOVAL.intensity}
             min={0}
             max={100}
             value={removal.intensity}
@@ -179,6 +181,7 @@ function BackgroundRemovalControls() {
           <Slider
             label="Edge softness"
             helpId="image.softness"
+            defaultValue={DEFAULT_REMOVAL.softness}
             min={0}
             max={100}
             value={removal.softness}
@@ -225,6 +228,7 @@ function BrushControls() {
         label="Brush size"
         helpId="image.brushSize"
         unit="px"
+        defaultValue={TOOL_DEFAULTS.brushSize}
         min={BRUSH_MIN}
         max={BRUSH_MAX}
         value={size}
@@ -235,6 +239,7 @@ function BrushControls() {
           label="Softness"
           helpId="image.brushSoftness"
           unit="%"
+          defaultValue={TOOL_DEFAULTS.brushSoftness}
           min={0}
           max={100}
           value={softness}

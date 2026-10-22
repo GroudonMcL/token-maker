@@ -16,6 +16,8 @@ export interface FrameGeometry {
   outer: number;
   inner: number;
   color: string;
+  /** Colour of a frame's own-coloured details (beads, eyes, thread…); the frame's default when not set. */
+  accent?: string;
 }
 
 export const bandWidth = (g: FrameGeometry) => g.inner - g.outer;

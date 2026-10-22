@@ -48,6 +48,12 @@ describe('Slider', () => {
     render(<Slider label="Hue" helpId="kit.slider" min={0} max={10} value={7} onChange={() => {}} />);
     expect(screen.getByRole('textbox', { name: 'Hue value' })).toHaveValue('7');
   });
+
+  it('marks the default value with a notch, and has no "?" button of its own', () => {
+    const { container } = render(<Slider label="Hue" helpId="kit.slider" min={0} max={10} value={7} defaultValue={5} onChange={() => {}} />);
+    expect(container.querySelector('.slider__notch')).toHaveStyle({ left: 'calc(var(--thumb) / 2 + (100% - var(--thumb)) * 0.5)' });
+    expect(screen.queryByRole('button')).toBeNull();
+  });
 });
 
 describe('Section', () => {

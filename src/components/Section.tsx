@@ -79,7 +79,6 @@ export function Advanced({ helpId = 'kit.advanced', children }: { helpId?: HelpI
           <ChevronDown className="advanced__chevron" aria-hidden="true" size={16} />
           Advanced
         </button>
-        <HelpTip id={helpId} />
       </div>
       <div className="advanced__body" id={bodyId} hidden={!open}>
         {children}

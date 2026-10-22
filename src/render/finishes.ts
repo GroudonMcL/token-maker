@@ -37,7 +37,21 @@ export interface Finish {
   texture?: (ctx: Ctx, g: FrameGeometry, tables: LitTables, base: string) => void;
   /** Painted last, over the rims; may reach past the band. */
   ornament?: (ctx: Ctx, g: FrameGeometry, base: string) => void;
+  /**
+   * Default colour of details that don't follow the frame colour (Monk's jade
+   * beads, Warlock's eyes…). Frames with one get a "Frame highlights colour"
+   * control, which sets `g.accent`.
+   */
+  accent?: string;
 }
+
+const STAR = '#ffffff';
+const NOTE_INK = '#f3d27a';
+const JADE = '#3d8c6a';
+const HOLY_GOLD = '#d9ad4a';
+const FLETCH_RED = '#b0402a';
+const THREAD = '#d8cbb0';
+const IRIS = '#c7e04a';
 
 /** How dark the band is at a point, 0 (lit) to 1 (darkest), from its table. */
 function darknessAt(tables: LitTables): (x: number, y: number) => number {
@@ -566,6 +580,7 @@ const starfield: Finish = {
   base: (c) => mix(shade(c, -0.8), '#0b0d1e', 0.5),
   lighting: { light: 0.35, dark: 0.6, highlight: '#4a4f7a' },
   step: 0.25,
+  accent: STAR,
   texture: (ctx, g) => {
     const w = bandWidth(g);
     const random = seededRandom(0x57a2);
@@ -579,7 +594,7 @@ const starfield: Finish = {
     for (const p of alongBand(g, countFor(g, w * 0.07))) {
       const across = (random() - 0.5) * w;
       const r = Math.max(0.4, w * (0.008 + random() ** 3 * 0.04));
-      ctx.fillStyle = `rgba(255, 255, 255, ${0.4 + random() * 0.6})`;
+      ctx.fillStyle = rgba(g.accent ?? STAR, 0.4 + random() * 0.6);
       ctx.beginPath();
       ctx.arc(p.x - Math.sin(p.angle) * across, p.y + Math.cos(p.angle) * across, r, 0, Math.PI * 2);
       ctx.fill();
@@ -632,9 +647,10 @@ const notes: Finish = {
     groove(ctx, g, 0.4, base, 0.04);
     groove(ctx, g, 0.55, base, 0.04);
   },
+  accent: NOTE_INK,
   ornament: (ctx, g) => {
     const w = bandWidth(g);
-    const ink = '#f3d27a';
+    const ink = g.accent ?? NOTE_INK;
     const random = seededRandom(0xba7e);
     for (const p of alongBand(g, countFor(g, w * 1.7), 0.5)) {
       atPoint(ctx, p, () => {
@@ -707,6 +723,7 @@ const beads: Finish = {
   lighting: { light: 0.5, dark: 0.75 },
   step: 0,
   texture: (ctx, g, _t, base) => ropeStrands(ctx, g, base, 0xbead),
+  accent: JADE,
   ornament: (ctx, g) => {
     const w = bandWidth(g);
     const bead = mix(g.color, '#3a2010', 0.55);
@@ -716,7 +733,7 @@ const beads: Finish = {
       // Every ninth is a large jade bead; its neighbours make way for it.
       if (k === 1 || k === 8) return;
       raised(ctx, w);
-      sphere(ctx, p.x, p.y, w * (k === 0 ? 0.5 : 0.27), k === 0 ? '#3d8c6a' : bead);
+      sphere(ctx, p.x, p.y, w * (k === 0 ? 0.5 : 0.27), k === 0 ? (g.accent ?? JADE) : bead);
     });
     noShadow(ctx);
   },
@@ -727,16 +744,17 @@ const holy: Finish = {
   lighting: { light: 0.95, dark: 0.75, highlight: '#ffffff' },
   step: 0.35,
   texture: (ctx, g, _t, base) => groove(ctx, g, 0.3, base, 0.05),
+  accent: HOLY_GOLD,
   ornament: (ctx, g) => {
     const w = bandWidth(g);
-    const gold = '#d9ad4a';
+    const gold = g.accent ?? HOLY_GOLD;
     const pts = alongBand(g, ornamentCount(g.shape, 8), 0.42);
     pts.forEach((p) => {
       atPoint(ctx, p, () => {
         raised(ctx, w);
         const s = w * 0.48;
         const gradient = ctx.createLinearGradient(-s, -s, s, s);
-        gradient.addColorStop(0, '#fff0b8');
+        gradient.addColorStop(0, gold === HOLY_GOLD ? '#fff0b8' : mix(gold, '#ffffff', 0.65));
         gradient.addColorStop(1, shade(gold, -0.45));
         ctx.fillStyle = gradient;
         const t = w * 0.1;
@@ -757,12 +775,13 @@ const holy: Finish = {
 const fletching: Finish = {
   lighting: { light: 0.6, dark: 0.75 },
   step: 0.25,
+  accent: FLETCH_RED,
   texture: (ctx, g, _t, base) => {
     const w = bandWidth(g);
     const pts = alongBand(g, countFor(g, w * 0.4), 0.45);
     pts.forEach((p, i) => {
       atPoint(ctx, p, () => {
-        ctx.strokeStyle = i % 4 < 2 ? rgba(shade(base, 0.5), 0.55) : rgba(mix(base, '#b0402a', 0.5), 0.7);
+        ctx.strokeStyle = i % 4 < 2 ? rgba(shade(base, 0.5), 0.55) : rgba(mix(base, g.accent ?? FLETCH_RED, 0.5), 0.7);
         ctx.lineWidth = w * 0.09;
         ctx.lineJoin = 'round';
         ctx.beginPath();
@@ -780,6 +799,7 @@ const fletching: Finish = {
 const stitched: Finish = {
   lighting: { light: 0.45, dark: 0.7 },
   step: 0.25,
+  accent: THREAD,
   texture: (ctx, g, _t, base) => {
     hammerTexture(ctx, g, rgba(shade(base, -0.6), 0.25), rgba(shade(base, 0.5), 0.12), 14, 0.4, 0x5717);
     const w = bandWidth(g);
@@ -795,7 +815,7 @@ const stitched: Finish = {
           ctx.moveTo(-w * 0.07, w * 0.015);
           ctx.lineTo(w * 0.07, w * 0.015);
           ctx.stroke();
-          ctx.strokeStyle = '#d8cbb0';
+          ctx.strokeStyle = g.accent ?? THREAD;
           ctx.lineWidth = w * 0.04;
           ctx.beginPath();
           ctx.moveTo(-w * 0.07, 0);
@@ -899,7 +919,8 @@ const eyes: Finish = {
   lighting: { light: 0.5, dark: 0.75 },
   step: 0.25,
   texture: (ctx, g, tables, base) => marble(ctx, g, tables, base, 0xe7e, 1.4),
-  ornament: (ctx, g) => eyesOrnament(ctx, g, ornamentCount(g.shape, 6), '#c7e04a', 0.5),
+  accent: IRIS,
+  ornament: (ctx, g) => eyesOrnament(ctx, g, ornamentCount(g.shape, 6), g.accent ?? IRIS, 0.5),
 };
 
 /** Sorcerer: large draconic scales. */

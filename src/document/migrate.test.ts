@@ -26,6 +26,17 @@ describe('migrateDocument', () => {
     expect(doc.shadows.inner.enabled).toBe(true);
   });
 
+  it('drops frame opacity, unlocks the art and checks the highlights colour', () => {
+    const base = createDocument();
+    const old = { ...base, art: { ...base.art, transform: { ...base.art.transform, lockFill: true } }, frame: { ...base.frame, opacity: 0.5 } };
+    const doc = migrateDocument(JSON.parse(JSON.stringify(old)));
+    expect(doc.frame).not.toHaveProperty('opacity');
+    expect(doc.art.transform.lockFill).toBe(false);
+    expect(doc.frame.highlightColor).toBeNull();
+    expect(migrateDocument({ ...base, frame: { ...base.frame, highlightColor: '#AABBCC' } }).frame.highlightColor).toBe('#aabbcc');
+    expect(migrateDocument({ ...base, frame: { ...base.frame, highlightColor: 'green' } }).frame.highlightColor).toBeNull();
+  });
+
   it('clamps custom sizes', () => {
     expect(migrateDocument({ schemaVersion: 1, size: { preset: 'custom', squares: 50 } }).size.squares).toBe(10);
     expect(migrateDocument({ schemaVersion: 1, size: { preset: 'custom', squares: 0.1 } }).size.squares).toBe(0.5);

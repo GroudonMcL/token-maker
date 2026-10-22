@@ -21,7 +21,7 @@ export const DEFAULT_TRANSFORM: ArtTransform = {
   rotation: 0,
   flipX: false,
   flipY: false,
-  lockFill: true,
+  lockFill: false,
 };
 
 export const DEFAULT_ADJUST: ImageAdjustments = {
@@ -71,10 +71,10 @@ export function createDocument(name = 'Untitled token'): TokenDocument {
       presetId: 'stamped',
       style: 'stamped',
       color: '#d7671f',
+      highlightColor: null,
       thickness: 0.14,
       outerSpacing: 0.1,
       innerSpacing: 0,
-      opacity: 1,
       backingColor: '#1d1f27',
       backingOpacity: 1,
     },

@@ -28,6 +28,7 @@ export function SizeSection() {
           min={MIN_SQUARES}
           max={MAX_SQUARES}
           step={0.5}
+          defaultValue={1}
           value={size.squares}
           onChange={(v) => updateFrameAndArt((d) => ({ ...d, size: { preset: 'custom', squares: v } }), { transient: true })}
           onCommit={commitDoc}

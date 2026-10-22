@@ -28,6 +28,9 @@ let makeCanvas = (w: number, h: number): AnyCanvas => {
   return new OffscreenCanvas(w, h);
 };
 
+/** A new canvas from the current maker (the browser's, or a test's). */
+export const newCanvas = (w: number, h: number): AnyCanvas => makeCanvas(w, h);
+
 /** Tests outside the browser pass their own canvas maker. */
 export function setCanvasFactory(factory: (w: number, h: number) => AnyCanvas): void {
   makeCanvas = factory;

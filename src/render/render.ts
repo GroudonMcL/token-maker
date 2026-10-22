@@ -3,7 +3,7 @@
 // It is a pure function of (document, assets, size): it reads nothing else.
 
 import { computeInsets, perSquareToPx } from '../document/sizing';
-import { processedArt } from '../image/processedArt';
+import { newCanvas, processedArt } from '../image/processedArt';
 import type { OuterShadow, TokenDocument } from '../document/types';
 import { parseHex, rgba } from './color';
 import { tracePolygon, type Ctx } from './frameKit';
@@ -27,6 +27,11 @@ export interface RenderOptions {
    * low-resolution copy the preview uses while a slider is dragged.
    */
   processedArt?: RenderSource;
+  /**
+   * Draw the frame (and its shadow onto the art) see-through, 0–1: 0.5 while
+   * the brush is on, so the art under it can be seen. Editor only.
+   */
+  frameAlpha?: number;
 }
 
 /** Paints `doc` into a `size`×`size` area starting at the context's origin. */
@@ -85,38 +90,52 @@ export function renderToken(ctx: Ctx, doc: TokenDocument, assets: AssetMap, size
   // 6. Foreground overlays — Phase 4.
   // 7. Effects over the art — Phase 6.
 
+  // 8–9 go on their own layer when the frame is to be see-through, so its
+  // overlapping strokes fade evenly (editor only, never in exports).
+  const fade = options.frameAlpha !== undefined && options.frameAlpha < 1 && hasFrame;
+  const layer = fade ? newCanvas(size, size) : null;
+  const fctx = layer ? (layer.getContext('2d') as Ctx) : ctx;
+  if (layer) fctx.translate(R, R);
+
   // 8. Inner shadow: the frame's shadow onto the art.
   const inner = doc.shadows.inner;
   if (hasFrame && inner.enabled && inner.strength > 0 && clip.length) {
     const band = (insets.frameInner - insets.frameOuter) * R;
     const fall = shadowVector(doc.shadows.outer, doc.lighting.direction);
-    ctx.save();
-    tracePolygon(ctx, clip);
-    ctx.clip();
-    ctx.shadowColor = `rgba(0, 0, 0, ${inner.strength})`;
-    ctx.shadowBlur = px(inner.softness);
-    ctx.shadowOffsetX = fall.x * px(0.024);
-    ctx.shadowOffsetY = fall.y * px(0.024);
+    fctx.save();
+    tracePolygon(fctx, clip);
+    fctx.clip();
+    fctx.shadowColor = `rgba(0, 0, 0, ${inner.strength})`;
+    fctx.shadowBlur = px(inner.softness);
+    fctx.shadowOffsetX = fall.x * px(0.024);
+    fctx.shadowOffsetY = fall.y * px(0.024);
     // A thick ring just outside the clip whose shadow falls inwards.
     const ring = Math.max(band, px(0.1));
-    tracePolygon(ctx, shapePolygon(doc.shape, R, Math.max(0, insets.image * R - ring / 2)));
-    ctx.lineWidth = ring;
-    ctx.strokeStyle = '#000';
-    ctx.stroke();
-    ctx.restore();
+    tracePolygon(fctx, shapePolygon(doc.shape, R, Math.max(0, insets.image * R - ring / 2)));
+    fctx.lineWidth = ring;
+    fctx.strokeStyle = '#000';
+    fctx.stroke();
+    fctx.restore();
   }
 
   // 9. Frame.
   if (hasFrame) {
-    ctx.save();
-    ctx.globalAlpha = Math.min(1, Math.max(0, doc.frame.opacity));
-    drawFrame(ctx, doc.frame.style, {
+    fctx.save();
+    drawFrame(fctx, doc.frame.style, {
       shape: doc.shape,
       R,
       outer: insets.frameOuter * R,
       inner: insets.frameInner * R,
       color: doc.frame.color,
+      accent: doc.frame.highlightColor ?? undefined,
     });
+    fctx.restore();
+  }
+
+  if (layer) {
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, options.frameAlpha!);
+    ctx.drawImage(layer as CanvasImageSource, -R, -R);
     ctx.restore();
   }
 
