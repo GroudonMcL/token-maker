@@ -8,6 +8,7 @@ import { ForegroundSection } from './ForegroundSection';
 import { FrameSection } from './FrameSection';
 import { ImageSection } from './ImageSection';
 import { ImportSection } from './ImportSection';
+import { LabelSection } from './LabelSection';
 import { LightingSection } from './LightingSection';
 import { PopOutSection } from './PopOutSection';
 import { PresetsSection } from './PresetsSection';
@@ -25,6 +26,7 @@ export const SECTION_CONTENT: Partial<Record<SectionId, ComponentType>> = {
   frame: FrameSection,
   decorations: DecorationsSection,
   size: SizeSection,
+  label: LabelSection,
   presets: PresetsSection,
   export: ExportSection,
 };

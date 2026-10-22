@@ -61,7 +61,8 @@ export function rayToPolygon(poly: readonly Point[], deg: number): number {
     if (Math.abs(den) < 1e-12) continue;
     const t = (p.x * ey - p.y * ex) / den;
     const u = (p.x * dy - p.y * dx) / den;
-    if (t > 0 && u >= 0 && u <= 1) best = Math.max(best, t);
+    // A little slack, so a ray through a corner exactly still hits it.
+    if (t > 0 && u >= -1e-9 && u <= 1 + 1e-9) best = Math.max(best, t);
   }
   return best;
 }

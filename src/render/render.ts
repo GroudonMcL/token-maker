@@ -15,6 +15,7 @@ import { drawOverlays } from './overlays';
 import { drawEffects, needsSubject, type EffectArea, type Subject } from './effects';
 import { baseScale, imageClipPolygon } from './geometry';
 import { drawDecorations } from './decorations';
+import { drawLabel } from './label';
 import { activeImageFrame, drawImageFrame, frameAssetId } from './imageFrames';
 import { shapePolygon } from './shapes';
 
@@ -281,7 +282,8 @@ export function renderToken(ctx: Ctx, doc: TokenDocument, assets: AssetMap, size
     ctx.drawImage(pop as CanvasImageSource, -R, -R);
   }
 
-  // 14. Label — Phase 8.
+  // 14. Label (src/render/label.ts).
+  if (doc.label) drawLabel(ctx, doc, R, size);
 
   ctx.restore();
 }

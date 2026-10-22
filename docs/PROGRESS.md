@@ -88,14 +88,15 @@ A checklist of build phases, following [`BUILD-PROMPTS.md`](BUILD-PROMPTS.md). D
   - [x] Tests: hole detection (sample frames and every built-in), snapping/mirroring maths, decoration and picture-frame pixel tests, preset round trip (file and code), old-preset and v5 document migration, the three new panels; Playwright ring upload → mirrored horns → save → export → load in another browser (file and code), decoration drag and built-in frame, on desktop, tablet and phone
   - **Done when:** upload a ring PNG, add mirrored horns, save a preset, export it and load it in another browser ✔
 
-- [ ] **Phase 8 — Label**
-  - [ ] Shapes: banner/ribbon, plaque, pill, box, curved ring text; free drag with top/bottom snapping
-  - [ ] Shape colour/opacity/outline; text font, size, colour, outline, shadow, spacing, bold/italic, alignment; per grid square
-  - [ ] Bundled fantasy fonts (DESIGN.md §6.10), export waits for fonts, font picker previews each font
-  - [ ] Upload your own font (saved in IndexedDB)
-  - [ ] Shrink-to-fit for long names
-  - [ ] Tests: export uses the chosen font, curved text, shrink-to-fit
-  - **Done when:** a ribbon label in a fantasy font, or the name curved round the ring, and the export matches
+- [x] **Phase 8 — Label**
+  - [x] Shapes: banner/ribbon (with a bend), plaque, pill, box (rounded or sharp), curved ring text following any token shape or a picture frame's hole; drag on the canvas with top/bottom snapping (Alt = free), or Top/Bottom/Free in the panel; document v6 → v7
+  - [x] Shape colour/opacity/outline; text (defaults to the token name), font, size, colour, outline, shadow, letter spacing, bold/italic, alignment; per grid square
+  - [x] 15 bundled OFL fantasy fonts from @fontsource (credited in ASSETS-CREDITS.md), loaded with the FontFace API; the export waits for the font; the picker shows each name in its own font
+  - [x] Upload your own font (.ttf/.otf/.woff/.woff2, saved in IndexedDB; travels with shared presets)
+  - [x] Shrink-to-fit for long names (off: the shape grows instead)
+  - [x] `npm run label-sheet` for checking by eye
+  - [x] Tests: export uses the chosen font (pixel test against other fonts and a fallback), curved text follows every token shape and a picture frame, bent banners, shrink-to-fit (no text pixels off the shape), per-square size, snapping and dragging, migration v6 → v7, presets keep style not words and carry uploaded fonts, the panel; Playwright banner in Pirata One → another font → ring text → long name → reload, drag to snap, and font upload, on desktop, tablet and phone
+  - **Done when:** a ribbon label in a fantasy font, or the name curved round the ring, and the export matches ✔
 
 - [ ] **Phase 9 — Export and batch mode**
   - [ ] Export panel: PNG / WebP / JPG (fill colour), pixels per square (128, 256, 400, 512, custom) with final size and 4096 px cap, safe file name, Download, Copy to clipboard with fallback

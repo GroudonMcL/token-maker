@@ -1,4 +1,4 @@
-import { createDocument, MAX_DECORATIONS, MAX_EFFECTS, newDecoration, newEffect } from './defaults';
+import { createDocument, MAX_DECORATIONS, MAX_EFFECTS, newDecoration, newEffect, newLabel } from './defaults';
 import { DocumentVersionError, migrateDocument } from './migrate';
 import { SCHEMA_VERSION } from './types';
 
@@ -225,5 +225,40 @@ describe('migrateDocument', () => {
     expect(broken.frame.kind).toBe('code');
     expect(broken.frame.image).toBeNull();
     expect(migrateDocument({ ...base, decorations: Array.from({ length: 40 }, (_, i) => newDecoration('star', `s${i}`)) }).decorations).toHaveLength(MAX_DECORATIONS);
+  });
+  it('upgrades a version 6 document: the old label placeholder is dropped', () => {
+    const v6 = { ...JSON.parse(JSON.stringify(createDocument('Orc'))), schemaVersion: 6, label: { text: 'Orc' } };
+    const doc = migrateDocument(v6);
+    expect(doc.schemaVersion).toBe(SCHEMA_VERSION);
+    expect(doc.label).toBeNull();
+  });
+
+  it('keeps a label and checks every field', () => {
+    const base = createDocument('Orc');
+    const label = { ...newLabel(), shape: 'ring' as const, text: 'Grukk', place: 'free' as const, angle: 30, font: 'upload:abc-123', italic: true };
+    expect(migrateDocument(JSON.parse(JSON.stringify({ ...base, label }))).label).toEqual(label);
+    const bad = migrateDocument({
+      ...base,
+      label: {
+        shape: 'scroll',
+        text: 42,
+        place: 'left',
+        size: 99,
+        width: -1,
+        curve: 500,
+        font: '"><script>',
+        color: 'red',
+        opacity: 2,
+        outline: { width: 9, color: '#ABCDEF' },
+        shadow: { enabled: 'yes', blur: 5 },
+        letterSpacing: 3,
+        align: 'justify',
+      },
+    }).label!;
+    const d = newLabel();
+    expect(bad).toMatchObject({ shape: d.shape, text: null, place: d.place, size: 2, width: 0.1, curve: 100, font: d.font, color: d.color, opacity: 1, letterSpacing: 0.5, align: d.align });
+    expect(bad.outline).toEqual({ width: 0.2, color: '#abcdef' });
+    expect(bad.shadow).toEqual({ ...d.shadow, blur: 0.5 });
+    expect(migrateDocument({ ...base, label: 'Orc' }).label).toBeNull();
   });
 });

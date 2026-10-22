@@ -1,7 +1,7 @@
 import { Check, Eraser, ImagePlus, Paintbrush, ScanSearch, Undo2 } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { useStore } from 'zustand';
-import type { ArtTransform, Decoration, MaskStroke, PopOutStroke, TokenDocument } from '../document/types';
+import type { ArtTransform, Decoration, LabelSettings, MaskStroke, PopOutStroke, TokenDocument } from '../document/types';
 import { HelpTip } from '../components/HelpTip';
 import { requestFullArt, useProcessedVersion } from '../image/artWorker';
 import { maskOverlay, popOutOverlay } from '../image/maskOverlay';
@@ -10,13 +10,16 @@ import { artEdits } from '../image/process';
 import { DRAFT_SIDE, peekProcessedArt, processedArt, sourcePixels } from '../image/processedArt';
 import { artCorners, baseScale, imageClipPolygon, imagePointAt, rotateAround, zoomAround } from '../render/geometry';
 import { decorationCorners, decorationGeometry, nearestSnap, placements, type Placement } from '../render/decorations';
+import { labelPlacement } from '../render/label';
 import { renderToken } from '../render/render';
+import { useFontVersion } from '../fonts/fontLoader';
 import { pointInPolygon, type Point } from '../render/shapes';
 import { revealSection } from '../layout/reveal';
 import { assetStore } from '../state/assets';
 import { commitDoc, docHistory, updateDoc, useDoc } from '../state/tokenStore';
 import { toast } from '../ui/toast';
 import { setTransform } from './artActions';
+import { draggedLabel } from './labelActions';
 import { extendStroke, pickColour, pointerPressure, startStroke, type StrokeContext } from './brush';
 import { selectDecoration, setBrush, setTool, toolStore, useTool } from './tools';
 import { UploadButton } from './UploadButton';
@@ -45,7 +48,8 @@ type Gesture =
   | { kind: 'brush'; target: 'popout'; stroke: PopOutStroke; index: number }
   | { kind: 'background'; x: number; y: number; offsetX: number; offsetY: number }
   | { kind: 'decor'; start: Decoration; from: Placement; x: number; y: number }
-  | { kind: 'decorScale' | 'decorRotate'; start: Decoration; centre: Point; startPoint: Point };
+  | { kind: 'decorScale' | 'decorRotate'; start: Decoration; centre: Point; startPoint: Point }
+  | { kind: 'label'; start: LabelSettings; from: Point; x: number; y: number };
 
 /**
  * The canvas: the token (drawn by the same renderer as the export), the whole
@@ -72,6 +76,9 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
   const selectedId = useTool((s) => s.selectedDecoration);
   const selected = doc.decorations.find((d) => d.id === selectedId && d.visible) ?? null;
   const [cursor, setCursor] = useState<Point | null>(null);
+  const [movingLabel, setMovingLabel] = useState(false);
+  // Redraw when a label font finishes loading.
+  const fontVersion = useFontVersion();
 
   // Processed art: the full-size result when ready, else a quick copy (DESIGN.md §5).
   const settling = useStore(docHistory, (s) => s.pendingBase !== null);
@@ -221,7 +228,7 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
     return () => cancelAnimationFrame(frame);
     // clip and drawArt are derived from doc
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [box, R, cx, cy, doc, assets, art, display, tool, showRemoved, showPopOut]);
+  }, [box, R, cx, cy, doc, assets, art, display, tool, showRemoved, showPopOut, fontVersion]);
 
   const strokeContext = (): StrokeContext | null =>
     art ? { transform: doc.art.transform, width: art.width, height: art.height, clip, R } : null;
@@ -270,6 +277,15 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
     const g = gesture.current;
     if (g?.kind === 'brush') cancelStroke(g); // two fingers: move and zoom instead
     if (pointers.current.size === 1 && tool === 'move') {
+      // The label is drawn on top of everything, so it is picked first.
+      const label = doc.label ? labelPlacement(doc) : null;
+      if (label && doc.label && pointInPolygon(toUnits(e.clientX, e.clientY), label.outline)) {
+        if (selectedId) selectDecoration(null);
+        revealSection('label');
+        gesture.current = { kind: 'label', start: doc.label, from: label.centre, x: e.clientX, y: e.clientY };
+        setMovingLabel(true);
+        return;
+      }
       const hit = decorationAt(e.clientX, e.clientY);
       if (hit) {
         selectDecoration(hit.d.id);
@@ -343,6 +359,13 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
       moveDecoration(g, e.clientX, e.clientY, e.altKey);
       return;
     }
+    if (g.kind === 'label') {
+      // Snaps to the top or bottom of the frame unless Alt is held.
+      const to = { x: g.from.x + (e.clientX - g.x) / R, y: g.from.y + (e.clientY - g.y) / R };
+      const next = draggedLabel(doc, g.start, to, e.altKey);
+      updateDoc((d) => ({ ...d, label: next }), { transient: true });
+      return;
+    }
     if (g.kind === 'brush') {
       const c = strokeContext()!;
       const next = extendStroke(c, g.stroke, toUnits(e.clientX, e.clientY), pointerPressure(e, toolStore.getState().usePressure));
@@ -405,6 +428,7 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
     if (!pointers.current.delete(e.pointerId)) return;
     if (pointers.current.size === 0) {
       setDragging(false);
+      setMovingLabel(false);
       gesture.current = null;
       commitDoc(); // a whole stroke or drag is one undo step
     } else if (gesture.current?.kind !== 'brush') {
@@ -599,6 +623,15 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
       {art && corners.length === 4 && (
         <svg className="stage__overlay" width={box.width} height={box.height} aria-hidden="true">
           <polygon className="stage__outline" points={corners.map((p) => `${p.x},${p.y}`).join(' ')} />
+        </svg>
+      )}
+      {movingLabel && doc.label && (
+        <svg className="stage__overlay" width={box.width} height={box.height} aria-hidden="true">
+          <polygon
+            className="stage__decor-outline"
+            data-testid="label-outline"
+            points={(labelPlacement(doc)?.outline ?? []).map((p) => `${cx + p.x * R},${cy + p.y * R}`).join(' ')}
+          />
         </svg>
       )}
       {decorBox.length === 4 && tool === 'move' && (

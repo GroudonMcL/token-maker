@@ -83,6 +83,7 @@ To see the phone layout on your computer: in Chrome or Edge press `F12`, then cl
 - **Picture frames (Phase 7, in Frame & shape):** switch **Frame type** to **Picture** and pick one of 8 built-in frames, or **Upload a frame** — any PNG with a see-through middle. The site finds the hole by itself and shows the art through it; if it doesn't quite fit, use **Hole size**, **Move hole sideways** and **Move hole up or down** (**Reset the hole** undoes the nudge). Your uploaded frames are kept in this browser and listed under *Your frames*. Unlike drawn frames, picture frames grow with the token.
 - **Decorations (Phase 7):** add gems, a crown, stars, skulls, horns, wings, ribbons, laurels, chains, leaves and class icons. Each one snaps onto the frame and faces outwards; choose its **Position** on the 3 × 3 grid (eight snap points, or **Free** in the middle) and switch on **Mirror on the other side** for a matching pair (horns and wings start mirrored). **Tap or click it on the canvas** to drag it — it snaps to the nearest snap point (hold **Alt** to place it freely) — and use its square handle to resize and its round handle to turn it. Size (per grid square), rotation, tint, opacity and flip are in its card; `Delete` removes the picked one.
 - **Presets (Phase 7):** one tap on a built-in preset (Boss, Undead, Party member, Minion, Fey, Fiend, Celestial, Construct) styles the frame, lighting, effects and decorations together; your art, name and size stay, and it's one undo step. **Save this look** keeps your own. In *Your presets*, tap a name to use it, the copy button gives a **text code** (it starts with `TKP1.`) and the download button a `.tokenpreset.json` file. **Add a shared preset** takes a pasted code or a file. Presets never contain your art (or your own background picture); a preset that uses an uploaded frame carries that frame's picture so it works in another browser.
+- **Label (Phase 8):** **Add a label** puts the token's name on a banner across the bottom of the frame. Pick a **Shape** — Banner, Plaque, Pill, Box (rounded or sharp corners) or **Ring text**, which curves the name round the frame with no shape behind it. Leave **Text** empty to show the token's name, or type your own words. The **Font** list shows 15 fantasy fonts, each in its own lettering; they come with the site, so the download always uses the font you see. **Upload a font** adds your own `.ttf`, `.otf`, `.woff` or `.woff2` (kept in this browser, and carried along in presets you share). Text size, colour, bold/italic and alignment are up front; **Position** snaps it to the Top or Bottom of the frame, or **Free**. You can also **drag the label on the canvas** — it snaps to the top or bottom (hold **Alt** to place it freely); ring text slides round the ring. Width, banner **Bend**, shape colour, opacity and outline set the shape. **Shrink long names to fit** keeps long names on the shape (switched off, the shape grows instead). Advanced has letter spacing, a text outline and a text shadow. Sizes are per grid square, like the frame.
 - **Undo/Redo:** the arrows in the top bar, or `Ctrl+Z` / `Ctrl+Y`. A whole drag counts as one step.
 - **Export PNG** (bottom bar) downloads the token at 256 pixels per grid square.
 - Your token is saved in the browser as you work, so refreshing the page keeps it. **New** starts again.
@@ -108,6 +109,7 @@ Useful pages while developing:
 | `npm run make-backgrounds` | Redraws the 10 built-in background pictures (`public/backgrounds/`). They're drawn by code, so nothing needs crediting. |
 | `npm run make-frames` | Redraws the 8 built-in picture frames (`public/frames/`). They're drawn by code, so nothing needs crediting. |
 | `npm run decoration-sheet -- decor.png` | Draws every decoration and every built-in picture frame on one picture, using the real renderer and hole finder. |
+| `npm run label-sheet -- labels.png` | Draws every label shape, ring text on every token shape, long names and every bundled font on one picture, with the site's own font files. |
 | `npm run help-images` | Redraws the before/after pictures in the Image and Effects help tips (`public/help/`). Run it after changing how an adjustment or effect looks. |
 | `npm run make-fixture` | Redraws the test pictures in `e2e/fixtures/` (the goblins and a purple ring frame). |
 | `npm run frame-sheet -- sheet.png` | Draws every frame on one picture so you can check them by eye. Add a shape and size, e.g. `npm run frame-sheet -- sheet.png hexagon 220 2` for Large hexagons. |
@@ -179,7 +181,9 @@ src/document/          The TokenDocument: types, defaults, migrations, per-squar
 src/render/            The renderer: shapes, the 27 frames, crop maths, render(), and the effects
                        (effects.ts places and caches them; effectPainters.ts draws each one),
                        picture frames (imageFrames.ts) and decorations (decorations.ts places them;
-                       decorationPainters.ts draws each one)
+                       decorationPainters.ts draws each one) and the label (label.ts)
+src/fonts/             Label fonts: the list (catalog.ts), the bundled files (fontFiles.ts) and loading
+                       them, plus your uploaded fonts in IndexedDB (fontLoader.ts)
 src/presets/           Presets: the file and text-code format and its migrations (preset.ts),
                        the built-in presets (builtins.ts) and "Your presets" in IndexedDB (presetStore.ts)
 src/state/             Undo/redo history, the token store, images in memory, autosave,
@@ -187,9 +191,9 @@ src/state/             Undo/redo history, the token store, images in memory, aut
 src/import/            Decoding images and naming tokens from file names
 src/editor/            The canvas (Stage), toolbar actions, drop/paste, shortcuts, brush, pop-out brush and eyedropper tools
 src/sections/          Panel sections that are built (Import, Image, Background, Foreground, Lighting & shadows,
-                       Pop-out, Effects, Frame & shape, Decorations, Size, Presets, Export)
+                       Pop-out, Effects, Frame & shape, Decorations, Size, Label, Presets, Export)
 src/export/            PNG download
-scripts/               frame-sheet.ts, effect-sheet.ts, decoration-sheet.ts, make-fixture.ts (the test pictures),
+scripts/               frame-sheet.ts, effect-sheet.ts, decoration-sheet.ts, label-sheet.ts, make-fixture.ts (the test pictures),
                        help-images.ts, make-backgrounds.ts, make-frames.ts
 src/styles/tokens.css  Design tokens: every colour, font, size, radius and shadow
 src/styles/app.css     The stylesheet for the whole UI

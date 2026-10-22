@@ -415,6 +415,53 @@ export const helpContent = {
   'decorations.opacity': { title: 'Opacity', text: 'Lower it to let the token show through.' },
   'decorations.flip': { title: 'Flip', text: 'Flips it left to right.' },
 
+  // ---- Label (DESIGN.md §6.10) ----
+  'label.add': { title: 'Label', text: "Adds the token's name on a banner, which you can change to a plaque, pill, box or text curved round the ring. Switch it off to remove the label." },
+  'label.shape': {
+    title: 'Shape',
+    text: 'A banner, plaque, pill or box behind the text, or Ring text, which curves the words round the frame with no shape behind them.',
+  },
+  'label.text': { title: 'Text', text: "The words on the label. Leave it empty to show the token's name, which then follows any change to the name." },
+  'label.font': {
+    title: 'Font',
+    text: 'Fantasy fonts that come with the site, so the download always uses the font you see. Each name is shown in its own font.',
+  },
+  'label.uploadFont': {
+    title: 'Upload a font',
+    text: 'Use your own .ttf, .otf, .woff or .woff2 font. It is kept in this browser, and goes with any preset you share that uses it.',
+  },
+  'label.size': { title: 'Text size', text: 'How big the letters are, as a share of one grid square, so the label looks the same size on the map whatever the creature.' },
+  'label.color': { title: 'Text colour', text: 'The colour of the letters.' },
+  'label.style': { title: 'Style', text: 'Bold and italic. Fonts without their own bold or italic are thickened or slanted by the browser.' },
+  'label.align': { title: 'Alignment', text: 'Where the words sit on the shape: left, centre or right. On the ring they start, centre or end at the label’s position.' },
+  'label.place': {
+    title: 'Position',
+    text: 'Snap the label to the top or bottom of the frame, or choose Free to put it anywhere. You can also drag it on the canvas.',
+  },
+  'label.angle': { title: 'Round the ring', text: 'Where the middle of the ring text sits: 90° is the bottom, 270° the top.' },
+  'label.x': { title: 'Sideways', text: "Moves the label left or right, as a share of the token's half-width." },
+  'label.y': { title: 'Up or down', text: "Moves the label up or down, as a share of the token's half-height." },
+  'label.arc': { title: 'Most of the ring it covers', text: 'How far round the ring the words may reach. Longer names shrink to fit inside it when Shrink long names is on.' },
+  'label.width': { title: 'Width', text: 'How wide the shape is, as a share of one grid square.' },
+  'label.curve': { title: 'Bend', text: 'Bends the banner so it hugs the ring. Positive bends the ends up (for the bottom), negative bends them down (for the top).' },
+  'label.corners': { title: 'Corners', text: 'Rounded or sharp corners on the box.' },
+  'label.fill': { title: 'Shape colour', text: 'The colour of the banner, plaque, pill or box. It is shaded lighter at the top, like the frames.' },
+  'label.opacity': { title: 'Shape opacity', text: 'Lower it to let the token show through the shape. The text stays solid.' },
+  'label.outline': { title: 'Shape outline', text: 'A line round the shape, as a share of one grid square. Set it to 0 for none.' },
+  'label.outlineColor': { title: 'Outline colour', text: 'The colour of the line round the shape.' },
+  'label.shrink': {
+    title: 'Shrink long names to fit',
+    text: 'Long names get smaller so they never spill off the shape or past the ring. Switch it off to make the shape grow to fit the words instead.',
+  },
+  'label.advanced': { title: 'Advanced', text: 'Letter spacing, an outline round the letters and a text shadow.' },
+  'label.spacing': { title: 'Letter spacing', text: 'Extra room between letters, as a share of the text size. Below 0 pulls them closer.' },
+  'label.textOutline': { title: 'Text outline', text: 'A line round every letter, which helps the words stand out on a busy token. Set it to 0 for none.' },
+  'label.textOutlineColor': { title: 'Text outline colour', text: 'The colour of the line round the letters.' },
+  'label.shadow': { title: 'Text shadow', text: 'A soft shadow under the letters that falls away from the light, like the token’s own shadow.' },
+  'label.shadowColor': { title: 'Shadow colour', text: 'The colour of the text shadow.' },
+  'label.shadowOpacity': { title: 'Shadow opacity', text: 'How dark the text shadow is.' },
+  'label.shadowBlur': { title: 'Shadow blur', text: 'How soft the text shadow is, as a share of one grid square.' },
+
   // ---- Presets (DESIGN.md §6.9) ----
   'presets.builtIn': {
     title: 'Built-in presets',

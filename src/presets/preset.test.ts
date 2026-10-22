@@ -1,7 +1,7 @@
 // @vitest-environment node
 // Presets (DESIGN.md §6.9): save → export → import round trips through a
 // file and a text code, old presets migrate, and the art never travels.
-import { createDocument, newDecoration, newEffect } from '../document/defaults';
+import { createDocument, newDecoration, newEffect, newLabel } from '../document/defaults';
 import { SCHEMA_VERSION, type TokenDocument } from '../document/types';
 import { BUILT_IN_PRESETS } from './builtins';
 import {
@@ -99,6 +99,31 @@ describe('presets', () => {
     // Changing the result never changes the preset.
     out.decorations[0]!.size = 9;
     expect(p.look.decorations[0]!.size).not.toBe(9);
+  });
+
+  it('carries the label’s style but never its words', () => {
+    const d = styled();
+    d.label = { ...newLabel(), shape: 'ring', text: 'Grukk the Mighty', font: 'pirata-one' };
+    const p = createPreset(d, 'Ring name');
+    expect(p.look.label).toMatchObject({ shape: 'ring', font: 'pirata-one', text: null });
+    expect(presetToJson(p)).not.toContain('Grukk');
+    // Applied to a token with its own label words, the words stay; otherwise it shows that token's name.
+    const other = createDocument('Kobold');
+    expect(applyLook({ ...other, label: { ...newLabel(), text: 'Sneaky' } }, p.look).label).toMatchObject({ shape: 'ring', text: 'Sneaky' });
+    expect(applyLook(other, p.look).label).toMatchObject({ shape: 'ring', text: null });
+    // A look without a label removes it.
+    expect(applyLook({ ...other, label: newLabel() }, lookFromDoc(createDocument())).label).toBeNull();
+  });
+
+  it('keeps an uploaded label font when shared, and drops anything that isn’t a font file', () => {
+    const d = styled();
+    d.label = { ...newLabel(), font: 'upload:f1' };
+    const p = migratePreset({
+      ...createPreset(d, 'Own font'),
+      fonts: { f1: { name: 'My Runes', data: 'data:font/woff2;base64,AAAA' }, f2: { name: 'Evil', data: 'javascript:alert(1)' }, f3: 'data:font/ttf;base64,AA' },
+    });
+    expect(p.fonts).toEqual({ f1: { name: 'My Runes', data: 'data:font/woff2;base64,AAAA' } });
+    expect(p.look.label?.font).toBe('upload:f1');
   });
 
   it('migrates an old preset saved from a version 5 token (before rim softness and decorations)', async () => {

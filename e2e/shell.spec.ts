@@ -16,7 +16,7 @@ test.describe('app shell', () => {
     const panel = page.getByRole('complementary', { name: 'Token settings' });
     await expect(panel).toBeVisible();
     await panel.getByRole('button', { name: 'Label', exact: true }).click();
-    await expect(panel.getByText('Name banners, plaques and ring text.')).toBeVisible();
+    await expect(panel.getByRole('button', { name: 'Add a label' })).toBeVisible();
     // Export waits for an image.
     await expect(page.locator('.bottom-bar').getByRole('button', { name: 'Export PNG' })).toBeDisabled();
   });
@@ -29,7 +29,7 @@ test.describe('app shell', () => {
     await expect(page.getByRole('tab')).toHaveCount(10);
     await page.getByRole('tab', { name: 'Label' }).click();
     await expect(sheet).toHaveAttribute('data-snap', 'half');
-    await expect(page.getByRole('tabpanel').getByText('Name banners, plaques and ring text.')).toBeVisible();
+    await expect(page.getByRole('tabpanel').getByRole('button', { name: 'Add a label' })).toBeVisible();
 
     // drag the handle up to full height
     const grab = page.locator('.bottom-sheet__grab');

@@ -5,6 +5,8 @@ import type {
   SnapPoint,
   BackgroundLayer,
   BackgroundRemoval,
+  LabelSettings,
+  LabelShape,
   EffectKind,
   EffectLayer,
   Gradient,
@@ -18,6 +20,7 @@ import type {
   TokenDocument,
 } from './types';
 import { SCHEMA_VERSION } from './types';
+import { DEFAULT_FONT } from '../fonts/catalog';
 
 /** Creature sizes (DESIGN.md §2). Tiny is half a square. */
 export const SIZE_PRESETS: { id: Exclude<SizePreset, 'custom'>; name: string; squares: number }[] = [
@@ -291,6 +294,52 @@ export function newDecoration(kind: DecorationKind, id = Math.random().toString(
   const d = decorationInfo(kind).defaults;
   return { id, kind, visible: true, place: d.place, x: 0, y: -0.8, size: d.size, rotation: d.rotation ?? 0, mirror: d.mirror, flip: false, color: d.color, opacity: 1 };
 }
+
+// ---- Phase 8: the label (DESIGN.md §6.10) ----
+
+export const LABEL_SHAPES: { id: LabelShape; name: string }[] = [
+  { id: 'banner', name: 'Banner' },
+  { id: 'plaque', name: 'Plaque' },
+  { id: 'pill', name: 'Pill' },
+  { id: 'box', name: 'Box' },
+  { id: 'ring', name: 'Ring text' },
+];
+
+/** A new label: a parchment banner across the bottom of the frame, in Cinzel, showing the token's name. */
+export function newLabel(): LabelSettings {
+  return {
+    shape: 'banner',
+    text: null,
+    place: 'bottom',
+    x: 0,
+    y: 0.75,
+    angle: 90,
+    arc: 160,
+    width: 1.3,
+    curve: 25,
+    corners: 'rounded',
+    fill: '#e9d9b4',
+    opacity: 1,
+    outline: { width: 0.02, color: '#5a3d1e' },
+    font: DEFAULT_FONT,
+    size: 0.2,
+    color: '#3a2412',
+    bold: true,
+    italic: false,
+    letterSpacing: 0.04,
+    align: 'center',
+    textOutline: { width: 0, color: '#000000' },
+    shadow: { enabled: false, color: '#000000', opacity: 0.6, blur: 0.03 },
+    shrinkToFit: true,
+  };
+}
+
+/** Ring text reads best light on a dark frame, with an outline and a shadow. */
+export const RING_TEXT_STYLE: Partial<LabelSettings> = {
+  color: '#fff4dc',
+  textOutline: { width: 0.02, color: '#20140a' },
+  shadow: { enabled: true, color: '#000000', opacity: 0.7, blur: 0.03 },
+};
 
 export function createDocument(name = 'Untitled token'): TokenDocument {
   return {

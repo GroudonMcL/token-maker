@@ -3,7 +3,7 @@
 
 import type { FrameStyle, ShapeId } from '../render/catalog';
 
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 
 export type SizePreset = 'tiny' | 'small' | 'medium' | 'large' | 'huge' | 'gargantuan' | 'custom';
 
@@ -392,5 +392,53 @@ export interface Decoration {
   opacity: number;
 }
 
-/** Phase 8. */
-export type LabelSettings = { text: string; [key: string]: unknown };
+// ---- Phase 8: the label (DESIGN.md §6.10) ----
+
+/** A banner, plaque, pill or box behind the text, or text curved round the ring with no shape. */
+export type LabelShape = 'banner' | 'plaque' | 'pill' | 'box' | 'ring';
+
+/**
+ * The token's label (layer 14). Shapes sit at the top or bottom of the frame
+ * (snapped) or anywhere (free); ring text runs along the middle of the frame
+ * band, centred at `angle`. Sizes are per square.
+ */
+export interface LabelSettings {
+  shape: LabelShape;
+  /** The words, or null to use the token's name. */
+  text: string | null;
+  place: 'top' | 'bottom' | 'free';
+  /** Where a free label's middle sits, token units (R = 1, from the centre). */
+  x: number;
+  y: number;
+  /** Ring text: degrees round the ring of the text's middle (0 = right, 90 = bottom, 270 = top). */
+  angle: number;
+  /** Ring text: most of the ring it may cover, degrees. */
+  arc: number;
+  /** The shape's width, per square. */
+  width: number;
+  /** Banner: how much it bends (-100…100; positive = ends up, like the bottom of a ring). */
+  curve: number;
+  /** Box: rounded or sharp corners. */
+  corners: 'rounded' | 'sharp';
+  /** The shape's colour and opacity (0…1). */
+  fill: string;
+  opacity: number;
+  /** The shape's outline: width per square (0 = none) and colour. */
+  outline: { width: number; color: string };
+  /** A built-in font id (src/fonts/catalog.ts) or "upload:<id>" for one of the user's own. */
+  font: string;
+  /** Text height, per square. */
+  size: number;
+  color: string;
+  bold: boolean;
+  italic: boolean;
+  /** Extra space between letters, as a share of the text size (-0.1…0.5). */
+  letterSpacing: number;
+  align: 'left' | 'center' | 'right';
+  /** Text outline: width per square (0 = none) and colour. */
+  textOutline: { width: number; color: string };
+  /** Text shadow: blur per square; it falls away from the light. */
+  shadow: { enabled: boolean; color: string; opacity: number; blur: number };
+  /** Long names shrink so they never spill off the shape (off: the shape grows instead). */
+  shrinkToFit: boolean;
+}
