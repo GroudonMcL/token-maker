@@ -59,7 +59,7 @@ export const helpContent = {
   },
   'section.frame': {
     title: 'Frame & shape',
-    text: 'Choose the token shape and border style, then set its colour, thickness and spacing.',
+    text: 'Choose a frame drawn in any colour and thickness, or a picture frame (built in or your own PNG), and the token shape.',
   },
   'section.decorations': {
     title: 'Decorations',
@@ -75,7 +75,7 @@ export const helpContent = {
   },
   'section.presets': {
     title: 'Presets',
-    text: 'Apply a ready-made style, save your own, or share a style as a small file. Presets never include your art.',
+    text: 'Apply a ready-made style, save your own, or share a style as a small file or a text code. Presets never include your art.',
   },
   'section.export': {
     title: 'Export',
@@ -297,6 +297,7 @@ export const helpContent = {
   },
   'lighting.rimStrength': { title: 'Rim strength', text: 'How bright the rim is.' },
   'lighting.rimWidth': { title: 'Rim width', text: 'How thick the rim is.' },
+  'lighting.rimSoftness': { title: 'Rim softness', text: 'How gently the rim fades into the art. 0% is a crisp, bright edge; higher values blend it in like a soft back light.' },
   'lighting.background': { title: 'Light the background too', text: 'Lights the background picture the same way, so the art and the scene match.' },
 
   // ---- Shadows (Phase 5) ----
@@ -398,7 +399,54 @@ export const helpContent = {
   'effect.smoke': { title: 'Smoke', text: 'Billowing smoke rising from the bottom.', media: beforeAfter('effect-smoke', 'smoke') },
 
   // ---- Frame & shape ----
+  // ---- Decorations (DESIGN.md §6.9) ----
+  'decorations.add': {
+    title: 'Add a decoration',
+    text: 'Pick a gem, horn, wing or other decoration. It snaps onto the frame; drag it on the canvas to move it, and use its handles to resize and turn it.',
+  },
+  'decorations.place': {
+    title: 'Position',
+    text: 'Snap it to the top, bottom, sides or corners of the frame, where it turns to face outwards, or choose Free to put it anywhere.',
+  },
+  'decorations.mirror': { title: 'Mirror on the other side', text: 'Adds a matching copy on the opposite side, like a pair of horns or wings.' },
+  'decorations.size': { title: 'Size', text: 'How tall it is, as a share of one grid square, so it looks the same size on the map whatever the creature.' },
+  'decorations.rotation': { title: 'Rotation', text: 'Turns it. Snapped decorations turn from the way they face; you can also drag the round handle on the canvas.' },
+  'decorations.color': { title: 'Tint', text: 'The main colour of the decoration.' },
+  'decorations.opacity': { title: 'Opacity', text: 'Lower it to let the token show through.' },
+  'decorations.flip': { title: 'Flip', text: 'Flips it left to right.' },
+
+  // ---- Presets (DESIGN.md §6.9) ----
+  'presets.builtIn': {
+    title: 'Built-in presets',
+    text: 'One tap styles the frame, lighting, effects and decorations together. Your art, name and size stay, and everything stays editable.',
+  },
+  'presets.save': { title: 'Save this look', text: 'Keeps the current look (everything except your art) as a preset in this browser, to use on other tokens.' },
+  'presets.yours': {
+    title: 'Your presets',
+    text: 'Tap a name to use it. The copy button gives a text code you can paste anywhere to share it, and the download button saves a .tokenpreset.json file.',
+  },
+  'presets.import': {
+    title: 'Add a shared preset',
+    text: 'Paste a preset code or open a .tokenpreset.json file someone shared. It is added to your presets and used straight away.',
+  },
+
   'frame.shape': { title: 'Shape', text: 'The outline of the token. Hexagons suit hex-grid maps.' },
+  'frame.kind': {
+    title: 'Frame type',
+    text: 'Drawn frames are made by the site in any colour and thickness. Picture frames use a PNG with a see-through middle, built in or your own.',
+  },
+  'frame.picture': {
+    title: 'Picture frame',
+    text: 'Pick a frame picture. Unlike drawn frames, picture frames grow with the token, so on a Large token the border is twice as thick on the map.',
+  },
+  'frame.upload': {
+    title: 'Upload a frame',
+    text: 'Use your own PNG ring with a see-through middle: the site finds the hole and shows the art through it. Your frames are kept in this browser.',
+  },
+  'frame.holeSize': { title: 'Hole size', text: "Make the art's opening bigger or smaller if the hole found in the picture doesn't quite fit." },
+  'frame.holeX': { title: 'Move hole sideways', text: "Nudge the art's opening left or right to line it up with the frame picture." },
+  'frame.holeY': { title: 'Move hole up or down', text: "Nudge the art's opening up or down to line it up with the frame picture." },
+  'frame.holeReset': { title: 'Reset the hole', text: 'Go back to the hole the site found in the picture.' },
   'frame.style': {
     title: 'Frame',
     text: 'The border drawn around the art. Every frame takes any colour, thickness and spacing.',

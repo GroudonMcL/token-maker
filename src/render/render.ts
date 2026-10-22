@@ -13,7 +13,9 @@ import { drawBackground } from './background';
 import { drawFrame } from './frames';
 import { drawOverlays } from './overlays';
 import { drawEffects, needsSubject, type EffectArea, type Subject } from './effects';
-import { baseScale } from './geometry';
+import { baseScale, imageClipPolygon } from './geometry';
+import { drawDecorations } from './decorations';
+import { activeImageFrame, drawImageFrame, frameAssetId } from './imageFrames';
 import { shapePolygon } from './shapes';
 
 /** A decoded image the renderer can draw. */
@@ -45,11 +47,14 @@ export function renderToken(ctx: Ctx, doc: TokenDocument, assets: AssetMap, size
   const sq = doc.size.squares;
   const px = (perSquare: number) => perSquareToPx(perSquare, sq, size);
   const insets = computeInsets(doc);
-  const hasFrame = doc.frame.style !== 'none' && insets.frameInner > insets.frameOuter;
+  // A picture frame (Phase 7) fills the square; its hole is the art's clipping shape.
+  const imageFrame = activeImageFrame(doc.frame);
+  const frameImage = imageFrame ? assets.get(frameAssetId(imageFrame.source)) : undefined;
+  const hasFrame = imageFrame ? true : doc.frame.style !== 'none' && insets.frameInner > insets.frameOuter;
   const art = doc.art.assetId ? assets.get(doc.art.assetId) : undefined;
-  const clip = shapePolygon(doc.shape, R, insets.image * R);
+  const clip = imageFrame ? imageClipPolygon(doc).map((p) => ({ x: p.x * R, y: p.y * R })) : shapePolygon(doc.shape, R, insets.image * R);
   // The token's outline: the frame's outer edge, or the art's edge without a frame.
-  const silhouette = shapePolygon(doc.shape, R, (hasFrame ? insets.frameOuter : insets.image) * R);
+  const silhouette = imageFrame ? clip : shapePolygon(doc.shape, R, (hasFrame ? insets.frameOuter : insets.image) * R);
 
   ctx.save();
   ctx.clearRect(0, 0, size, size);
@@ -84,15 +89,26 @@ export function renderToken(ctx: Ctx, doc: TokenDocument, assets: AssetMap, size
   }
   // The geometry effects grow from (layers 4, 7 and 10), and the art's own
   // outline for glows round a cut-out creature.
-  const area: EffectArea = {
-    shape: doc.shape,
-    R,
-    unit: px(1),
-    // The art runs under the inner half of the frame; effects grow from where it shows.
-    opening: (hasFrame ? Math.max(insets.image, insets.frameInner) : insets.image) * R,
-    bandOuter: insets.frameOuter * R,
-    bandInner: hasFrame ? insets.frameInner * R : insets.frameOuter * R + px(0.08),
-  };
+  const holeRadius = clip.length ? clip.reduce((sum, p) => sum + Math.hypot(p.x, p.y), 0) / clip.length : 0;
+  const area: EffectArea = imageFrame
+    ? {
+        // A picture frame: effects follow a ring between its hole and its outer edge.
+        shape: doc.shape,
+        R,
+        unit: px(1),
+        opening: Math.max(0, R - holeRadius),
+        bandOuter: Math.max(0, 1 - imageFrame.outer) * R,
+        bandInner: Math.max(Math.max(0, 1 - imageFrame.outer) * R + 1, R - holeRadius),
+      }
+    : {
+        shape: doc.shape,
+        R,
+        unit: px(1),
+        // The art runs under the inner half of the frame; effects grow from where it shows.
+        opening: (hasFrame ? Math.max(insets.image, insets.frameInner) : insets.image) * R,
+        bandOuter: insets.frameOuter * R,
+        bandInner: hasFrame ? insets.frameInner * R : insets.frameOuter * R + px(0.08),
+      };
   let subject: Subject | null = null;
   if (art && shown && clip.length && doc.effects.some(needsSubject)) {
     const c = newCanvas(size, size);
@@ -105,12 +121,28 @@ export function renderToken(ctx: Ctx, doc: TokenDocument, assets: AssetMap, size
     subject = { image: c as CanvasImageSource, key: `${objectId(shown.image)}|${doc.art.assetId}|${JSON.stringify(doc.art.transform)}` };
   }
 
-  /** Fills the token's whole outline: the shape, plus pop-out parts (and decorations in Phase 7). */
+  // The decorations (layer 11) on a layer of their own: they are part of the outer shadow's silhouette too.
+  let decor: ReturnType<typeof newCanvas> | null = null;
+  if (doc.decorations.some((d) => d.visible)) {
+    decor = newCanvas(size, size);
+    const dctx = decor.getContext('2d') as Ctx;
+    dctx.translate(R, R);
+    drawDecorations(dctx, doc, R);
+  }
+
+  /** Fills the token's whole outline: the shape (or the picture frame), plus pop-out parts and decorations. */
   const paintSilhouette = (c: Ctx, dx = 0) => {
     tracePolygon(c, silhouette.map((p) => ({ x: p.x + dx, y: p.y })));
     c.fillStyle = '#000';
     c.fill();
+    if (frameImage) {
+      c.save();
+      c.translate(dx, 0);
+      drawImageFrame(c, frameImage, R);
+      c.restore();
+    }
     if (pop) c.drawImage(pop as CanvasImageSource, -R + dx, -R);
+    if (decor) c.drawImage(decor as CanvasImageSource, -R + dx, -R);
   };
 
   // 1. Outer drop shadow of the whole silhouette.
@@ -119,7 +151,7 @@ export function renderToken(ctx: Ctx, doc: TokenDocument, assets: AssetMap, size
   }
 
   // 2. Backing: shows through inner spacing, transparent art and letterboxed fits.
-  const backing = shapePolygon(doc.shape, R, insets.backing * R);
+  const backing = imageFrame ? clip : shapePolygon(doc.shape, R, insets.backing * R);
   if (doc.frame.backingOpacity > 0 && backing.length) {
     const { r, g, b } = parseHex(doc.frame.backingColor);
     ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${Math.min(1, doc.frame.backingOpacity)})`;
@@ -158,7 +190,23 @@ export function renderToken(ctx: Ctx, doc: TokenDocument, assets: AssetMap, size
 
   // 8. Inner shadow: the frame's shadow onto the art.
   const inner = doc.shadows.inner;
-  if (hasFrame && inner.enabled && inner.strength > 0 && clip.length) {
+  if (imageFrame && inner.enabled && inner.strength > 0 && clip.length) {
+    // A picture frame: everything outside the hole casts its shadow in.
+    const fall = shadowVector(doc.shadows.outer, doc.lighting.direction);
+    fctx.save();
+    tracePolygon(fctx, clip);
+    fctx.clip();
+    fctx.shadowColor = `rgba(0, 0, 0, ${inner.strength})`;
+    fctx.shadowBlur = px(inner.softness);
+    fctx.shadowOffsetX = fall.x * px(0.024);
+    fctx.shadowOffsetY = fall.y * px(0.024);
+    fctx.beginPath();
+    fctx.rect(-R * 3, -R * 3, R * 6, R * 6);
+    traceInto(fctx, clip);
+    fctx.fillStyle = '#000';
+    fctx.fill('evenodd');
+    fctx.restore();
+  } else if (hasFrame && inner.enabled && inner.strength > 0 && clip.length) {
     const band = (insets.frameInner - insets.frameOuter) * R;
     const fall = shadowVector(doc.shadows.outer, doc.lighting.direction);
     fctx.save();
@@ -177,8 +225,12 @@ export function renderToken(ctx: Ctx, doc: TokenDocument, assets: AssetMap, size
     fctx.restore();
   }
 
-  // 9. Frame.
-  if (hasFrame) {
+  // 9. Frame: a picture frame, or one drawn by code.
+  if (frameImage) {
+    fctx.save();
+    drawImageFrame(fctx, frameImage, R);
+    fctx.restore();
+  } else if (hasFrame && !imageFrame) {
     fctx.save();
     drawFrame(fctx, doc.frame.style, {
       shape: doc.shape,
@@ -200,12 +252,22 @@ export function renderToken(ctx: Ctx, doc: TokenDocument, assets: AssetMap, size
 
   // 10. Effects on the border.
   if (doc.effects.length) drawEffects(ctx, doc.effects, 'border', area, size);
-  // 11. Decorations — Phase 7.
+  // 11. Decorations (src/render/decorations.ts).
+  if (decor) ctx.drawImage(decor as CanvasImageSource, -R, -R);
 
   if (pop) {
     // 12. Pop-out shadow: cast by the pop-out parts onto the frame band only
     // (the outer drop shadow already covers the space around the token).
-    if (hasFrame && doc.shadows.popOut.enabled) {
+    if (frameImage && doc.shadows.popOut.enabled) {
+      // A picture frame: the shadow lands only where the picture is solid.
+      const shadow = newCanvas(size, size);
+      const sctx = shadow.getContext('2d') as Ctx;
+      sctx.translate(R, R);
+      castShadow(sctx, (c, dx) => c.drawImage(pop as CanvasImageSource, -R + dx, -R), doc.shadows.popOut, doc.lighting.direction, px, size);
+      sctx.globalCompositeOperation = 'destination-in';
+      drawImageFrame(sctx, frameImage, R);
+      ctx.drawImage(shadow as CanvasImageSource, -R, -R);
+    } else if (hasFrame && !imageFrame && doc.shadows.popOut.enabled) {
       ctx.save();
       ctx.beginPath();
       traceInto(ctx, shapePolygon(doc.shape, R, insets.frameOuter * R));

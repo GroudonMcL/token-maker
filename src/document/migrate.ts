@@ -3,12 +3,31 @@
 // defaults, so a damaged or partial file can never crash the editor.
 
 import { FRAME_STYLES, SHAPES } from '../render/catalog';
-import { copyGradient, createDocument, DEFAULT_ADJUST, EFFECTS, LIGHT_PRESETS, MAX_EFFECTS, MAX_SQUARES, MIN_SQUARES, newEffect, newOverlay, SIZE_PRESETS } from './defaults';
+import {
+  copyGradient,
+  createDocument,
+  DECORATIONS,
+  DEFAULT_ADJUST,
+  EFFECTS,
+  LIGHT_PRESETS,
+  MAX_DECORATIONS,
+  MAX_EFFECTS,
+  MAX_SQUARES,
+  MIN_SQUARES,
+  newDecoration,
+  newEffect,
+  newOverlay,
+  SIZE_PRESETS,
+} from './defaults';
 import {
   SCHEMA_VERSION,
   type BackgroundImageSource,
   type BackgroundLayer,
   type BlendMode,
+  type Decoration,
+  type DecorationKind,
+  type ImageFrame,
+  type SnapPoint,
   type EffectKind,
   type EffectLayer,
   type EffectPlacement,
@@ -42,6 +61,12 @@ export const MIGRATIONS: Record<number, (doc: Json) => Json> = {
   // v4 → v5 (Phase 6): effects. Nothing could be added before, so any old
   // placeholder entries are dropped.
   4: (doc) => ({ ...doc, effects: [] }),
+  // v5 → v6 (Phase 7): picture frames, decorations and rim softness. Old rims
+  // were crisp, so they keep softness 0; old placeholder decorations are dropped.
+  5: (doc) => {
+    const lighting = obj(doc.lighting);
+    return { ...doc, decorations: [], lighting: { ...lighting, rim: { softness: 0, ...obj(lighting.rim) } } };
+  },
 };
 
 export class DocumentVersionError extends Error {}
@@ -163,8 +188,54 @@ function lighting(raw: Json, d: LightingSettings): LightingSettings {
     color: hex(raw.color, d.color),
     strength: num(raw.strength, d.strength, 0, 100),
     falloff: num(raw.falloff, d.falloff, 0, 100),
-    rim: { enabled: bool(rim.enabled, d.rim.enabled), strength: num(rim.strength, d.rim.strength, 0, 100), width: num(rim.width, d.rim.width, 0, 100) },
+    rim: {
+      enabled: bool(rim.enabled, d.rim.enabled),
+      strength: num(rim.strength, d.rim.strength, 0, 100),
+      width: num(rim.width, d.rim.width, 0, 100),
+      softness: num(rim.softness, d.rim.softness, 0, 100),
+    },
     background: bool(raw.background, d.background),
+  };
+}
+
+const DECORATION_KINDS: readonly DecorationKind[] = DECORATIONS.map((x) => x.kind);
+const SNAP_POINTS: readonly (SnapPoint | 'free')[] = ['top', 'topRight', 'right', 'bottomRight', 'bottom', 'bottomLeft', 'left', 'topLeft', 'free'];
+
+function decoration(raw: Json, index: number): Decoration | null {
+  if (!DECORATION_KINDS.includes(raw.kind as DecorationKind)) return null;
+  const d = newDecoration(raw.kind as DecorationKind, str(raw.id, `decoration-${index}`));
+  return {
+    ...d,
+    visible: bool(raw.visible, d.visible),
+    place: oneOf(raw.place, SNAP_POINTS, d.place),
+    x: num(raw.x, d.x, -1.5, 1.5),
+    y: num(raw.y, d.y, -1.5, 1.5),
+    size: num(raw.size, d.size, 0.02, 4),
+    rotation: num(raw.rotation, d.rotation, -360, 360),
+    mirror: bool(raw.mirror, d.mirror),
+    flip: bool(raw.flip, d.flip),
+    color: hex(raw.color, d.color),
+    opacity: num(raw.opacity, d.opacity, 0, 1),
+  };
+}
+
+/** Most points a picture frame's hole may have. */
+const MAX_HOLE_POINTS = 512;
+
+export function imageFrame(raw: unknown): ImageFrame | null {
+  if (!isObject(raw)) return null;
+  const src = obj(raw.source);
+  const id = typeof src.id === 'string' ? src.id.slice(0, 80) : '';
+  if (!id || (src.type !== 'library' && src.type !== 'upload')) return null;
+  const hole = Array.isArray(raw.hole) ? raw.hole.filter((n): n is number => typeof n === 'number' && Number.isFinite(n)) : [];
+  if (hole.length < 6 || hole.length > MAX_HOLE_POINTS * 2 || hole.length % 2) return null;
+  const nudge = obj(raw.nudge);
+  return {
+    source: { type: src.type, id },
+    name: str(raw.name, 'Picture frame').slice(0, 80),
+    hole: hole.map((n) => Math.max(-1.5, Math.min(1.5, n))),
+    outer: num(raw.outer, 1, 0, 1.5),
+    nudge: { x: num(nudge.x, 0, -0.5, 0.5), y: num(nudge.y, 0, -0.5, 0.5), scale: num(nudge.scale, 1, 0.5, 1.5) },
   };
 }
 
@@ -218,6 +289,7 @@ export function sanitize(raw: Json): TokenDocument {
   const art = obj(raw.art);
   const t = obj(art.transform);
   const frame = obj(raw.frame);
+  const frameImage = imageFrame(frame.image);
   const shadows = obj(raw.shadows);
   const outer = (v: unknown, base: TokenDocument['shadows']['outer']) => {
     const s = obj(v);
@@ -275,7 +347,7 @@ export function sanitize(raw: Json): TokenDocument {
       .filter((e): e is EffectLayer => e !== null)
       .slice(0, MAX_EFFECTS),
     frame: {
-      kind: 'code',
+      kind: frame.kind === 'image' && frameImage ? 'image' : 'code',
       presetId: str(frame.presetId, d.frame.presetId),
       style: FRAME_STYLES.has(frame.style as string) ? (frame.style as TokenDocument['frame']['style']) : d.frame.style,
       color: hex(frame.color, d.frame.color),
@@ -285,8 +357,12 @@ export function sanitize(raw: Json): TokenDocument {
       innerSpacing: num(frame.innerSpacing, d.frame.innerSpacing, 0, 1),
       backingColor: hex(frame.backingColor, d.frame.backingColor),
       backingOpacity: num(frame.backingOpacity, 1, 0, 1),
+      image: frameImage,
     },
-    decorations: arr(raw.decorations) as TokenDocument['decorations'],
+    decorations: arr(raw.decorations)
+      .map((x, i) => decoration(x, i))
+      .filter((x): x is Decoration => x !== null)
+      .slice(0, MAX_DECORATIONS),
     shadows: {
       outer: outer(shadows.outer, d.shadows.outer),
       inner: {

@@ -1,7 +1,7 @@
 import { Check, Eraser, ImagePlus, Paintbrush, ScanSearch, Undo2 } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { useStore } from 'zustand';
-import type { ArtTransform, MaskStroke, PopOutStroke, TokenDocument } from '../document/types';
+import type { ArtTransform, Decoration, MaskStroke, PopOutStroke, TokenDocument } from '../document/types';
 import { HelpTip } from '../components/HelpTip';
 import { requestFullArt, useProcessedVersion } from '../image/artWorker';
 import { maskOverlay, popOutOverlay } from '../image/maskOverlay';
@@ -9,14 +9,16 @@ import { popOutMask } from '../image/popOut';
 import { artEdits } from '../image/process';
 import { DRAFT_SIDE, peekProcessedArt, processedArt, sourcePixels } from '../image/processedArt';
 import { artCorners, baseScale, imageClipPolygon, imagePointAt, rotateAround, zoomAround } from '../render/geometry';
+import { decorationCorners, decorationGeometry, nearestSnap, placements, type Placement } from '../render/decorations';
 import { renderToken } from '../render/render';
-import type { Point } from '../render/shapes';
+import { pointInPolygon, type Point } from '../render/shapes';
+import { revealSection } from '../layout/reveal';
 import { assetStore } from '../state/assets';
 import { commitDoc, docHistory, updateDoc, useDoc } from '../state/tokenStore';
 import { toast } from '../ui/toast';
 import { setTransform } from './artActions';
 import { extendStroke, pickColour, pointerPressure, startStroke, type StrokeContext } from './brush';
-import { setBrush, setTool, toolStore, useTool } from './tools';
+import { selectDecoration, setBrush, setTool, toolStore, useTool } from './tools';
 import { UploadButton } from './UploadButton';
 
 const PADDING = 40;
@@ -41,7 +43,9 @@ type Gesture =
   | { kind: 'scale' | 'rotate'; start: ArtTransform; centre: Point; startPoint: Point }
   | { kind: 'brush'; target: 'mask'; stroke: MaskStroke; index: number }
   | { kind: 'brush'; target: 'popout'; stroke: PopOutStroke; index: number }
-  | { kind: 'background'; x: number; y: number; offsetX: number; offsetY: number };
+  | { kind: 'background'; x: number; y: number; offsetX: number; offsetY: number }
+  | { kind: 'decor'; start: Decoration; from: Placement; x: number; y: number }
+  | { kind: 'decorScale' | 'decorRotate'; start: Decoration; centre: Point; startPoint: Point };
 
 /**
  * The canvas: the token (drawn by the same renderer as the export), the whole
@@ -65,6 +69,8 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
   const showRemoved = useTool((s) => s.showRemoved);
   const showPopOut = useTool((s) => s.showPopOut);
   const painting = tool === 'brush' || tool === 'popout';
+  const selectedId = useTool((s) => s.selectedDecoration);
+  const selected = doc.decorations.find((d) => d.id === selectedId && d.visible) ?? null;
   const [cursor, setCursor] = useState<Point | null>(null);
 
   // Processed art: the full-size result when ready, else a quick copy (DESIGN.md §5).
@@ -263,6 +269,16 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
     setDragging(true);
     const g = gesture.current;
     if (g?.kind === 'brush') cancelStroke(g); // two fingers: move and zoom instead
+    if (pointers.current.size === 1 && tool === 'move') {
+      const hit = decorationAt(e.clientX, e.clientY);
+      if (hit) {
+        selectDecoration(hit.d.id);
+        revealSection('decorations');
+        gesture.current = { kind: 'decor', start: hit.d, from: hit.p, x: e.clientX, y: e.clientY };
+        return;
+      }
+      if (selectedId) selectDecoration(null);
+    }
     if (pointers.current.size === 1 && tool === 'background') {
       gesture.current = { kind: 'background', x: e.clientX, y: e.clientY, offsetX: doc.background.offsetX, offsetY: doc.background.offsetY };
       return;
@@ -323,6 +339,10 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
       updateDoc((d) => ({ ...d, background: { ...d.background, offsetX, offsetY } }), { transient: true });
       return;
     }
+    if (g.kind === 'decor') {
+      moveDecoration(g, e.clientX, e.clientY, e.altKey);
+      return;
+    }
     if (g.kind === 'brush') {
       const c = strokeContext()!;
       const next = extendStroke(c, g.stroke, toUnits(e.clientX, e.clientY), pointerPressure(e, toolStore.getState().usePressure));
@@ -345,6 +365,35 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
       next = rotateAround(next, turn, anchor);
     }
     setTransform(() => next, { transient: true });
+  };
+
+  /** The top-most decoration (or mirrored copy) under a point on screen. */
+  const decorationAt = (clientX: number, clientY: number): { d: Decoration; p: Placement } | null => {
+    const at = toUnits(clientX, clientY);
+    const geo = decorationGeometry(doc);
+    for (const d of [...doc.decorations].reverse()) {
+      if (!d.visible) continue;
+      for (const p of placements(d, geo).reverse()) {
+        if (pointInPolygon(at, decorationCorners(d, p, geo.squares))) return { d, p };
+      }
+    }
+    return null;
+  };
+
+  /** Dragging a decoration: it snaps to the nearest snap point (hold Alt to place it freely). */
+  const moveDecoration = (g: Extract<Gesture, { kind: 'decor' }>, clientX: number, clientY: number, free: boolean) => {
+    const geo = decorationGeometry(doc);
+    const dx = (clientX - g.x) / R;
+    const dy = (clientY - g.y) / R;
+    // Dragging the mirrored copy moves the original the other way.
+    const at = { x: g.from.x + dx, y: g.from.y + dy };
+    const target = g.from.mirrored ? { x: -at.x, y: at.y } : at;
+    const snap = free ? null : nearestSnap(target, geo);
+    const own = placements({ ...g.start, mirror: false }, geo)[0]!;
+    let next: Decoration;
+    if (snap) next = { ...g.start, place: snap, rotation: snap === g.start.place ? g.start.rotation : 0 };
+    else next = { ...g.start, place: 'free', x: Math.max(-1.5, Math.min(1.5, target.x)), y: Math.max(-1.5, Math.min(1.5, target.y)), rotation: own.rotation };
+    updateDoc((d) => ({ ...d, decorations: d.decorations.map((x) => (x.id === next.id ? next : x)) }), { transient: true });
   };
 
   const endPointer = (e: ReactPointerEvent) => {
@@ -406,6 +455,12 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
       return;
     }
     if (!art || e.target !== stageRef.current) return;
+    if (selected && (e.key === 'Delete' || e.key === 'Backspace')) {
+      e.preventDefault();
+      updateDoc((d) => ({ ...d, decorations: d.decorations.filter((x) => x.id !== selected.id) }));
+      selectDecoration(null);
+      return;
+    }
     const step = e.shiftKey ? 0.08 : 0.015;
     const moves: Record<string, [number, number]> = {
       ArrowLeft: [-step, 0],
@@ -469,6 +524,50 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
     commitDoc();
   };
 
+  // ---- The selected decoration's outline and its resize and rotate handles ----
+  const geo = decorationGeometry(doc);
+  const decorPlacement = selected ? placements({ ...selected, mirror: false }, geo)[0]! : null;
+  const decorBox = selected && decorPlacement ? decorationCorners(selected, decorPlacement, geo.squares).map((p) => ({ x: cx + p.x * R, y: cy + p.y * R })) : [];
+  const decorAnchor = decorPlacement ? { x: cx + decorPlacement.x * R, y: cy + decorPlacement.y * R } : null;
+  const decorTop = decorBox.length ? { x: (decorBox[0]!.x + decorBox[1]!.x) / 2, y: (decorBox[0]!.y + decorBox[1]!.y) / 2 } : null;
+  const decorMid = decorBox.length ? { x: decorBox.reduce((s, p) => s + p.x, 0) / 4, y: decorBox.reduce((s, p) => s + p.y, 0) / 4 } : null;
+  const decorRotateAt =
+    decorTop && decorMid
+      ? (() => {
+          const len = Math.hypot(decorTop.x - decorMid.x, decorTop.y - decorMid.y) || 1;
+          return { x: decorTop.x + ((decorTop.x - decorMid.x) / len) * 24, y: decorTop.y + ((decorTop.y - decorMid.y) / len) * 24 };
+        })()
+      : null;
+
+  const startDecorHandle = (kind: 'decorScale' | 'decorRotate', e: ReactPointerEvent) => {
+    if (!selected || !decorAnchor) return;
+    e.stopPropagation();
+    (e.currentTarget as Element).setPointerCapture(e.pointerId);
+    const rect = stageRef.current!.getBoundingClientRect();
+    // Resize and turn around the middle of the picture as it is on screen.
+    gesture.current = { kind, start: selected, centre: kind === 'decorScale' ? decorAnchor : decorMid!, startPoint: { x: e.clientX - rect.left, y: e.clientY - rect.top } };
+    setDragging(true);
+  };
+  const moveDecorHandle = (e: ReactPointerEvent) => {
+    const g = gesture.current;
+    if (!g || (g.kind !== 'decorScale' && g.kind !== 'decorRotate')) return;
+    const rect = stageRef.current!.getBoundingClientRect();
+    const p = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    const from = { x: g.startPoint.x - g.centre.x, y: g.startPoint.y - g.centre.y };
+    const to = { x: p.x - g.centre.x, y: p.y - g.centre.y };
+    let next: Decoration;
+    if (g.kind === 'decorScale') {
+      const factor = Math.hypot(to.x, to.y) / Math.max(1, Math.hypot(from.x, from.y));
+      next = { ...g.start, size: Math.max(0.04, Math.min(3, g.start.size * factor)) };
+    } else {
+      let rotation = g.start.rotation + ((Math.atan2(to.y, to.x) - Math.atan2(from.y, from.x)) * 180) / Math.PI;
+      if (e.shiftKey) rotation = Math.round(rotation / 15) * 15;
+      next = { ...g.start, rotation: ((((rotation + 180) % 360) + 360) % 360) - 180 };
+    }
+    updateDoc((d) => ({ ...d, decorations: d.decorations.map((x) => (x.id === next.id ? next : x)) }), { transient: true });
+  };
+  const decorHandles = tool === 'move' && !!art && decorBox.length === 4;
+
   return (
     <div
       ref={stageRef}
@@ -502,8 +601,38 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
           <polygon className="stage__outline" points={corners.map((p) => `${p.x},${p.y}`).join(' ')} />
         </svg>
       )}
+      {decorBox.length === 4 && tool === 'move' && (
+        <svg className="stage__overlay" width={box.width} height={box.height} aria-hidden="true">
+          <polygon className="stage__decor-outline" points={decorBox.map((p) => `${p.x},${p.y}`).join(' ')} />
+        </svg>
+      )}
+      {decorHandles && (
+        <>
+          <span
+            className="stage__handle stage__handle--decor"
+            style={{ left: decorBox[2]!.x, top: decorBox[2]!.y }}
+            data-testid="decor-scale-handle"
+            aria-hidden="true"
+            onPointerDown={(e) => startDecorHandle('decorScale', e)}
+            onPointerMove={moveDecorHandle}
+            onPointerUp={endHandle}
+            onPointerCancel={endHandle}
+          />
+          <span
+            className="stage__handle stage__handle--rotate stage__handle--decor"
+            style={{ left: decorRotateAt!.x, top: decorRotateAt!.y }}
+            data-testid="decor-rotate-handle"
+            aria-hidden="true"
+            onPointerDown={(e) => startDecorHandle('decorRotate', e)}
+            onPointerMove={moveDecorHandle}
+            onPointerUp={endHandle}
+            onPointerCancel={endHandle}
+          />
+        </>
+      )}
       {art &&
         tool === 'move' &&
+        !selected &&
         corners.map((p, i) => {
           const q = keepIn(p);
           if (offScreen(p)) return null;
@@ -520,7 +649,7 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
             />
           );
         })}
-      {art && tool === 'move' && !offScreen(rotateAt) && (
+      {art && tool === 'move' && !selected && !offScreen(rotateAt) && (
         <span
           className="stage__handle stage__handle--rotate"
           style={{ left: rotateHandle.x, top: rotateHandle.y }}

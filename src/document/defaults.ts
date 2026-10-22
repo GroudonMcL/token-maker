@@ -1,5 +1,8 @@
 import type {
   ArtTransform,
+  Decoration,
+  DecorationKind,
+  SnapPoint,
   BackgroundLayer,
   BackgroundRemoval,
   EffectKind,
@@ -102,18 +105,18 @@ export const DEFAULT_LIGHTING: LightingSettings = {
   color: '#ffe2b0',
   strength: 50,
   falloff: 40,
-  rim: { enabled: false, strength: 60, width: 30 },
+  rim: { enabled: false, strength: 60, width: 30, softness: 35 },
   background: true,
 };
 
 /** Lighting presets (DESIGN.md §6.5): they set the light, which then stays editable. */
 export const LIGHT_PRESETS: { id: LightPresetId; name: string; settings: Omit<LightingSettings, 'preset' | 'enabled' | 'background'> }[] = [
-  { id: 'torchlight', name: 'Torchlight', settings: { direction: 90, color: '#ffa04a', strength: 75, falloff: 60, rim: { enabled: true, strength: 70, width: 30 } } },
-  { id: 'moonlight', name: 'Moonlight', settings: { direction: 270, color: '#9db8ff', strength: 60, falloff: 55, rim: { enabled: true, strength: 50, width: 25 } } },
-  { id: 'holy', name: 'Holy glow', settings: { direction: 270, color: '#fff1b8', strength: 70, falloff: 25, rim: { enabled: true, strength: 80, width: 40 } } },
-  { id: 'fel', name: 'Fel green', settings: { direction: 135, color: '#76ff4a', strength: 70, falloff: 55, rim: { enabled: true, strength: 75, width: 35 } } },
-  { id: 'firelight', name: 'Firelight', settings: { direction: 45, color: '#ff6a22', strength: 80, falloff: 65, rim: { enabled: true, strength: 65, width: 30 } } },
-  { id: 'underdark', name: 'Underdark', settings: { direction: 225, color: '#8b5cd6', strength: 65, falloff: 80, rim: { enabled: false, strength: 40, width: 25 } } },
+  { id: 'torchlight', name: 'Torchlight', settings: { direction: 90, color: '#ffa04a', strength: 75, falloff: 60, rim: { enabled: true, strength: 70, width: 30, softness: 40 } } },
+  { id: 'moonlight', name: 'Moonlight', settings: { direction: 270, color: '#9db8ff', strength: 60, falloff: 55, rim: { enabled: true, strength: 50, width: 25, softness: 50 } } },
+  { id: 'holy', name: 'Holy glow', settings: { direction: 270, color: '#fff1b8', strength: 70, falloff: 25, rim: { enabled: true, strength: 80, width: 40, softness: 60 } } },
+  { id: 'fel', name: 'Fel green', settings: { direction: 135, color: '#76ff4a', strength: 70, falloff: 55, rim: { enabled: true, strength: 75, width: 35, softness: 35 } } },
+  { id: 'firelight', name: 'Firelight', settings: { direction: 45, color: '#ff6a22', strength: 80, falloff: 65, rim: { enabled: true, strength: 65, width: 30, softness: 30 } } },
+  { id: 'underdark', name: 'Underdark', settings: { direction: 225, color: '#8b5cd6', strength: 65, falloff: 80, rim: { enabled: false, strength: 40, width: 25, softness: 35 } } },
 ];
 
 /** Starting settings for each kind of foreground overlay. */
@@ -214,6 +217,81 @@ export function newEffect(kind: EffectKind, id = Math.random().toString(36).slic
   return { id, kind, visible: true, ...effectInfo(kind).defaults, seed: 1 };
 }
 
+// ---- Phase 7: decorations ----
+
+export type DecorationGroup = 'Treasure' | 'Creatures' | 'Trims' | 'Class icons';
+export const DECORATION_GROUPS: DecorationGroup[] = ['Treasure', 'Creatures', 'Trims', 'Class icons'];
+
+export interface DecorationInfo {
+  kind: DecorationKind;
+  name: string;
+  group: DecorationGroup;
+  /** Width ÷ height of its picture. */
+  aspect: number;
+  /** The point of the picture (0…1 across and down) that sits on the snap point or the free position. */
+  anchor: { x: number; y: number };
+  /** Starting settings (size is per square, the picture's height: 0.4 = 20 % of a square). */
+  defaults: { place: SnapPoint; size: number; color: string; mirror: boolean; rotation?: number };
+  swatches: string[];
+}
+
+const METAL = ['#e0b23a', '#c9d2de', '#b5813a', '#7a7f8a', '#1c1c1c'];
+const deco = (
+  kind: DecorationKind,
+  name: string,
+  group: DecorationGroup,
+  aspect: number,
+  anchor: [number, number],
+  defaults: DecorationInfo['defaults'],
+  swatches: string[] = METAL,
+): DecorationInfo => ({
+  kind,
+  name,
+  group,
+  aspect,
+  anchor: { x: anchor[0], y: anchor[1] },
+  defaults,
+  swatches: [defaults.color, ...swatches.filter((c) => c !== defaults.color)],
+});
+
+const GEMS = ['#c0263a', '#2f7fd8', '#2fae5a', '#8a3fd0', '#f0c030', '#e8f4ff', '#1c1c1c'];
+
+/**
+ * Every decoration (DESIGN.md §6.9), drawn by code (src/render/decorationPainters.ts).
+ * Pictures are drawn upright as they sit at the top of the token, facing outwards;
+ * at other snap points they turn to keep facing outwards.
+ */
+export const DECORATIONS: DecorationInfo[] = [
+  deco('gem', 'Gem', 'Treasure', 0.8, [0.5, 0.5], { place: 'top', size: 0.34, color: '#c0263a', mirror: false }, GEMS),
+  deco('roundGem', 'Round gem', 'Treasure', 1, [0.5, 0.5], { place: 'bottom', size: 0.3, color: '#2f7fd8', mirror: false }, GEMS),
+  deco('crown', 'Crown', 'Treasure', 1.3, [0.5, 0.64], { place: 'top', size: 0.5, color: '#e0b23a', mirror: false }),
+  deco('star', 'Star', 'Treasure', 1, [0.5, 0.5], { place: 'topRight', size: 0.3, color: '#ffd75a', mirror: true }, ['#ffd75a', '#ffffff', '#6fc3ff', '#c0263a', '#b06aff']),
+  deco('skull', 'Skull', 'Creatures', 0.85, [0.5, 0.5], { place: 'bottom', size: 0.42, color: '#e9e1cc', mirror: false }, ['#e9e1cc', '#c9c2b0', '#3a3a3a', '#6fc3ff', '#76ff4a']),
+  deco('horn', 'Horn', 'Creatures', 0.6, [0.62, 0.95], { place: 'topRight', size: 0.62, color: '#d8c9a8', mirror: true }, ['#d8c9a8', '#4a3a2e', '#1c1c1c', '#b8322a', '#c9d2de']),
+  deco('wing', 'Wing', 'Creatures', 0.8, [0.78, 0.92], { place: 'right', size: 0.85, color: '#f2f0ea', mirror: true }, ['#f2f0ea', '#2a2a30', '#6a2a2a', '#5b2d7a', '#e0b23a']),
+  deco('ribbon', 'Ribbon', 'Trims', 1.6, [0.5, 0.45], { place: 'bottom', size: 0.5, color: '#b8322a', mirror: false }, ['#b8322a', '#2f5fa8', '#2f7a3a', '#5b2d7a', '#e0b23a', '#1c1c1c']),
+  deco('laurel', 'Laurel', 'Trims', 2, [0.5, 0.55], { place: 'bottomRight', size: 0.62, color: '#c9a24a', mirror: true }, ['#c9a24a', '#5e9a3a', '#c9d2de', '#1c1c1c']),
+  deco('chain', 'Chain', 'Trims', 3, [0.5, 0.5], { place: 'bottom', size: 0.24, color: '#9aa0a8', mirror: false }),
+  deco('leaf', 'Leaf', 'Trims', 0.6, [0.5, 0.92], { place: 'topLeft', size: 0.38, color: '#5e9a3a', mirror: false }, ['#5e9a3a', '#c9a24a', '#b8322a', '#e07a2a']),
+  deco('sword', 'Sword', 'Class icons', 0.3, [0.5, 0.5], { place: 'bottomRight', size: 0.8, color: '#c9d2de', mirror: false, rotation: -90 }),
+  deco('dagger', 'Dagger', 'Class icons', 0.3, [0.5, 0.5], { place: 'bottomRight', size: 0.56, color: '#c9d2de', mirror: false, rotation: -90 }),
+  deco('shield', 'Shield', 'Class icons', 0.85, [0.5, 0.62], { place: 'bottom', size: 0.46, color: '#3f6fd8', mirror: false }, ['#3f6fd8', '#b8322a', '#2f7a3a', '#5b2d7a', '#1c1c1c', '#e0b23a']),
+  deco('staff', 'Staff', 'Class icons', 0.3, [0.5, 0.5], { place: 'bottomRight', size: 0.8, color: '#6fc3ff', mirror: false, rotation: -90 }, ['#6fc3ff', '#b06aff', '#76ff4a', '#ff6a3d', '#ffd75a']),
+  deco('bow', 'Bow', 'Class icons', 0.5, [0.5, 0.5], { place: 'bottomRight', size: 0.7, color: '#8a5a32', mirror: false, rotation: -90 }, ['#8a5a32', '#4a3a2e', '#c9a24a', '#2f5a24']),
+  deco('holySymbol', 'Holy symbol', 'Class icons', 1, [0.5, 0.5], { place: 'top', size: 0.42, color: '#f0c850', mirror: false }, ['#f0c850', '#ffffff', '#c9d2de', '#ff9a3a']),
+  deco('lute', 'Lute', 'Class icons', 0.5, [0.5, 0.5], { place: 'bottomLeft', size: 0.6, color: '#b5813a', mirror: false }, ['#b5813a', '#8a5a32', '#8e3b8f', '#3f6fd8']),
+];
+
+export const decorationInfo = (kind: DecorationKind): DecorationInfo => DECORATIONS.find((d) => d.kind === kind)!;
+
+/** Most decorations one token can have. */
+export const MAX_DECORATIONS = 16;
+
+export function newDecoration(kind: DecorationKind, id = Math.random().toString(36).slice(2, 10)): Decoration {
+  const d = decorationInfo(kind).defaults;
+  return { id, kind, visible: true, place: d.place, x: 0, y: -0.8, size: d.size, rotation: d.rotation ?? 0, mirror: d.mirror, flip: false, color: d.color, opacity: 1 };
+}
+
 export function createDocument(name = 'Untitled token'): TokenDocument {
   return {
     schemaVersion: SCHEMA_VERSION,
@@ -236,6 +314,7 @@ export function createDocument(name = 'Untitled token'): TokenDocument {
       innerSpacing: 0,
       backingColor: '#1d1f27',
       backingOpacity: 1,
+      image: null,
     },
     decorations: [],
     shadows: {

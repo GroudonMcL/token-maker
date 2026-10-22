@@ -1,8 +1,11 @@
-import { Circle, Hexagon, Square, SquareRoundCorner } from 'lucide-react';
-import { useEffect, useState, type ReactNode } from 'react';
+import { Circle, Hexagon, RotateCcw, Square, SquareRoundCorner, Trash2, Upload } from 'lucide-react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ColorSwatches, SegmentedButtons, Slider, TileGrid } from '../components';
 import { updateFrameAndArt } from '../editor/artActions';
-import type { FrameSettings } from '../document/types';
+import { nudgeHole, pickImageFrame, uploadFrame } from '../editor/frameActions';
+import type { FrameSettings, ImageFrame } from '../document/types';
+import { FRAME_LIBRARY, frameThumbUrl } from '../render/imageFrames';
+import { libraryFrameName, refreshUploadedFrames, removeUploadedFrame, useUploadedFrames } from '../state/frameLibrary';
 import { FRAME_PRESETS, framePresetById, SHAPES, type ShapeId } from '../render/catalog';
 import { commitDoc, updateDoc, useDoc } from '../state/tokenStore';
 import { frameThumbnails } from './frameThumbs';
@@ -28,8 +31,172 @@ const SHAPE_ICONS: Record<ShapeId, ReactNode> = {
 const toPct = (v: number) => Math.round(v * 50 * 10) / 10;
 const fromPct = (p: number) => p / 50;
 
-/** Frame & shape section (DESIGN.md §6.9): shape, 27 frames, colour, thickness, spacing, backing. */
+/**
+ * Frame & shape section (DESIGN.md §6.9): shape, 27 frames drawn by code
+ * (colour, thickness, spacing) or a picture frame (built-in or your own,
+ * with its hole), and the backing.
+ */
 export function FrameSection() {
+  const frame = useDoc((d) => d.frame);
+  const kind = frame.kind === 'image' && frame.image ? 'image' : 'code';
+  return (
+    <>
+      <SegmentedButtons
+        label="Frame type"
+        helpId="frame.kind"
+        value={kind}
+        onChange={(k) => {
+          if (k === 'code') updateFrameAndArt((d) => ({ ...d, frame: { ...d.frame, kind: 'code' } }));
+          else if (frame.image) updateFrameAndArt((d) => ({ ...d, frame: { ...d.frame, kind: 'image' } }));
+          else void pickImageFrame({ type: 'library', id: FRAME_LIBRARY[0]!.id }, FRAME_LIBRARY[0]!.name);
+        }}
+        options={[
+          { value: 'code', label: 'Drawn' },
+          { value: 'image', label: 'Picture' },
+        ]}
+      />
+      {kind === 'image' ? <PictureFrame image={frame.image!} /> : <DrawnFrame />}
+      <ColorSwatches
+        label="Backing colour"
+        helpId="frame.backingColor"
+        value={frame.backingColor}
+        swatches={BACKING_SWATCHES}
+        onChange={(c) => updateDoc((d) => ({ ...d, frame: { ...d.frame, backingColor: c } }), { transient: true })}
+        onCommit={commitDoc}
+      />
+      <Slider
+        label="Backing opacity"
+        helpId="frame.backingOpacity"
+        unit="%"
+        defaultValue={100}
+        min={0}
+        max={100}
+        value={Math.round(frame.backingOpacity * 100)}
+        onChange={(v) => updateDoc((d) => ({ ...d, frame: { ...d.frame, backingOpacity: v / 100 } }), { transient: true })}
+        onCommit={commitDoc}
+      />
+    </>
+  );
+}
+
+/** A picture frame: built-in or uploaded pictures, and the hole's nudge. */
+function PictureFrame({ image }: { image: ImageFrame }) {
+  const { frames: uploads, loaded } = useUploadedFrames();
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!loaded) void refreshUploadedFrames();
+  }, [loaded]);
+  const value = `${image.source.type}:${image.source.id}`;
+  const own = image.source.type === 'upload';
+  const n = image.nudge;
+  const nudged = n.x !== 0 || n.y !== 0 || n.scale !== 1;
+  return (
+    <>
+      <TileGrid
+        label="Picture frame"
+        helpId="frame.picture"
+        value={value}
+        onChange={(v) => {
+          const [type, ...rest] = v.split(':');
+          const id = rest.join(':');
+          if (type === 'library') void pickImageFrame({ type, id }, libraryFrameName(id));
+          else void pickImageFrame({ type: 'upload', id }, uploads.find((f) => f.id === id)?.name ?? 'My frame');
+        }}
+        tiles={[
+          ...FRAME_LIBRARY.map((f) => ({
+            id: `library:${f.id}`,
+            label: f.name,
+            group: 'Built-in',
+            preview: <img src={frameThumbUrl(f.id)} alt="" width={44} height={44} loading="lazy" />,
+          })),
+          ...uploads.map((f) => ({
+            id: `upload:${f.id}`,
+            label: f.name,
+            group: 'Your frames',
+            preview: <img src={f.url} alt="" width={44} height={44} />,
+          })),
+        ]}
+      />
+      <div className="control control--row" data-control="frame-upload" data-help-id="frame.upload">
+        <button type="button" className="btn btn--small" onClick={() => input.current?.click()}>
+          <Upload size={14} aria-hidden="true" />
+          Upload a frame
+        </button>
+        {own && (
+          <button
+            type="button"
+            className="btn btn--ghost btn--small"
+            onClick={() => {
+              void removeUploadedFrame(image.source.id).then(() => pickImageFrame({ type: 'library', id: FRAME_LIBRARY[0]!.id }, FRAME_LIBRARY[0]!.name));
+            }}
+          >
+            <Trash2 size={14} aria-hidden="true" />
+            Remove this frame
+          </button>
+        )}
+        <input
+          ref={input}
+          type="file"
+          accept="image/png,image/webp,image/gif,image/avif,image/svg+xml,.png,.webp,.gif,.avif,.svg"
+          className="visually-hidden"
+          tabIndex={-1}
+          aria-hidden="true"
+          data-testid="frame-file-input"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = '';
+            if (file) void uploadFrame(file);
+          }}
+        />
+      </div>
+      <p className="control__hint">Use a PNG with a see-through middle; the art shows through the hole. Picture frames grow with the token.</p>
+      <Slider
+        label="Hole size"
+        helpId="frame.holeSize"
+        unit="%"
+        defaultValue={100}
+        min={50}
+        max={150}
+        value={Math.round(n.scale * 100)}
+        onChange={(v) => nudgeHole({ scale: v / 100 }, true)}
+        onCommit={commitDoc}
+      />
+      <Slider
+        label="Move hole sideways"
+        helpId="frame.holeX"
+        unit="%"
+        defaultValue={0}
+        min={-25}
+        max={25}
+        step={0.5}
+        value={Math.round(n.x * 500) / 10}
+        onChange={(v) => nudgeHole({ x: v / 50 }, true)}
+        onCommit={commitDoc}
+      />
+      <Slider
+        label="Move hole up or down"
+        helpId="frame.holeY"
+        unit="%"
+        defaultValue={0}
+        min={-25}
+        max={25}
+        step={0.5}
+        value={Math.round(n.y * 500) / 10}
+        onChange={(v) => nudgeHole({ y: v / 50 }, true)}
+        onCommit={commitDoc}
+      />
+      <div className="control" data-control="frame-hole-reset" data-help-id="frame.holeReset">
+        <button type="button" className="btn btn--ghost btn--small" disabled={!nudged} onClick={() => nudgeHole({ x: 0, y: 0, scale: 1 })}>
+          <RotateCcw size={14} aria-hidden="true" />
+          Reset the hole
+        </button>
+      </div>
+    </>
+  );
+}
+
+/** A frame drawn by code: shape, the 27 frames, colour, thickness and spacing. */
+function DrawnFrame() {
   const shape = useDoc((d) => d.shape);
   const frame = useDoc((d) => d.frame);
   const accent = frameAccent(frame.style);
@@ -121,25 +288,6 @@ export function FrameSection() {
         step={0.5}
         value={toPct(frame.innerSpacing)}
         onChange={(v) => setFrame({ innerSpacing: fromPct(v) }, true)}
-        onCommit={commitDoc}
-      />
-      <ColorSwatches
-        label="Backing colour"
-        helpId="frame.backingColor"
-        value={frame.backingColor}
-        swatches={BACKING_SWATCHES}
-        onChange={(c) => setFrame({ backingColor: c }, true)}
-        onCommit={commitDoc}
-      />
-      <Slider
-        label="Backing opacity"
-        helpId="frame.backingOpacity"
-        unit="%"
-        defaultValue={100}
-        min={0}
-        max={100}
-        value={Math.round(frame.backingOpacity * 100)}
-        onChange={(v) => setFrame({ backingOpacity: v / 100 }, true)}
         onCommit={commitDoc}
       />
     </>

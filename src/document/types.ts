@@ -3,7 +3,7 @@
 
 import type { FrameStyle, ShapeId } from '../render/catalog';
 
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 export type SizePreset = 'tiny' | 'small' | 'medium' | 'large' | 'huge' | 'gargantuan' | 'custom';
 
@@ -122,7 +122,8 @@ export interface PopOutSettings {
 }
 
 export interface FrameSettings {
-  kind: 'code';
+  /** A frame drawn by code, or a picture (PNG) frame (Phase 7). Switching keeps both kinds' settings. */
+  kind: 'code' | 'image';
   /** Which preset tile is selected (two presets can share a style, e.g. Arcane/Infernal). */
   presetId: string;
   style: FrameStyle;
@@ -137,6 +138,28 @@ export interface FrameSettings {
   innerSpacing: number;
   backingColor: string;
   backingOpacity: number;
+  /** The picture frame, used when `kind` is 'image' (Phase 7). */
+  image: ImageFrame | null;
+}
+
+/** Where a picture frame comes from: a built-in one, or one the user uploaded (kept in IndexedDB). */
+export type ImageFrameSource = { type: 'library'; id: string } | { type: 'upload'; id: string };
+
+/**
+ * A picture (PNG) frame (DESIGN.md §6.9). The picture fills the token's
+ * square, so it scales with the token. Its hole, found when it is picked,
+ * is stored here so the renderer never has to look at the picture's pixels.
+ */
+export interface ImageFrame {
+  source: ImageFrameSource;
+  /** Shown in the panel. */
+  name: string;
+  /** The hole: a polygon in token units (R = 1, from the centre) as a flat x, y list. */
+  hole: number[];
+  /** How far the picture's solid parts reach from the centre (token units), for effects on the border. */
+  outer: number;
+  /** The user's nudge: the hole moved (token units) and scaled around its middle. */
+  nudge: { x: number; y: number; scale: number };
 }
 
 /** The outer drop shadow and the pop-out shadow share these settings. */
@@ -260,7 +283,8 @@ export interface LightingSettings {
   /** 0…100: how much darker the side away from the light gets. */
   falloff: number;
   /** A thin bright edge on the side facing the light (best with a removed background). */
-  rim: { enabled: boolean; strength: number; width: number };
+  /** Softness 0…100: 0 is a crisp edge, 100 fades gently into the art (Phase 7). */
+  rim: { enabled: boolean; strength: number; width: number; softness: number };
   /** Light the background the same way, so it matches the art. */
   background: boolean;
 }
@@ -317,7 +341,56 @@ export interface EffectLayer {
 
 // ---- Layers built in later phases. Kept minimal so the shape is settled now. ----
 
-/** Phase 7. */
-export type Decoration = { id: string; kind: string; [key: string]: unknown };
+// ---- Phase 7: decorations (DESIGN.md §6.9) ----
+
+export type DecorationKind =
+  | 'gem'
+  | 'roundGem'
+  | 'skull'
+  | 'horn'
+  | 'wing'
+  | 'ribbon'
+  | 'laurel'
+  | 'star'
+  | 'chain'
+  | 'crown'
+  | 'sword'
+  | 'shield'
+  | 'staff'
+  | 'bow'
+  | 'holySymbol'
+  | 'leaf'
+  | 'lute'
+  | 'dagger';
+
+/** The eight snap points round the frame (degrees: right 0, bottom 90, left 180, top 270). */
+export type SnapPoint = 'top' | 'topRight' | 'right' | 'bottomRight' | 'bottom' | 'bottomLeft' | 'left' | 'topLeft';
+
+/**
+ * One decoration (drawn by code). Snapped ones sit on the frame band facing
+ * outwards; free ones sit anywhere. Mirroring adds a matching copy on the
+ * other side (left ↔ right).
+ */
+export interface Decoration {
+  id: string;
+  kind: DecorationKind;
+  visible: boolean;
+  place: SnapPoint | 'free';
+  /** Where a free decoration's anchor sits, in token units (R = 1, from the centre). */
+  x: number;
+  y: number;
+  /** Height, per square. */
+  size: number;
+  /** Degrees, clockwise, on top of the way the snap point faces. */
+  rotation: number;
+  mirror: boolean;
+  /** Flipped left to right. */
+  flip: boolean;
+  /** Tint. */
+  color: string;
+  /** 0…1 */
+  opacity: number;
+}
+
 /** Phase 8. */
 export type LabelSettings = { text: string; [key: string]: unknown };

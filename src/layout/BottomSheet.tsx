@@ -1,7 +1,7 @@
 import { Download } from 'lucide-react';
 import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { Section } from '../components';
-import { toolStore } from '../editor/tools';
+import { selectDecoration, toolStore } from '../editor/tools';
 import { onRevealSection } from './reveal';
 import { PHONE_TABS, sectionById } from './sections';
 import { SectionPlaceholder } from './SectionPlaceholder';
@@ -31,6 +31,10 @@ export function BottomSheet() {
   const [tab, setTab] = useState(PHONE_TABS[0]!.id);
   // Tabs holding more than one section open one at a time, starting with the first.
   const [openSection, setOpenSection] = useState<string | null>(PHONE_TABS[0]!.sections[0]!);
+  // Leaving the Decorations section lets go of the picked decoration, so the art's handles come back.
+  useEffect(() => {
+    if (openSection !== 'decorations') selectDecoration(null);
+  }, [openSection]);
   const drag = useRef<{ startY: number; startH: number; moved: boolean } | null>(null);
   const panelId = useId();
 

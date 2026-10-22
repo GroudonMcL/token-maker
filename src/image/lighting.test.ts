@@ -18,7 +18,7 @@ const light = (patch: Partial<ArtLight> = {}): ArtLight => ({
   color: '#ffffff',
   strength: 80,
   falloff: 70,
-  rim: { enabled: false, strength: 0, width: 30 },
+  rim: { enabled: false, strength: 0, width: 30, softness: 0 },
   ...patch,
 });
 
@@ -58,11 +58,31 @@ describe('lighting', () => {
     const plain = disc();
     const rim = disc();
     applyLighting(plain, light({ angle: 0, strength: 0 }));
-    applyLighting(rim, light({ angle: 0, strength: 0, rim: { enabled: true, strength: 100, width: 100 } }));
+    applyLighting(rim, light({ angle: 0, strength: 0, rim: { enabled: true, strength: 100, width: 100, softness: 0 } }));
     expect(lum(px(rim, 48, 30))).toBeGreaterThan(lum(px(plain, 48, 30)) + 60); // right edge
     expect(lum(px(rim, 30, 30))).toBeCloseTo(lum(px(plain, 30, 30)), 0); // middle
     expect(lum(px(rim, 12, 30))).toBeCloseTo(lum(px(plain, 12, 30)), 0); // left edge, away from the light
     expect(px(rim, 2, 2)[3]).toBe(0); // see-through stays see-through
+  });
+
+  it('rim softness fades the rim into the art instead of a crisp band', () => {
+    // 200 px wide: a crisp rim at full width is 5 px thick.
+    const disc = () => grey(200, 200, (x, y) => (Math.hypot(x - 100, y - 100) < 80 ? 255 : 0));
+    const lift = (softness: number, x: number) => {
+      const plain = disc();
+      const rim = disc();
+      applyLighting(plain, light({ angle: 0, strength: 0 }));
+      applyLighting(rim, light({ angle: 0, strength: 0, rim: { enabled: true, strength: 40, width: 100, softness } }));
+      return lum(px(rim, x, 100)) - lum(px(plain, x, 100));
+    };
+    // Right at the edge both are bright.
+    expect(lift(0, 179)).toBeGreaterThan(40);
+    expect(lift(100, 179)).toBeGreaterThan(40);
+    // A crisp rim is as bright inside its width as at the edge; a soft one fades.
+    expect(Math.abs(lift(0, 176) - lift(0, 179))).toBeLessThan(5);
+    expect(lift(100, 176)).toBeLessThan(lift(100, 179) - 10);
+    // …and a soft rim still never reaches the middle.
+    expect(lift(100, 100)).toBeCloseTo(0, 0);
   });
 
   it('turns the token direction into the picture direction when the art is rotated or flipped', () => {

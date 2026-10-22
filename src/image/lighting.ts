@@ -17,7 +17,7 @@ export interface ArtLight {
   strength: number;
   /** 0…100 */
   falloff: number;
-  rim: { enabled: boolean; strength: number; width: number };
+  rim: { enabled: boolean; strength: number; width: number; softness: number };
 }
 
 const round = (v: number) => Math.round(v * 100) / 100;
@@ -66,8 +66,18 @@ export function applyLighting(buf: PixelBuffer, light: ArtLight): void {
   const cy = (h - 1) / 2;
 
   const rimOn = light.rim.enabled && light.rim.strength > 0;
-  const rimPx = Math.max(1, (light.rim.width / 100) * 0.025 * Math.max(w, h));
+  const soft = Math.min(1, Math.max(0, (light.rim.softness ?? 0) / 100));
+  // A soft rim reaches a little further, so softening fades it rather than only thinning it.
+  const rimPx = Math.max(1, (light.rim.width / 100) * 0.025 * Math.max(w, h) * (1 + 0.6 * soft));
   const rimK = (light.rim.strength / 100) * 0.9;
+  // Where to look for the see-through edge, and how much a hit that far away counts:
+  // crisp rims count every hit fully; soft ones fade with the distance from the edge.
+  const rimSteps = soft > 0 ? Math.max(3, Math.min(8, Math.round(rimPx / 2))) : 3;
+  const rimSamples = Array.from({ length: rimSteps }, (_, j) => {
+    const k = (j + 1) / rimSteps;
+    const fade = k * k * (3 - 2 * k);
+    return { at: rimPx * k, weight: 1 - soft * fade * 0.95 };
+  });
   // Alpha never changes here, so reading it from the buffer being lit is safe.
   const alphaAt = (x: number, y: number) => {
     const xi = Math.min(w - 1, Math.max(0, Math.round(x)));
@@ -88,7 +98,7 @@ export function applyLighting(buf: PixelBuffer, light: ArtLight): void {
       if (rimOn) {
         // A pixel whose neighbour towards the light is see-through is on the lit edge.
         let gap = 0;
-        for (const k of [rimPx / 3, (rimPx * 2) / 3, rimPx]) gap = Math.max(gap, 1 - alphaAt(x + lx * k, y + ly * k) / 255);
+        for (const k of rimSamples) gap = Math.max(gap, (1 - alphaAt(x + lx * k.at, y + ly * k.at) / 255) * k.weight);
         rim = rimK * gap;
       }
       for (let c = 0; c < 3; c++) {
