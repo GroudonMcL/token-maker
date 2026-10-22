@@ -1,4 +1,5 @@
 import { Move, RotateCcw, Upload } from 'lucide-react';
+import { useState } from 'react';
 import { ColorSwatches, GradientEditor, SegmentedButtons, Slider, TileGrid } from '../components';
 import { DEFAULT_BACKGROUND } from '../document/defaults';
 import type { BackgroundKind, BackgroundLayer } from '../document/types';
@@ -22,7 +23,9 @@ export function BackgroundSection() {
   const bg = useDoc((d) => d.background);
   const hasArt = useDoc((d) => d.art.assetId !== null);
   const tool = useTool((s) => s.tool);
-  const source: Source = bg.image?.type ?? 'library';
+  // "Your own" can be chosen before there is a picture, so remember the choice here too.
+  const [chosen, setChosen] = useState<Source | null>(null);
+  const source: Source = bg.image?.type ?? chosen ?? 'library';
 
   const pickLibrary = (id: string) => {
     setBackground({ kind: 'image', image: { type: 'library', id }, zoom: 1, offsetX: 0, offsetY: 0 });
@@ -73,6 +76,7 @@ export function BackgroundSection() {
             helpId="background.source"
             value={source}
             onChange={(s: Source) => {
+              setChosen(s);
               if (s === 'library') pickLibrary(bg.image?.type === 'library' ? bg.image.id : BACKGROUND_LIBRARY[0]!.id);
               else if (s === 'art') setBackground({ image: { type: 'art' }, zoom: 1.3, offsetX: 0, offsetY: 0, blur: Math.max(bg.blur, 40) });
               else setBackground({ image: bg.image?.type === 'asset' ? bg.image : null });

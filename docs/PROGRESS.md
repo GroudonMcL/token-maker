@@ -53,14 +53,14 @@ A checklist of build phases, following [`BUILD-PROMPTS.md`](BUILD-PROMPTS.md). D
   - [x] Tests: adjustment and mask pixel tests, renderer tests with removal and strokes, migration v1 → v2; Playwright removal, brushing (mouse and real touch), eyedropper and export-matches-preview on desktop, tablet and phone
   - **Done when:** remove a flat background, tidy it with the brush, tune the image, and the export matches the preview ✔
 
-- [ ] **Phase 4 — Background, foreground overlays and lighting**
-  - [ ] Background: colour, gradient (simple + Advanced multi-stop), image (library, own image, token's own art), blur, own move/zoom
-  - [ ] Built-in background library (8–12 images, CC0 or code-made, credited; ask before anything needing attribution)
-  - [ ] Foreground: reorderable overlays (gradient, vignette, foliage, smoke, mist, cobwebs, edge shadow) with opacity and blend mode
-  - [ ] Lighting: direction dial, colour, strength, rim light, presets (Torchlight, Moonlight, Holy glow, Fel green, Firelight, Underdark), part of processed art
-  - [ ] Help tips for everything
-  - [ ] Tests: backgrounds, overlays, blend modes, lighting direction
-  - **Done when:** a character on a blurred forest background with a vignette and torchlight from below, export matching the preview
+- [x] **Phase 4 — Background, foreground overlays and lighting**
+  - [x] Background: colour, gradient (simple + Advanced multi-stop editor), picture (built-in library, your own by upload or link, the token's own art), blur, its own move (canvas tool) and zoom, opacity
+  - [x] Built-in background library: 10 pictures drawn by code (`npm run make-backgrounds`), listed in ASSETS-CREDITS.md
+  - [x] Foreground: stack of overlays (gradient, vignette, foliage, smoke, mist, cobwebs, edge shadow), reorder / hide / remove, opacity and blend mode (normal, multiply, screen, overlay, soft light), colour, side, reach, softness, scale, shuffle; drawn by code
+  - [x] Lighting: direction dial, colour, strength, falloff, rim light, presets (Torchlight, Moonlight, Holy glow, Fel green, Firelight, Underdark) that stay editable; the last step of the processed art (works with rotated and flipped art); optionally lights the background too
+  - [x] Help for every control
+  - [x] Tests: pixel tests for every background type, gradient stops, picture move/zoom/blur, every overlay, every blend mode, overlay order, lighting direction/colour/falloff/rim and the background lighting; document v2 → v3; Playwright blurred forest + vignette + torchlight with export-matches-preview on desktop, tablet and phone, overlay list and presets, own background picture moved on the canvas
+  - **Done when:** a character on a blurred forest background with a vignette and torchlight from below, export matching the preview ✔
 
 - [ ] **Phase 5 — Pop-out art and shadows**
   - [ ] Pop-out mask brush (add/erase, size, softness), coloured overlay with show/hide, stored in art-image coordinates

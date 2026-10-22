@@ -9,4 +9,6 @@ Every font, icon, image and other asset bundled with Token Maker, with its sourc
 | Lucide icons | [lucide.dev](https://lucide.dev) (`lucide-react`) | ISC |
 | Placeholder logo / favicon | Made for the project | — |
 | 27 code-drawn frames and 5 shapes | Ported from the owner's own [LK-to-Owlbear-Combined](https://github.com/GroudonMcL/LK-to-Owlbear-Combined) extension | Owner's own code |
+| 10 built-in background pictures (`public/backgrounds/`) | Drawn by code for the project (`scripts/make-backgrounds.ts`) | — (made for the project; no attribution needed) |
+| Foreground overlays (foliage, smoke, mist, cobwebs, vignette, edge shadow) | Drawn by code at render time (`src/render/overlays.ts`) | — |
 | Sample art in frame tiles, frame sheet and tests | Drawn by code for the project (`src/render/sampleArt.ts`, `scripts/make-fixture.ts`) | — |

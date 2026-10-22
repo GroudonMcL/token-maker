@@ -81,9 +81,9 @@ export function applyLighting(buf: PixelBuffer, light: ArtLight): void {
       if (a === 0) continue;
       const t = ((x - cx) * lx + (y - cy) * ly) / reach;
       const u = Math.min(1, Math.max(0, (t + 1) / 2));
-      const shade = 1 - f * s * 0.85 * (1 - u) ** 1.3;
-      const lift = 1 + 0.35 * s * u * u;
-      const glow = 0.12 * s * u * u;
+      const shade = 1 - f * s * 0.95 * (1 - u) ** 1.1;
+      const lift = 1 + 0.6 * s * u * u;
+      const glow = 0.22 * s * u * u * u;
       let rim = 0;
       if (rimOn) {
         // A pixel whose neighbour towards the light is see-through is on the lit edge.
@@ -92,7 +92,7 @@ export function applyLighting(buf: PixelBuffer, light: ArtLight): void {
         rim = rimK * gap;
       }
       for (let c = 0; c < 3; c++) {
-        const tint = 1 - 0.45 * s + 0.45 * s * hue[c]!;
+        const tint = 1 - 0.6 * s + 0.6 * s * hue[c]!;
         d[i + c] = d[i + c]! * tint * shade * lift + col[c]! * (glow + rim);
       }
     }

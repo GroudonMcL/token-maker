@@ -1629,3 +1629,215 @@ input[type='range']::-moz-range-thumb {
   gap: var(--space-2);
   margin-bottom: var(--space-4);
 }
+
+/* ---------- Background, foreground and lighting (Phase 4) ---------- */
+.stage[data-tool='background'] {
+  cursor: move;
+}
+
+.control--row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.chip-row .btn--small {
+  padding: 0 var(--space-2);
+}
+
+/* Direction dial */
+.dial {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.dial__value {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.dial__ring {
+  position: relative;
+  justify-self: center;
+  width: 112px;
+  height: 112px;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--surface-raised) 55%, var(--surface) 100%);
+  cursor: pointer;
+  touch-action: none;
+}
+
+.dial__ring:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.dial__ring[aria-disabled='true'] {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.dial__centre {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 22px;
+  height: 22px;
+  margin: -11px 0 0 -11px;
+  border-radius: 50%;
+  background: var(--border-strong);
+}
+
+.dial__arm {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 40%;
+  height: 2px;
+  margin-top: -1px;
+  background: var(--accent);
+  transform-origin: 0 50%;
+}
+
+.dial__dot {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  margin: -10px 0 0 -10px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 0 12px var(--accent);
+}
+
+/* Gradient editor */
+.gradient-editor {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.gradient-editor__preview {
+  display: block;
+  height: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background-color: #888;
+}
+
+.gradient-stops {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.gradient-stop {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.gradient-stop__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.gradient-stop__name {
+  flex: 1;
+  font-size: var(--text-sm);
+}
+
+.gradient-stop__color {
+  width: 32px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: none;
+}
+
+/* Foreground overlay list */
+.overlay-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.overlay-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+}
+
+.overlay-card[data-hidden] .overlay-card__toggle {
+  opacity: 0.55;
+}
+
+.overlay-card__head {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px var(--space-1) 2px 0;
+}
+
+.overlay-card__toggle {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 36px;
+  padding: 0 var(--space-2);
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.overlay-card__chevron {
+  transition: transform var(--dur) var(--ease);
+  transform: rotate(-90deg);
+}
+
+.overlay-card[data-open='true'] .overlay-card__chevron {
+  transform: none;
+}
+
+.overlay-card__body {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+/* Lighting presets */
+.preset-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-1);
+}
+
+.preset-btn {
+  justify-content: flex-start;
+  gap: var(--space-2);
+}
+
+.preset-btn__swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  box-shadow: 0 0 6px currentColor;
+}
