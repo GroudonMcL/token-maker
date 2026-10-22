@@ -10,5 +10,7 @@ Every font, icon, image and other asset bundled with Token Maker, with its sourc
 | Placeholder logo / favicon | Made for the project | — |
 | 27 code-drawn frames and 5 shapes | Ported from the owner's own [LK-to-Owlbear-Combined](https://github.com/GroudonMcL/LK-to-Owlbear-Combined) extension | Owner's own code |
 | 10 built-in background pictures (`public/backgrounds/`) | Drawn by code for the project (`scripts/make-backgrounds.ts`) | — (made for the project; no attribution needed) |
+| 8 built-in picture frames (`public/frames/`) | Drawn by code for the project (`scripts/make-frames.ts`) | — (made for the project; no attribution needed) |
+| 18 decorations (gems, crown, star, skull, horn, wing, ribbon, laurel, chain, leaf, class icons) | Drawn by code at render time (`src/render/decorationPainters.ts`) | — |
 | Foreground overlays (foliage, smoke, mist, cobwebs, vignette, edge shadow) | Drawn by code at render time (`src/render/overlays.ts`) | — |
 | Sample art in frame tiles, frame sheet and tests | Drawn by code for the project (`src/render/sampleArt.ts`, `scripts/make-fixture.ts`) | — |

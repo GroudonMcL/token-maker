@@ -432,6 +432,13 @@ button:disabled {
   opacity: 0.6;
 }
 
+.stage__decor-outline {
+  fill: none;
+  stroke: var(--focus);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 3;
+}
+
 .stage__handle {
   position: absolute;
   z-index: 1;
@@ -1861,4 +1868,127 @@ input[type='range']::-moz-range-thumb {
   color: var(--text-muted);
   font-size: var(--text-xs);
   white-space: nowrap;
+}
+
+/* ---- Decorations: the snap point picker (Phase 7) ---- */
+.snap-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 64px));
+  gap: var(--space-1);
+  padding: var(--space-2);
+  width: max-content;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-sunken);
+}
+
+.snap-grid__btn {
+  display: grid;
+  place-items: center;
+  min-height: 32px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm, 6px);
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.snap-grid__btn:hover {
+  background: var(--surface-raised);
+}
+
+.snap-grid__btn[aria-checked='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.snap-grid__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+}
+
+.snap-grid__btn[aria-checked='true'] .snap-grid__dot {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+@media (pointer: coarse) {
+  .snap-grid__btn {
+    min-height: var(--hit);
+  }
+}
+
+/* ---- Presets (Phase 7) ---- */
+.preset-tiles .tile__preview img {
+  border-radius: 50%;
+}
+
+.preset-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.preset-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-raised);
+}
+
+.preset-row__thumb {
+  flex: none;
+  width: 40px;
+  height: 40px;
+}
+
+.preset-row__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border: none;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.preset-row__name:hover {
+  color: var(--accent);
+}
+
+.preset-code {
+  width: 100%;
+  min-height: 72px;
+  resize: vertical;
+  padding: var(--space-2);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--surface-sunken);
+  color: var(--text);
+  font: 12px/1.4 ui-monospace, monospace;
+  word-break: break-all;
+}
+
+.preset-save {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.preset-save input {
+  flex: 1;
+  min-width: 0;
 }

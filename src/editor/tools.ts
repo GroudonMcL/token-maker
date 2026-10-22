@@ -25,6 +25,8 @@ export interface ToolState {
   popOutMode: 'add' | 'erase';
   /** Show the pop-out mask as a coloured overlay while painting it. */
   showPopOut: boolean;
+  /** The decoration picked on the canvas or in the panel (Phase 7); it gets handles. Not remembered. */
+  selectedDecoration: string | null;
 }
 
 export const BRUSH_MIN = 4;
@@ -40,6 +42,7 @@ export const DEFAULTS: ToolState = {
   showRemoved: true,
   popOutMode: 'add',
   showPopOut: true,
+  selectedDecoration: null,
 };
 
 function loadPrefs(): Partial<ToolState> {
@@ -76,3 +79,4 @@ export function useTool<T>(select: (s: ToolState) => T): T {
 
 export const setTool = (tool: Tool) => toolStore.setState({ tool });
 export const setBrush = (patch: Partial<Omit<ToolState, 'tool'>>) => toolStore.setState(patch);
+export const selectDecoration = (id: string | null) => toolStore.setState({ selectedDecoration: id });

@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
+import { selectDecoration } from '../editor/tools';
 import { useGlobalImport } from '../editor/useGlobalImport';
 import { useShortcuts } from '../editor/useShortcuts';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { restore, startAutosave } from '../state/autosave';
+import { watchFrameImages } from '../state/frameLibrary';
 import { watchLibraryImages } from '../state/libraryAssets';
 import { Toasts } from '../ui/Toasts';
 import { AdSlot } from './AdSlot';
@@ -23,6 +25,7 @@ function boot() {
   void restore().finally(() => {
     startAutosave();
     watchLibraryImages();
+    watchFrameImages();
   });
 }
 
@@ -46,6 +49,11 @@ export function AppShell() {
       }),
     [],
   );
+
+  // Leaving the Decorations section lets go of the picked decoration, so the art's handles come back.
+  useEffect(() => {
+    if (!open.has('decorations')) selectDecoration(null);
+  }, [open]);
 
   // One section open at a time: opening one closes the rest, so the panel stays short.
   const setOpen = (id: SectionId, isOpen: boolean) => setOpenSections(isOpen ? new Set([id]) : new Set());

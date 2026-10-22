@@ -1,6 +1,7 @@
 // Makes the test pictures used by the end-to-end tests and help images:
 //   e2e/fixtures/goblin-boss.png   a goblin on a sky-and-hill background
 //   e2e/fixtures/flat-goblin.png   the same goblin on a plain white background
+//   e2e/fixtures/purple-ring.png   a picture frame: a purple ring with a see-through middle
 import { createCanvas, type SKRSContext2D } from '@napi-rs/canvas';
 import { writeFileSync } from 'node:fs';
 
@@ -47,4 +48,21 @@ f.fillStyle = '#fbfbf8';
 f.fillRect(0, 0, 600, 800);
 goblin(f);
 writeFileSync('e2e/fixtures/flat-goblin.png', flat.toBuffer('image/png'));
-console.log('Wrote e2e/fixtures/goblin-boss.png and e2e/fixtures/flat-goblin.png');
+// A ring frame like one a user might upload: solid purple between 72 % and
+// 96 % of the half-size, with gold studs, see-through inside and outside.
+const ring = createCanvas(512, 512);
+const r = ring.getContext('2d');
+r.fillStyle = '#7a3fc0';
+r.beginPath();
+r.arc(256, 256, 256 * 0.96, 0, Math.PI * 2);
+r.arc(256, 256, 256 * 0.72, 0, Math.PI * 2, true);
+r.fill();
+r.fillStyle = '#f0c040';
+for (let i = 0; i < 12; i++) {
+  const a = (i / 12) * Math.PI * 2;
+  r.beginPath();
+  r.arc(256 + Math.cos(a) * 256 * 0.84, 256 + Math.sin(a) * 256 * 0.84, 12, 0, Math.PI * 2);
+  r.fill();
+}
+writeFileSync('e2e/fixtures/purple-ring.png', ring.toBuffer('image/png'));
+console.log('Wrote e2e/fixtures/goblin-boss.png, flat-goblin.png and purple-ring.png');

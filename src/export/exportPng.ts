@@ -4,6 +4,7 @@
 import { DEFAULT_PX_PER_SQUARE, outputSize } from '../document/sizing';
 import type { TokenDocument } from '../document/types';
 import { prepareArt } from '../image/artWorker';
+import { loadFrameImage } from '../state/frameLibrary';
 import { ensureLibraryImages } from '../state/libraryAssets';
 import { getAssets } from '../state/assets';
 import { render, type AssetMap } from '../render/render';
@@ -25,7 +26,8 @@ export async function renderPng(doc: TokenDocument, assets: AssetMap, pxPerSquar
   const size = outputSize(doc.size.squares, pxPerSquare);
   await prepareArt(doc, assets); // full-size processed art, usually ready already
   await ensureLibraryImages(doc); // a built-in background picture, usually loaded already
-  // The store may have gained the background picture since `assets` was read.
+  if (doc.frame.kind === 'image' && doc.frame.image) await loadFrameImage(doc.frame.image.source).catch((e) => console.warn(e)); // the picture frame
+  // The store may have gained the background or frame picture since `assets` was read.
   const canvas = render(doc, new Map([...getAssets(), ...assets]), size);
   if ('convertToBlob' in canvas) return canvas.convertToBlob({ type: 'image/png' });
   return new Promise((resolve, reject) =>

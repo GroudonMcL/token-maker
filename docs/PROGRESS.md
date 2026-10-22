@@ -80,12 +80,13 @@ A checklist of build phases, following [`BUILD-PROMPTS.md`](BUILD-PROMPTS.md). D
   - [x] Tests: every effect in every placement draws the same pixels twice for a seed, Shuffle changes the layout, time changes the moving ones, nothing outside the square, Intensity/hide, placement layers and list order, condition looks, per-square size on Medium vs Large, layer reuse, a 3-effect phone-size render; migration v4 → v5 and effect checks; the panel (add, reorder, hide, remove, undo, help ids); Playwright frost + mist + bloodied → reorder → export (matches the preview, survives a reload), placement and intensity, and smooth slider moves with 3 effects on desktop, tablet and phone
   - **Done when:** stack a frost glow on the border, mist over the art and a "bloodied" look, reorder them, and export ✔
 
-- [ ] **Phase 7 — Image frames, decorations and presets**
-  - [ ] PNG frames: built-in set + uploads, automatic hole detection with nudging, saved in IndexedDB
-  - [ ] Decorations: library, snap points with mirroring or free drag, resize/rotate handles, tint, opacity, per grid square, touch-friendly
-  - [ ] Presets: built-ins, save your own, `.tokenpreset.json` / text code export and import, never includes art, schemaVersion migration
-  - [ ] Tests: hole detection, snapping/mirroring maths, preset round trip, old-preset migration
-  - **Done when:** upload a ring PNG, add mirrored horns, save a preset, export it and load it in another browser
+- [x] **Phase 7 — Image frames, decorations and presets**
+  - [x] PNG frames: 8 built-in (drawn by code, `npm run make-frames`) + uploads, automatic hole detection (`src/image/frameHole.ts`) with hole size / sideways / up-down nudging, uploads saved in IndexedDB; document v5 → v6
+  - [x] Decorations: 18 code-drawn decorations in 4 groups, 8 snap points (facing outwards) with mirroring or free drag, on-canvas drag with snapping, resize/rotate handles, tint, opacity, flip, per grid square, touch-friendly; part of the drop shadow's silhouette
+  - [x] Presets: 8 built-ins, save your own (IndexedDB), `.tokenpreset.json` file and `TKP1.` text code export/import (uploaded frames travel with them), never includes art, preset `schemaVersion` + `docVersion` migration
+  - [x] Owner requests: **Rim softness** slider (old saved rims stay crisp); preset text codes for choosing the final built-ins
+  - [x] Tests: hole detection (sample frames and every built-in), snapping/mirroring maths, decoration and picture-frame pixel tests, preset round trip (file and code), old-preset and v5 document migration, the three new panels; Playwright ring upload → mirrored horns → save → export → load in another browser (file and code), decoration drag and built-in frame, on desktop, tablet and phone
+  - **Done when:** upload a ring PNG, add mirrored horns, save a preset, export it and load it in another browser ✔
 
 - [ ] **Phase 8 — Label**
   - [ ] Shapes: banner/ribbon, plaque, pill, box, curved ring text; free drag with top/bottom snapping

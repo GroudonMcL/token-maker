@@ -5,13 +5,16 @@
 import { DEFAULT_TRANSFORM } from '../document/defaults';
 import { computeInsets } from '../document/sizing';
 import type { ArtTransform, TokenDocument } from '../document/types';
+import { nudgedHole } from '../image/frameHole';
 import { boundingBox, shapePolygon, type Point } from './shapes';
 
 export const ZOOM_MAX = 8;
 export const ZOOM_MIN = 0.05;
 
-/** The polygon the art is clipped to, for a token of half-size 1. */
+/** The polygon the art is clipped to, for a token of half-size 1: the frame's opening, or a picture frame's hole. */
 export function imageClipPolygon(doc: Pick<TokenDocument, 'shape' | 'frame' | 'size'>): Point[] {
+  const img = doc.frame.kind === 'image' ? doc.frame.image : null;
+  if (img) return nudgedHole(img.hole, img.nudge);
   return shapePolygon(doc.shape, 1, computeInsets(doc).image);
 }
 

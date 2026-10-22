@@ -102,6 +102,17 @@ export function LightingSection() {
                 onChange={(width) => setLight({ rim: { ...l.rim, width } }, true)}
                 onCommit={commitDoc}
               />
+              <Slider
+                label="Rim softness"
+                helpId="lighting.rimSoftness"
+                unit="%"
+                min={0}
+                max={100}
+                value={l.rim.softness}
+                defaultValue={DEFAULT_LIGHTING.rim.softness}
+                onChange={(softness) => setLight({ rim: { ...l.rim, softness } }, true)}
+                onCommit={commitDoc}
+              />
             </>
           )}
           <Toggle

@@ -1,4 +1,4 @@
-import { createDocument, MAX_EFFECTS, newEffect } from './defaults';
+import { createDocument, MAX_DECORATIONS, MAX_EFFECTS, newDecoration, newEffect } from './defaults';
 import { DocumentVersionError, migrateDocument } from './migrate';
 import { SCHEMA_VERSION } from './types';
 
@@ -71,7 +71,9 @@ describe('migrateDocument', () => {
   it('upgrades a version 2 document: keeps the light direction, starts background, overlays and lighting at their defaults', () => {
     const v2 = { schemaVersion: 2, background: { kind: 'none' }, foreground: [], lighting: { direction: 300 } };
     const doc = migrateDocument(v2);
-    expect(doc.lighting).toEqual({ ...createDocument().lighting, direction: 300 });
+    // Old rims were crisp, so they keep softness 0 (Phase 7).
+    const base = createDocument().lighting;
+    expect(doc.lighting).toEqual({ ...base, direction: 300, rim: { ...base.rim, softness: 0 } });
     expect(doc.background).toEqual(createDocument().background);
     expect(doc.foreground).toEqual([]);
   });
@@ -179,5 +181,49 @@ describe('migrateDocument', () => {
 
   it('refuses a version with no migration', () => {
     expect(() => migrateDocument({ schemaVersion: 0 }, {}, 1)).toThrow(DocumentVersionError);
+  });
+
+  it('upgrades a version 5 document: crisp rims stay crisp, placeholder decorations go, the frame is drawn', () => {
+    const base = createDocument();
+    const v5 = {
+      ...JSON.parse(JSON.stringify(base)),
+      schemaVersion: 5,
+      lighting: { ...base.lighting, rim: { enabled: true, strength: 70, width: 30 } },
+      decorations: [{ id: 'x', kind: 'gem' }],
+      frame: { ...base.frame, kind: 'code' },
+    };
+    delete v5.frame.image;
+    const doc = migrateDocument(v5);
+    expect(doc.lighting.rim).toEqual({ enabled: true, strength: 70, width: 30, softness: 0 });
+    expect(doc.decorations).toEqual([]);
+    expect(doc.frame.kind).toBe('code');
+    expect(doc.frame.image).toBeNull();
+    // A new token's rim starts soft.
+    expect(base.lighting.rim.softness).toBeGreaterThan(0);
+  });
+
+  it('checks decorations and picture frames', () => {
+    const base = createDocument();
+    const hole = [0.7, 0, 0, 0.7, -0.7, 0, 0, -0.7];
+    const doc = migrateDocument({
+      ...base,
+      decorations: [
+        { id: 'a', kind: 'horn', place: 'topRight', mirror: true, size: 99, opacity: 3, color: 'red' },
+        { id: 'b', kind: 'laser-sword' },
+        { id: 'c', kind: 'gem', place: 'middle', x: 9, y: -9 },
+        'junk',
+      ],
+      frame: { ...base.frame, kind: 'image', image: { source: { type: 'upload', id: 'f1' }, name: 'Ring', hole, outer: 0.95, nudge: { x: 2, y: 0, scale: 9 } } },
+    });
+    expect(doc.decorations.map((d) => d.kind)).toEqual(['horn', 'gem']);
+    expect(doc.decorations[0]).toMatchObject({ place: 'topRight', mirror: true, size: 4, opacity: 1, color: newDecoration('horn').color });
+    expect(doc.decorations[1]).toMatchObject({ place: 'top', x: 1.5, y: -1.5 }); // bad snap point → the gem's default
+    expect(doc.frame.kind).toBe('image');
+    expect(doc.frame.image).toEqual({ source: { type: 'upload', id: 'f1' }, name: 'Ring', hole, outer: 0.95, nudge: { x: 0.5, y: 0, scale: 1.5 } });
+    // A picture frame without a usable hole falls back to the drawn frame.
+    const broken = migrateDocument({ ...base, frame: { ...base.frame, kind: 'image', image: { source: { type: 'library', id: 'rope' }, hole: [1, 2] } } });
+    expect(broken.frame.kind).toBe('code');
+    expect(broken.frame.image).toBeNull();
+    expect(migrateDocument({ ...base, decorations: Array.from({ length: 40 }, (_, i) => newDecoration('star', `s${i}`)) }).decorations).toHaveLength(MAX_DECORATIONS);
   });
 });
