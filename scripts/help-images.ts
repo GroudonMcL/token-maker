@@ -1,10 +1,14 @@
-// Draws the before/after pictures for the Image section's help tips
-// (DESIGN.md §11) with the real image pipeline, into public/help/.
+// Draws the before/after pictures for the Image and Effects sections' help
+// tips (DESIGN.md §11) with the real image pipeline and renderer, into
+// public/help/.
 // Run with: npm run help-images
 import { createCanvas, loadImage, type Canvas } from '@napi-rs/canvas';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { DEFAULT_ADJUST, DEFAULT_REMOVAL } from '../src/document/defaults';
-import type { ImageAdjustments, MaskStroke } from '../src/document/types';
+import { createDocument, DEFAULT_ADJUST, DEFAULT_REMOVAL, EFFECTS, newEffect } from '../src/document/defaults';
+import type { EffectLayer, ImageAdjustments, MaskStroke, TokenDocument } from '../src/document/types';
+import { setCanvasFactory } from '../src/image/processedArt';
+import type { Ctx } from '../src/render/frameKit';
+import { renderToken, type RenderSource } from '../src/render/render';
 import type { PixelBuffer } from '../src/image/adjust';
 import { blurImage } from '../src/image/filters';
 import { processPixels, type ArtEdits } from '../src/image/process';
@@ -97,8 +101,42 @@ function save(name: string, before: Canvas, after: Canvas) {
   writeFileSync(`${OUT}/${name}.webp`, c.toBuffer('image/webp', 82));
 }
 
+/** A whole token: the flat-background goblin, cut out, on a slate background. */
+function tokenWith(art: RenderSource, effects: Partial<EffectLayer>[], patch: Partial<TokenDocument> = {}): Canvas {
+  const doc = createDocument();
+  doc.art.assetId = 'asset:goblin';
+  doc.art.removal = { ...DEFAULT_REMOVAL, enabled: true };
+  doc.art.transform = { ...doc.art.transform, zoom: 0.95, offsetY: 0.08 };
+  doc.background = { ...doc.background, kind: 'color', color: '#41566e' };
+  doc.effects = effects.map((e, i) => ({ ...newEffect(e.kind ?? 'fire', `fx${i}`), ...e }));
+  Object.assign(doc, patch);
+  const c = createCanvas(T, T);
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#2a251f';
+  ctx.fillRect(0, 0, T, T);
+  const token = createCanvas(T, T);
+  renderToken(token.getContext('2d') as unknown as Ctx, doc, new Map([['asset:goblin', art]]), T);
+  ctx.drawImage(token, 0, 0);
+  return c;
+}
+
+function effectPictures(art: RenderSource) {
+  const fx = (e: Partial<EffectLayer>[]) => tokenWith(art, e);
+  for (const info of EFFECTS) save(`effect-${info.kind}`, fx([]), fx([{ kind: info.kind }]));
+  save('effects-add', fx([]), fx([{ kind: 'frost' }, { kind: 'mist' }, { kind: 'bloodied' }]));
+  save('effects-placement', fx([{ kind: 'outerGlow', color: '#ffd76a' }]), fx([{ kind: 'outerGlow', color: '#ffd76a', placement: 'behind' }]));
+  save('effects-intensity', fx([{ kind: 'fire', intensity: 30 }]), fx([{ kind: 'fire', intensity: 100 }]));
+  save('effects-color', fx([{ kind: 'fire' }]), fx([{ kind: 'fire', color: '#4aa8ff' }]));
+  save('effects-size', fx([{ kind: 'frost', size: 0.08 }]), fx([{ kind: 'frost', size: 0.26 }]));
+  save('effects-spread', fx([{ kind: 'fire', spread: 15 }]), fx([{ kind: 'fire', spread: 100 }]));
+  save('effects-shuffle', fx([{ kind: 'lightning', seed: 1 }]), fx([{ kind: 'lightning', seed: 2 }]));
+}
+
 async function main() {
   mkdirSync(OUT, { recursive: true });
+  setCanvasFactory((w, h) => createCanvas(w, h) as unknown as HTMLCanvasElement);
+  const goblin = await loadImage('e2e/fixtures/flat-goblin.png');
+  effectPictures({ image: goblin as unknown as CanvasImageSource, width: goblin.width, height: goblin.height });
   const head = await crop(HEAD);
   const flat = await crop(FLAT);
   const noisy = await crop(FLAT, 14);

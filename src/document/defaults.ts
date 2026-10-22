@@ -2,6 +2,8 @@ import type {
   ArtTransform,
   BackgroundLayer,
   BackgroundRemoval,
+  EffectKind,
+  EffectLayer,
   Gradient,
   ImageAdjustments,
   LightingSettings,
@@ -152,6 +154,64 @@ export function newOverlay(kind: OverlayKind, id = Math.random().toString(36).sl
     ...d,
     gradient: copyGradient(d.gradient ?? DEFAULT_GRADIENT),
   };
+}
+
+// ---- Phase 6: styles and effects ----
+
+export type EffectGroup = 'Glows' | 'Elemental' | 'Conditions' | 'Atmosphere';
+export const EFFECT_GROUPS: EffectGroup[] = ['Glows', 'Elemental', 'Conditions', 'Atmosphere'];
+
+export interface EffectInfo {
+  kind: EffectKind;
+  name: string;
+  group: EffectGroup;
+  /** Starting settings (size is per square: 0.2 = 10 % of a square). */
+  defaults: Pick<EffectLayer, 'placement' | 'intensity' | 'color' | 'size' | 'spread'>;
+  /** Colour swatches offered for it (the first is its default). */
+  swatches: string[];
+}
+
+const fx = (kind: EffectKind, name: string, group: EffectGroup, defaults: EffectInfo['defaults'], swatches: string[] = []): EffectInfo => ({
+  kind,
+  name,
+  group,
+  defaults,
+  swatches: [defaults.color, ...swatches.filter((c) => c !== defaults.color)],
+});
+
+/** Every effect (DESIGN.md §6.8), in the order the picker shows them. */
+export const EFFECTS: EffectInfo[] = [
+  fx('outerGlow', 'Outer glow', 'Glows', { placement: 'border', intensity: 90, color: '#6fc3ff', size: 0.16, spread: 25 }, ['#ffd76a', '#ff6a3d', '#76ff4a', '#b06aff', '#ffffff']),
+  fx('innerGlow', 'Inner glow', 'Glows', { placement: 'over', intensity: 80, color: '#6fc3ff', size: 0.16, spread: 15 }, ['#ffd76a', '#ff6a3d', '#76ff4a', '#b06aff', '#ffffff']),
+
+  fx('fire', 'Fire', 'Elemental', { placement: 'border', intensity: 95, color: '#ff7a1a', size: 0.2, spread: 70 }, ['#ff3b1a', '#ffb347', '#4aa8ff', '#76ff4a', '#c05aff']),
+  fx('frost', 'Frost', 'Elemental', { placement: 'border', intensity: 95, color: '#bfe8ff', size: 0.16, spread: 70 }, ['#ffffff', '#7fd0ff', '#9be7e0']),
+  fx('poison', 'Poison', 'Elemental', { placement: 'border', intensity: 95, color: '#7bd23a', size: 0.16, spread: 60 }, ['#a8e23a', '#3ad27b', '#b05ad2']),
+  fx('lightning', 'Lightning', 'Elemental', { placement: 'border', intensity: 95, color: '#8fd0ff', size: 0.18, spread: 50 }, ['#ffffff', '#ffe36a', '#c08aff', '#76ff4a']),
+  fx('necrotic', 'Necrotic', 'Elemental', { placement: 'border', intensity: 90, color: '#5b2a86', size: 0.2, spread: 60 }, ['#2a1a3a', '#3f8a4a', '#1a1a1a']),
+  fx('radiant', 'Radiant', 'Elemental', { placement: 'border', intensity: 90, color: '#ffd76a', size: 0.22, spread: 60 }, ['#fff4c4', '#ffffff', '#ffb347']),
+
+  fx('bloodied', 'Bloodied', 'Conditions', { placement: 'over', intensity: 85, color: '#8a0b0b', size: 0.2, spread: 50 }, ['#5a0606', '#3a6a1a', '#2a2a6a']),
+  fx('petrified', 'Petrified', 'Conditions', { placement: 'over', intensity: 90, color: '#8d8a84', size: 0.2, spread: 50 }, ['#a59a86', '#6c6f75', '#7a6a5a']),
+  fx('ethereal', 'Ethereal', 'Conditions', { placement: 'over', intensity: 65, color: '#cfe6ff', size: 0.2, spread: 50 }, ['#ffffff', '#b8f0e0', '#e0c8ff']),
+  fx('frightened', 'Frightened', 'Conditions', { placement: 'over', intensity: 80, color: '#4a4fa8', size: 0.2, spread: 50 }, ['#2a2a4a', '#5a2a6a', '#2a5a6a']),
+  fx('poisoned', 'Poisoned', 'Conditions', { placement: 'over', intensity: 80, color: '#7cc22a', size: 0.12, spread: 50 }, ['#a8d22a', '#4ac27c', '#9a5ad2']),
+  fx('charmed', 'Charmed', 'Conditions', { placement: 'over', intensity: 85, color: '#ff6fb5', size: 0.14, spread: 50 }, ['#ff3b6a', '#ff9ad2', '#c08aff']),
+  fx('unconscious', 'Unconscious', 'Conditions', { placement: 'over', intensity: 80, color: '#1a1d2e', size: 0.14, spread: 50 }, ['#000000', '#2a1a3a']),
+
+  fx('mist', 'Mist', 'Atmosphere', { placement: 'over', intensity: 80, color: '#dfe6ef', size: 0.3, spread: 50 }, ['#ffffff', '#c9d6c0', '#b7c4e0', '#8a7aa0']),
+  fx('embers', 'Embers', 'Atmosphere', { placement: 'over', intensity: 90, color: '#ff8a2a', size: 0.12, spread: 50 }, ['#ffd24a', '#ff4a2a', '#76ff4a', '#6ac0ff']),
+  fx('sparkles', 'Sparkles', 'Atmosphere', { placement: 'over', intensity: 90, color: '#fff4c4', size: 0.12, spread: 50 }, ['#ffffff', '#ffd76a', '#9fd8ff', '#ff9ad2']),
+  fx('smoke', 'Smoke', 'Atmosphere', { placement: 'over', intensity: 75, color: '#9a9ca6', size: 0.3, spread: 50 }, ['#d6d8de', '#4a4c56', '#2a2a30', '#76ff4a']),
+];
+
+export const effectInfo = (kind: EffectKind): EffectInfo => EFFECTS.find((e) => e.kind === kind)!;
+
+/** Most effects one token can stack. */
+export const MAX_EFFECTS = 12;
+
+export function newEffect(kind: EffectKind, id = Math.random().toString(36).slice(2, 10)): EffectLayer {
+  return { id, kind, visible: true, ...effectInfo(kind).defaults, seed: 1 };
 }
 
 export function createDocument(name = 'Untitled token'): TokenDocument {

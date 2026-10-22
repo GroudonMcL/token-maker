@@ -336,6 +336,67 @@ export const helpContent = {
   'popout.advanced': { title: 'More brush settings', text: 'Softness and pen pressure for the pop-out brush (shared with the erase/restore brush).' },
   'popout.softness': { title: 'Softness', text: 'How gently the edge of the pop-out fades into the frame.' },
 
+  // ---- Effects (Phase 6) ----
+  'effects.add': {
+    title: 'Add an effect',
+    text: 'Pick an effect to add it to the stack. Hover a name (or press and hold it) to see what it does.',
+    media: beforeAfter('effects-add', 'a frost border, mist over the art and a bloodied look'),
+  },
+  'effects.placement': {
+    title: 'Placement',
+    text: 'Behind art shows through where the background was removed, Over art sits on top of the picture, and On border is drawn on the frame. Effects with the same placement are drawn in list order.',
+    media: beforeAfter('effects-placement', 'an outer glow on the border, then behind a cut-out creature'),
+  },
+  'effects.intensity': {
+    title: 'Intensity',
+    text: 'How strong the effect is.',
+    media: beforeAfter('effects-intensity', 'fire at low and full intensity'),
+  },
+  'effects.advanced': { title: 'More effect settings', text: 'Colour, size, spread and Shuffle for this effect.' },
+  'effects.color': {
+    title: 'Colour',
+    text: 'The colour of the effect, like arcane blue or radiant gold.',
+    media: beforeAfter('effects-color', 'a fire turned from orange to blue'),
+  },
+  'effects.size': {
+    title: 'Size',
+    text: 'How far it reaches, like the height of the flames or the width of a glow, as a share of one grid square so it looks the same on the map at every creature size.',
+    media: beforeAfter('effects-size', 'small and large frost'),
+  },
+  'effects.spread': {
+    title: 'Spread',
+    text: 'How much of the token it covers: flames and mist creep further round from the bottom, and glows stay solid for longer before they fade.',
+    media: beforeAfter('effects-spread', 'fire only at the bottom, then all the way round'),
+  },
+  'effects.shuffle': {
+    title: 'Shuffle',
+    text: 'Rearranges the flames, sparks, drops or bolts at random. Each layout is kept, so the token always looks the same.',
+    media: beforeAfter('effects-shuffle', 'two layouts of lightning'),
+  },
+  'effect.outerGlow': { title: 'Outer glow', text: 'A glow around the token, or around a cut-out creature when placed behind the art.', media: beforeAfter('effect-outerGlow', 'an outer glow') },
+  'effect.innerGlow': { title: 'Inner glow', text: 'Light shining in from the edge of the frame.', media: beforeAfter('effect-innerGlow', 'an inner glow') },
+  'effect.fire': { title: 'Fire', text: 'Flames licking up from the edge.', media: beforeAfter('effect-fire', 'fire') },
+  'effect.frost': { title: 'Frost', text: 'Ice shards and a cold glow around the edge.', media: beforeAfter('effect-frost', 'frost') },
+  'effect.poison': { title: 'Poison', text: 'Dripping green ooze and bubbles.', media: beforeAfter('effect-poison', 'poison') },
+  'effect.lightning': { title: 'Lightning', text: 'Crackling bolts arcing around the edge.', media: beforeAfter('effect-lightning', 'lightning') },
+  'effect.necrotic': { title: 'Necrotic', text: 'Dark, withering tendrils creeping in from the edge.', media: beforeAfter('effect-necrotic', 'necrotic energy') },
+  'effect.radiant': { title: 'Radiant', text: 'Holy light: a bright glow, rays and glints.', media: beforeAfter('effect-radiant', 'radiant light') },
+  'effect.bloodied': { title: 'Bloodied', text: 'Blood splatters, for a creature at half its hit points or less.', media: beforeAfter('effect-bloodied', 'the bloodied look') },
+  'effect.petrified': { title: 'Petrified', text: 'Turns everything under it to cracked grey stone.', media: beforeAfter('effect-petrified', 'the petrified look') },
+  'effect.ethereal': {
+    title: 'Ethereal',
+    text: 'Makes the token see-through and ghostly, for ethereal or invisible creatures.',
+    media: beforeAfter('effect-ethereal', 'the ethereal look'),
+  },
+  'effect.frightened': { title: 'Frightened', text: 'A cold, dark wash with shiver marks.', media: beforeAfter('effect-frightened', 'the frightened look') },
+  'effect.poisoned': { title: 'Poisoned', text: 'A sickly green tint with bubbles.', media: beforeAfter('effect-poisoned', 'the poisoned look') },
+  'effect.charmed': { title: 'Charmed', text: 'A pink glow with floating hearts.', media: beforeAfter('effect-charmed', 'the charmed look') },
+  'effect.unconscious': { title: 'Unconscious', text: 'Greyed out and dimmed, with a "Zzz".', media: beforeAfter('effect-unconscious', 'the unconscious look') },
+  'effect.mist': { title: 'Mist', text: 'Low mist rising from the bottom.', media: beforeAfter('effect-mist', 'mist') },
+  'effect.embers': { title: 'Embers', text: 'Glowing sparks drifting upwards.', media: beforeAfter('effect-embers', 'embers') },
+  'effect.sparkles': { title: 'Sparkles', text: 'Twinkling glints of light.', media: beforeAfter('effect-sparkles', 'sparkles') },
+  'effect.smoke': { title: 'Smoke', text: 'Billowing smoke rising from the bottom.', media: beforeAfter('effect-smoke', 'smoke') },
+
   // ---- Frame & shape ----
   'frame.shape': { title: 'Shape', text: 'The outline of the token. Hexagons suit hex-grid maps.' },
   'frame.style': {

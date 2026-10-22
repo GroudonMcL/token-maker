@@ -1,4 +1,4 @@
-import { createDocument } from './defaults';
+import { createDocument, MAX_EFFECTS, newEffect } from './defaults';
 import { DocumentVersionError, migrateDocument } from './migrate';
 import { SCHEMA_VERSION } from './types';
 
@@ -147,6 +147,30 @@ describe('migrateDocument', () => {
       ],
     });
     expect(doc.shadows.popOut).toMatchObject({ enabled: false, followLight: false, angle: 30, distance: 1, opacity: 0, color: '#000000' });
+  });
+
+  it('upgrades a version 4 document: old placeholder effects are dropped', () => {
+    const doc = migrateDocument({ schemaVersion: 4, name: 'Old', effects: [{ id: 'x', kind: 'fire', placement: 'over' }] });
+    expect(doc.schemaVersion).toBe(SCHEMA_VERSION);
+    expect(doc.name).toBe('Old');
+    expect(doc.effects).toEqual([]);
+  });
+
+  it('checks every effect, dropping unknown kinds and keeping the order', () => {
+    const doc = migrateDocument({
+      schemaVersion: SCHEMA_VERSION,
+      effects: [
+        { id: 'a', kind: 'frost', placement: 'border', intensity: 140, color: 'blue', size: 9, spread: -5, seed: 7.4, visible: false },
+        { id: 'b', kind: 'dragonfire' },
+        { kind: 'mist', placement: 'sideways' },
+        'nope',
+        ...Array.from({ length: 20 }, (_, i) => ({ id: `n${i}`, kind: 'embers' })),
+      ],
+    });
+    expect(doc.effects).toHaveLength(MAX_EFFECTS);
+    expect(doc.effects[0]).toEqual({ id: 'a', kind: 'frost', placement: 'border', intensity: 100, color: '#bfe8ff', size: 1, spread: 0, seed: 7, visible: false });
+    expect(doc.effects[1]).toMatchObject({ kind: 'mist', placement: newEffect('mist').placement, visible: true });
+    expect(doc.effects[1]!.id).toMatch(/^effect-/);
   });
 
   it('refuses documents from a newer version', () => {

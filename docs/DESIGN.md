@@ -83,7 +83,7 @@ interface TokenDocument {
 }
 ```
 
-*(Phase 1: the real type is in `src/document/types.ts`, defaults in `src/document/defaults.ts`. Later-phase layers have placeholder types. `art` holds the asset id plus its transform (zoom, offset, rotation, flipX, flipY, lockFill); `frame` holds the selected preset id, style, colour, highlights colour (`highlightColor`, null = the frame's own default), thickness, outer/inner spacing, backing colour and backing opacity (there is no frame opacity: frames are always solid); `shadows` holds outer, inner and pop-out settings. Saved documents go through `migrateDocument()` in `src/document/migrate.ts`, which runs version-by-version migrations and then checks every field, falling back to defaults. Phase 3 (schema version 2) added `art.adjust`, `art.removal` and `art.strokes`. Phase 5 (schema version 4) added `art.popOut` (`enabled` and its own `strokes`, which add or erase).)*
+*(Phase 1: the real type is in `src/document/types.ts`, defaults in `src/document/defaults.ts`. Later-phase layers have placeholder types. `art` holds the asset id plus its transform (zoom, offset, rotation, flipX, flipY, lockFill); `frame` holds the selected preset id, style, colour, highlights colour (`highlightColor`, null = the frame's own default), thickness, outer/inner spacing, backing colour and backing opacity (there is no frame opacity: frames are always solid); `shadows` holds outer, inner and pop-out settings. Saved documents go through `migrateDocument()` in `src/document/migrate.ts`, which runs version-by-version migrations and then checks every field, falling back to defaults. Phase 3 (schema version 2) added `art.adjust`, `art.removal` and `art.strokes`. Phase 5 (schema version 4) added `art.popOut` (`enabled` and its own `strokes`, which add or erase). Phase 6 (schema version 5) filled in `effects` (§6.8).)*
 
 Images themselves are **not** stored inside the document — the document holds asset ids (e.g. `asset:abc123`) that point to images held in memory/IndexedDB. This keeps presets small and shareable.
 
@@ -95,7 +95,7 @@ Sizes that should look the same on the map no matter how big the creature is are
 - decoration size
 - label text size and label shape size
 - shadow distance and blur
-- effect size (e.g. how far flames reach)
+- effect size (e.g. how far flames reach) *(Phase 6: shown as "% of a square", 0–50 %)*
 
 **Unit (Phase 1):** per-square values are stored in *half grid squares* (1 = half a square, so the extension's 0.14 border means the same thing on a Medium token). The UI shows them as "% of a square" (value × 50). The maths lives in `src/document/sizing.ts`.
 
@@ -253,6 +253,14 @@ Stackable, reorderable list. Each effect chooses its placement: **behind art**, 
 
 All version-1 effects are static images (animation is a future feature, but design effects with a time parameter so animation can be added later).
 
+*(Phase 6, as built: `effects` in the document is a list (schema version 5), drawn bottom first within each placement — behind the art is layer 4, over the art layer 7, on the border layer 10 — and shown top first in the panel with up/down, hide and remove, up to 12. Each effect stores its kind, placement, Intensity (0–100), colour, size (per square, shown as "% of a square"), spread (0–100) and a Shuffle seed; every kind starts with its own placement and settings (glows and elements on the border; conditions and atmosphere over the art). Everything is drawn by code. Rules that apply to all of them:*
+- *Behind and over the art, an effect lives inside the frame's opening and grows in from its visible edge (the art runs under the inner half of the frame, so not from there); there is more room inside, so things reach 1.6× further in than they stick out of a border. On the border it grows from the middle of the frame band out (and over the band), and fades out just before the square's edge so nothing stops dead there; without a frame a thin band at the art's edge stands in. Tints (petrified, ethereal, frightened, poisoned, unconscious, the glows' inside parts) stay inside the opening or on the band.*
+- *Spread: how much of the token it covers. Rising things (fire, mist, smoke, frost, necrotic) start at the bottom and creep further round as it grows; for glows it is how solid the glow stays before fading (like Photoshop's "spread"); for particles it is how many.*
+- *Outer glow behind or over the art follows the art's own outline (a halo round a cut-out creature); on the border it glows round the token. Inner glow shines in from the frame's edge (or lights the band on the border).*
+- *Condition looks change what is under them with blend modes: petrified uses the "colour" blend with a stone colour plus a stone texture and cracks; ethereal erases part of what is under it (more at the bottom), so the exported token is really see-through; frightened and poisoned tint with the "colour" blend; unconscious desaturates and dims, with a "Zzz". Bloodied is splatters with drips.*
+- *Each effect is a function of (settings, size, seed, time) — `src/render/effectPainters.ts` — returning one or more passes, each with a blend mode. A pass is drawn once into its own canvas and cached (about 100 MB at most; very large exports are drawn fresh), then composited at the Intensity, so dragging Intensity redraws nothing. Time is in seconds and always 0 for now; fire flickers, embers and bubbles rise, sparkles twinkle and lightning re-strikes as it changes, ready for animation (§15).*
+- *The picker shows a live thumbnail of every effect, drawn by the renderer on the token's own shape and frame with a stand-in cut-out figure, and each name has a help card with a before/after picture made by `npm run help-images`.)*
+
 ### 6.9 Borders, decorations, presets and size
 
 **Frames**
@@ -402,7 +410,7 @@ Type scale: 12 / 13 / 15 (body) / 18 (section titles) / 22 / 28 px.
 
 - A `?` icon next to every **section heading** (and the top-bar items). *(Changed after Phase 1: controls inside a section — Brightness, Contrast, Thickness, the toolbar's zoom slider, Advanced… — no longer get their own `?`; it was too cluttered. Their help shows as a card when the control's name is hovered, or long-pressed on a touch screen, including any before/after picture the entry has (`src/components/LabelTip.tsx`), and every control still needs a help entry.)*
 - Hover (desktop) or tap (touch) opens a small card: one or two plain sentences + a before/after picture or short looping clip (WebP/MP4, small file size).
-- *(Phase 3: the Image section's before/after pictures are drawn by `npm run help-images` with the real image code, into `public/help/`. A test checks every help picture exists, and that every Image control has one.)*
+- *(Phase 3: the Image section's before/after pictures are drawn by `npm run help-images` with the real image code, into `public/help/`. A test checks every help picture exists, and that every Image control has one. Phase 6: the same script draws a before/after for every effect and Effects control with the real renderer; the picker's effect names open those cards.)*
 - All help content lives in one file (e.g. `src/help/helpContent.ts`) keyed by control id, so it's easy to edit and spot missing entries. A test fails if a control has no help entry.
 
 ---
