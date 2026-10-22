@@ -1,6 +1,6 @@
 # Progress
 
-A checklist of build phases, following `BUILD-PROMPTS.md` (kept by the owner). Do one phase at a time, in order. Tick a phase when its "Done when" check passes.
+A checklist of build phases, following [`BUILD-PROMPTS.md`](BUILD-PROMPTS.md). Do one phase at a time, in order. Tick a phase when its "Done when" check passes.
 
 - [x] **Phase 0 — Project setup, visual design and layout shell**
   - [x] Vite + React + TypeScript, Vitest, Playwright; npm scripts `dev`, `build`, `test`, `e2e`, `typecheck`, `lint`
