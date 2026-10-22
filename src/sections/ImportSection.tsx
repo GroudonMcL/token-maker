@@ -1,10 +1,12 @@
-import { Upload } from 'lucide-react';
+import { Link2, LoaderCircle, Upload, X } from 'lucide-react';
 import { useId, useState } from 'react';
-import { ControlLabel } from '../components';
+import { ControlLabel, ImageStrip } from '../components';
 import { UploadButton } from '../editor/UploadButton';
+import { MIN_IMAGE_SIDE } from '../../server/extractImages.ts';
+import { clearWebImport, importFromAddress, pickWebImage, proxiedImageUrl, useWebImport } from '../import/webImport';
 import { commitDoc, updateDoc, useDoc } from '../state/tokenStore';
 
-/** Import section (Phase 1: upload, drop, paste; web links in Phase 2). */
+/** Import section: upload, drop, paste, web addresses and Pinterest links (DESIGN.md §6.1). */
 export function ImportSection() {
   const name = useDoc((d) => d.name);
   const id = useId();
@@ -19,6 +21,7 @@ export function ImportSection() {
         </UploadButton>
         <p className="control__hint">Or drag an image anywhere onto the page, or paste it with Ctrl+V.</p>
       </div>
+      <WebAddress />
       <div className="control" data-control="name" data-help-id="import.name">
         <ControlLabel htmlFor={id} label="Token name" helpId="import.name" />
         <input
@@ -40,4 +43,90 @@ export function ImportSection() {
       </div>
     </>
   );
+}
+
+/** The web-address box, its messages, and the strip of pictures found on a page. */
+function WebAddress() {
+  const id = useId();
+  const [text, setText] = useState('');
+  const status = useWebImport((s) => s.status);
+  const error = useWebImport((s) => s.error);
+  const images = useWebImport((s) => s.images);
+  const picked = useWebImport((s) => s.picked);
+  const address = useWebImport((s) => s.address);
+  const busy = status === 'loading';
+  const lookingUp = busy && !images.length;
+
+  return (
+    <>
+      <form
+        className="control"
+        data-control="web-address"
+        data-help-id="import.web"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (text.trim()) importFromAddress(text, 'box');
+        }}
+      >
+        <ControlLabel htmlFor={id} label="Web address" helpId="import.web" />
+        <div className="web-address__row">
+          <input
+            id={id}
+            className="text-input"
+            type="text"
+            inputMode="url"
+            enterKeyHint="go"
+            autoComplete="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            placeholder="Image, page or Pinterest link"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+          />
+          <button type="submit" className="btn" disabled={!text.trim() || lookingUp}>
+            {lookingUp ? <LoaderCircle size={18} className="spin" aria-hidden="true" /> : <Link2 size={18} aria-hidden="true" />}
+            Get
+          </button>
+        </div>
+        {lookingUp ? (
+          <p className="control__hint" role="status">
+            Fetching {hostOf(address)}…
+          </p>
+        ) : (
+          <p className="control__hint">Paste a link to a picture, a web page, or a Pinterest pin.</p>
+        )}
+        {error && (
+          <p className="control__error" role="alert">
+            {error}
+          </p>
+        )}
+      </form>
+      {images.length > 0 && (
+        <div className="web-pictures">
+          <ImageStrip
+            label={`Pictures on ${hostOf(address)}`}
+            helpId="import.pagePictures"
+            images={images.map((img) => ({ id: img.url, src: img.url, alt: img.alt ?? '', fallbackSrc: proxiedImageUrl(img.url) }))}
+            value={picked}
+            onChange={(url) => void pickWebImage(url)}
+            minSide={MIN_IMAGE_SIDE}
+            busyId={busy ? picked : undefined}
+            emptyText="None of the pictures on that page could be shown."
+          />
+          <button type="button" className="btn btn--ghost web-pictures__close" onClick={clearWebImport}>
+            <X size={16} aria-hidden="true" />
+            Close
+          </button>
+        </div>
+      )}
+    </>
+  );
+}
+
+function hostOf(address: string): string {
+  try {
+    return new URL(address).hostname.replace(/^www\./, '');
+  } catch {
+    return 'the page';
+  }
 }

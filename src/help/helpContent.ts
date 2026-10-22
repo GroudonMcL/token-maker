@@ -80,6 +80,14 @@ export const helpContent = {
     title: 'Upload an image',
     text: 'Choose a picture from your device. You can also drag one anywhere onto the page, or paste it with Ctrl+V (long-press and Paste on a phone).',
   },
+  'import.web': {
+    title: 'Web address',
+    text: 'Paste a link to a picture, a web page or a Pinterest pin and press Get. A page shows its pictures so you can pick one; you can also paste or drag a link anywhere on the page.',
+  },
+  'import.pagePictures': {
+    title: 'Pictures on the page',
+    text: 'Pick the picture to use for your token. Tiny icons are hidden, and you can pick a different one at any time.',
+  },
   'import.name': {
     title: 'Token name',
     text: "Used for the downloaded file's name. It is filled in from the image's file name, and you can change it.",

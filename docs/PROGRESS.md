@@ -25,15 +25,15 @@ A checklist of build phases, following [`BUILD-PROMPTS.md`](BUILD-PROMPTS.md). D
   - [x] Tests: migrations, undo/redo, per-square maths, pixel tests for every frame and shape, `npm run frame-sheet`, Playwright import → download (and size, frames, handles, drop/paste, autosave) on desktop, tablet and phone
   - **Done when:** drop an image in, frame it with any of the 27 frames, move it with handles, change to Large with the border staying the same thickness, download a PNG ✔
 
-- [ ] **Phase 2 — Import from the web (web addresses and Pinterest links)**
-  - [ ] `/api/fetch-image` and `/api/page-images` Pages Functions with the extension's SSRF rules + per-IP rate limiting
-  - [ ] Web-address box: direct image links load; page links show an image strip (tiny icons hidden)
-  - [ ] Pinterest pin and `pin.it` links (follow redirects, prefer `/originals/`)
-  - [ ] Pasted URLs and images dragged from other tabs use the same path
-  - [ ] Friendly messages when a site blocks fetching
-  - [ ] README: testing the functions locally on Windows (`wrangler pages dev`)
-  - [ ] Tests: SSRF rules, HTML image extraction (srcset, og:image), Pinterest parsing from saved sample HTML
-  - **Done when:** an image link, a normal page link and a Pinterest pin link each get an image into the editor
+- [x] **Phase 2 — Import from the web (web addresses and Pinterest links)**
+  - [x] `/api/fetch-image` and `/api/page-images` Pages Functions with the extension's SSRF rules + per-IP rate limiting
+  - [x] Web-address box: direct image links load; page links show an image strip (tiny icons hidden)
+  - [x] Pinterest pin and `pin.it` links (follow redirects, prefer `/originals/`)
+  - [x] Pasted URLs and images dragged from other tabs use the same path
+  - [x] Friendly messages when a site blocks fetching
+  - [x] README: testing the functions locally on Windows (`wrangler pages dev`)
+  - [x] Tests: SSRF rules, HTML image extraction (srcset, og:image), Pinterest parsing from saved sample HTML, the endpoints with a pretend internet, the editor's import flow, and Playwright web imports on desktop, tablet and phone
+  - **Done when:** an image link, a normal page link and a Pinterest pin link each get an image into the editor ✔
 
 - [ ] **Phase 3 — Image editing, background removal and brushes**
   - [ ] Brightness, Contrast, Saturation; Advanced: Hue, Temperature, Tint, Exposure, Highlights, Shadows, Sharpness, Blur, Vibrance, Grayscale, Sepia, Invert

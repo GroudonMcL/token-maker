@@ -159,7 +159,9 @@ Ways in (all lead to the same "image loaded" state):
    - If a site blocks fetching, show a friendly message suggesting right-click → "Copy image address", or downloading and uploading.
 5. **Pinterest pin link** — paste a pin URL (including `pin.it` short links). The server follows redirects, reads the pin page's main image (`og:image`, preferring the `/originals/` size) and loads it. (Browsing Pinterest boards with login is a future feature — §15.)
 
-The import file's name (without extension, tidied) becomes the token name; the user can edit it. *(Phase 1: separators become spaces, all-lowercase names get capital letters, and generic names such as "image.png" from a paste keep the current name. Dropped or pasted web links show a "coming in a later update" message until Phase 2.)*
+The import file's name (without extension, tidied) becomes the token name; the user can edit it. *(Phase 1: separators become spaces, all-lowercase names get capital letters, and generic names such as "image.png" from a paste keep the current name. Phase 2: web images are named from the picture's file name (size suffixes like "-1024x768" and meaningless names such as hashes or "IMG_2041" are dropped), else its alt text, else the page or pin title.)*
+
+*(Phase 2: the web-address box is in the Import section. Addresses without `https://` get it added, and `http://` is upgraded. An address that ends like an image file is tried as an image first; if it turns out to be a page, the page route is used. A page with only one picture loads it straight away. Thumbnails in the picture strip load straight from the site (no referrer), falling back to the proxy, and any that fail or turn out smaller than 64 px are hidden. Pasting or dropping a link opens the Import section (the Import tab on phones). When an image is dragged from another tab, its `<img src>` is used rather than the link around it; `data:` images load directly.)*
 
 **Batch mode** (optional switch): import several images at once (multi-select upload, multi-file drop, or several links). One shared style applies to all; each image keeps its own position/zoom/rotation and name. A thumbnail strip switches between them. Export all as a ZIP (§6.10).
 
@@ -288,6 +290,8 @@ Security rules (port from the extension's `server/`):
 - Sniff content: images must really be images.
 - Rate-limit per IP (simple, e.g. Cloudflare's built-in rules or a small in-memory limiter).
 - Not an open proxy for arbitrary content: only images and HTML for image discovery.
+
+*(Phase 2: the code lives in `server/`, shared by `functions/api/*` and the Vite dev server. Rules as built: https only on the default port, no user names or passwords in addresses, at most 5 redirects with every hop checked, IP literals in private/reserved ranges and local names (`localhost`, no dot, `.local`, `.internal`, `.lan`, `.home.arpa` …) refused, 10 s for the whole request, 20 MB images and 3 MB HTML, images sniffed by their bytes (PNG, JPEG, GIF, WebP, AVIF, BMP, SVG) and sent with the sniffed type plus `Content-Security-Policy: sandbox` and `nosniff`, nothing cached by shared caches. Requests that browsers mark `Sec-Fetch-Site: cross-site` (other websites) are refused. Rate limit: an in-memory one-minute window per IP of 20 page look-ups and 90 images; it is per Cloudflare location, so a dashboard rate-limiting rule can be added on top. The dev server also looks up every hostname in DNS and refuses private addresses, because a home computer, unlike Cloudflare, can reach a private network. Image discovery skips scripts, styles, comments, SVGs, favicons, sprites and trackers, puts og:image first, and lists at most 60 images. Pinterest: pin pages give a reduced og:image; the full-size `/originals/` copy is found in the page data by the same path (its file type can differ from the preview's), with the og:image as a fallback; board and search links get a message asking for a single pin's link.)*
 
 ---
 

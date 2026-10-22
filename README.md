@@ -50,9 +50,15 @@ Open the address it prints (usually <http://localhost:5173>) in your browser. Th
 
 To see the phone layout on your computer: in Chrome or Edge press `F12`, then click the phone/tablet icon (top left of the panel) and pick a phone.
 
-### Using the editor (Phase 1)
+### Using the editor
 
 - **Get a picture in:** click **Upload image**, drag a picture file anywhere onto the page, or copy an image and press `Ctrl+V`.
+- **From the web (Phase 2):** paste a link into **Web address** in the Import section and click **Get**. It can be:
+  - a link straight to a picture (it loads at once),
+  - a normal web page (its pictures appear in a row; click the one you want; tiny icons are hidden),
+  - a Pinterest pin, including `pin.it` short links (the full-size picture loads).
+
+  You can also paste a link anywhere on the page with `Ctrl+V`, or drag a picture from another browser tab onto the page. If a site won't share its pictures you'll get a message suggesting right-click → **Copy image address**, or saving the picture and uploading it.
 - **Move the art:** drag it. **Zoom:** mouse wheel, or pinch on a touch screen. **Rotate:** the round handle above the art, or twist two fingers. The square corner handles resize it.
 - The toolbar above the canvas has zoom, rotate 90°, flip, fit, fill, "Keep the frame filled" (lock) and reset.
 - **Frame & shape** (right-hand panel, or the **Frame** tab on a phone): pick a shape, one of 27 frames, a colour, thickness and spacing.
@@ -60,6 +66,8 @@ To see the phone layout on your computer: in Chrome or Edge press `F12`, then cl
 - **Undo/Redo:** the arrows in the top bar, or `Ctrl+Z` / `Ctrl+Y`. A whole drag counts as one step.
 - **Export PNG** (bottom bar) downloads the token at 256 pixels per grid square.
 - Your token is saved in the browser as you work, so refreshing the page keeps it. **New** starts again.
+
+`npm run dev` also runs the web-import server code (the `/api/...` addresses), so importing from links works on your computer straight away.
 
 Useful pages while developing:
 
@@ -78,6 +86,22 @@ Useful pages while developing:
 | `npm run build` | Builds the finished site into the `dist` folder (this is what Cloudflare runs). |
 | `npm run preview` | Serves the built `dist` folder so you can try the real build. |
 | `npm run frame-sheet -- sheet.png` | Draws every frame on one picture so you can check them by eye. Add a shape and size, e.g. `npm run frame-sheet -- sheet.png hexagon 220 2` for Large hexagons. |
+
+### Testing the server functions the way Cloudflare runs them
+
+`npm run dev` runs the server code inside Vite, which is quick and fine for everyday work. To try it in Cloudflare's own engine (the same one used on the live site), run:
+
+```powershell
+npm run pages:dev
+```
+
+This builds the site, then starts Cloudflare's **Wrangler** tool (downloaded automatically the first time, which takes a minute) at <http://localhost:8788>. Open that address and use the site as normal, or try the server directly in your browser:
+
+- <http://localhost:8788/api/health> shows `{"ok":true}`
+- <http://localhost:8788/api/page-images?url=https://en.wikipedia.org/wiki/Goblin> lists the pictures on that page
+- <http://localhost:8788/api/fetch-image?url=https://127.0.0.1/a.png> is refused (private addresses are blocked)
+
+Press `Ctrl+C` to stop it. If Windows Firewall asks about `workerd`, allowing private networks is enough.
 
 Run them all before pushing:
 
@@ -110,6 +134,7 @@ After that:
 - **Every push to `main`** updates the live site.
 - **Every other branch / pull request** gets its own preview link (shown on the pull request and in the Cloudflare dashboard under *Deployments*).
 - **Custom domain:** in the project, open **Custom domains → Set up a custom domain**.
+- **Extra rate limiting (optional):** the image server already limits each visitor to about 20 page look-ups and 90 images a minute. For a firmer limit, in the Cloudflare dashboard open your domain → **Security → WAF → Rate limiting rules**, and add a rule for URI path starting with `/api/`. (This needs a custom domain; it isn't available on `*.pages.dev`.)
 - **Feature flags:** under **Settings → Variables and Secrets** (Environment variables), add e.g. `VITE_FEATURE_ADS` = `true` and redeploy. The ad slot is off by default.
 
 ## 5. How the project is organised
@@ -117,8 +142,12 @@ After that:
 ```
 docs/DESIGN.md         The design document (source of truth)
 docs/PROGRESS.md       Checklist of phases
-functions/api/         Cloudflare Pages Functions (server code). Only /api/health so far;
-                       the image proxy (DESIGN.md §7) comes later.
+functions/api/         Cloudflare Pages Functions: /api/fetch-image, /api/page-images, /api/health.
+                       Each is a few lines that call server/.
+server/                The image proxy (DESIGN.md §7): safety rules (safeFetch.ts, ipRanges.ts),
+                       finding images in a page (extractImages.ts), Pinterest pins (pinterest.ts),
+                       rate limiting, and devApi.ts (runs it inside `npm run dev`).
+                       server/fixtures/ holds saved sample pages for the tests.
 public/                Files copied as-is (favicon, _headers for Cloudflare)
 src/document/          The TokenDocument: types, defaults, migrations, per-square sizing
 src/render/            The renderer: shapes, the 27 frames, crop maths, render()

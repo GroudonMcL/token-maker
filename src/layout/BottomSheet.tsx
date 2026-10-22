@@ -1,6 +1,7 @@
 import { Download } from 'lucide-react';
 import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { Section } from '../components';
+import { onRevealSection } from './reveal';
 import { PHONE_TABS, sectionById } from './sections';
 import { SectionPlaceholder } from './SectionPlaceholder';
 import { SECTION_CONTENT } from '../sections';
@@ -84,6 +85,18 @@ export function BottomSheet() {
     setTab(id);
     if (snap === 'peek') setSnap('half');
   };
+
+  // A section asked to be shown (e.g. pictures found on a pasted page link).
+  useEffect(
+    () =>
+      onRevealSection((id) => {
+        const t = PHONE_TABS.find((p) => p.sections.includes(id));
+        if (!t) return;
+        setTab(t.id);
+        setSnap((s) => (s === 'peek' ? 'half' : s));
+      }),
+    [],
+  );
 
   // Keep the active tab button visible in the scrolling tab row.
   useEffect(() => {

@@ -11,6 +11,7 @@ import { CanvasArea } from './CanvasArea';
 import { Footer } from './Footer';
 import { SidePanel } from './SidePanel';
 import { TopBar } from './TopBar';
+import { onRevealSection } from './reveal';
 import type { SectionId } from './sections';
 
 let booted = false;
@@ -33,6 +34,14 @@ export function AppShell() {
   const dropping = useGlobalImport();
   useShortcuts();
   useEffect(boot, []);
+  useEffect(
+    () =>
+      onRevealSection((id) => {
+        setOpenSections((prev) => (prev.has(id) ? prev : new Set([...prev, id])));
+        requestAnimationFrame(() => document.getElementById(`section-${id}`)?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' }));
+      }),
+    [],
+  );
 
   const setOpen = (id: SectionId, isOpen: boolean) =>
     setOpenSections((prev) => {

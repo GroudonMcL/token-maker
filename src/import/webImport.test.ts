@@ -1,0 +1,118 @@
+import { webImportStore, importFromAddress, pickWebImage, clearWebImport } from './webImport';
+import { importImageFile } from './importImage';
+
+vi.mock('./importImage', async (original) => ({
+  ...(await original<typeof import('./importImage')>()),
+  importImageFile: vi.fn(async () => {}),
+}));
+
+const imported = vi.mocked(importImageFile);
+const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+
+/** A pretend /api: maps the `url` parameter of each endpoint to an answer. */
+function api(routes: { image?: Record<string, number>; page?: Record<string, unknown> }) {
+  const calls: string[] = [];
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: string) => {
+      const u = new URL(input, 'https://tokens.example');
+      const target = u.searchParams.get('url')!;
+      calls.push(`${u.pathname} ${target}`);
+      if (u.pathname === '/api/fetch-image') {
+        const status = routes.image?.[target];
+        if (status === 200) return new Response(new Blob([PNG], { type: 'image/png' }));
+        return Response.json({ error: { code: status === 415 ? 'not_image' : 'not_found', message: '' } }, { status: status ?? 502 });
+      }
+      const page = routes.page?.[target];
+      return page ? Response.json(page) : Response.json({ error: { code: 'site_refused', message: '' } }, { status: 502 });
+    }),
+  );
+  return calls;
+}
+
+const settle = () => vi.waitFor(() => expect(webImportStore.getState().status).not.toBe('loading'));
+
+beforeEach(() => {
+  clearWebImport();
+  imported.mockClear();
+});
+afterEach(() => vi.unstubAllGlobals());
+
+describe('importing from a web address', () => {
+  it('loads a direct image link straight away, naming the token from the file', async () => {
+    const calls = api({ image: { 'https://cdn.example/goblin-boss.png': 200 } });
+    expect(importFromAddress('cdn.example/goblin-boss.png')).toBe(true);
+    await settle();
+    expect(calls).toEqual(['/api/fetch-image https://cdn.example/goblin-boss.png']);
+    expect(imported).toHaveBeenCalledWith(expect.anything(), 'Goblin Boss');
+    expect(webImportStore.getState().status).toBe('idle');
+  });
+
+  it('shows the pictures on a page, then loads the one picked', async () => {
+    api({
+      page: {
+        'https://blog.example/goblins': {
+          kind: 'page',
+          url: 'https://blog.example/goblins',
+          title: 'Goblins | Blog',
+          images: [{ url: 'https://cdn.example/a.jpg' }, { url: 'https://cdn.example/1234567890.jpg', alt: 'Hobgoblin captain' }],
+        },
+      },
+      image: { 'https://cdn.example/1234567890.jpg': 200 },
+    });
+    importFromAddress('https://blog.example/goblins');
+    await settle();
+    expect(webImportStore.getState()).toMatchObject({ status: 'choosing', images: [{}, {}] });
+    await pickWebImage('https://cdn.example/1234567890.jpg');
+    expect(imported).toHaveBeenCalledWith(expect.anything(), 'Hobgoblin captain');
+    expect(webImportStore.getState()).toMatchObject({ status: 'choosing', picked: 'https://cdn.example/1234567890.jpg' });
+  });
+
+  it("loads a Pinterest pin's original, falling back to the preview", async () => {
+    const calls = api({
+      page: {
+        'https://pin.it/abc': {
+          kind: 'pinterest',
+          url: 'https://www.pinterest.com/pin/1/',
+          title: 'Goblin Token',
+          images: [{ url: 'https://i.pinimg.com/originals/aa/bb/cc/x.png' }, { url: 'https://i.pinimg.com/736x/aa/bb/cc/x.jpg' }],
+        },
+      },
+      image: { 'https://i.pinimg.com/originals/aa/bb/cc/x.png': 404, 'https://i.pinimg.com/736x/aa/bb/cc/x.jpg': 200 },
+    });
+    importFromAddress('https://pin.it/abc');
+    await settle();
+    expect(calls.slice(1)).toEqual([
+      '/api/fetch-image https://i.pinimg.com/originals/aa/bb/cc/x.png',
+      '/api/fetch-image https://i.pinimg.com/736x/aa/bb/cc/x.jpg',
+    ]);
+    expect(imported).toHaveBeenCalledWith(expect.anything(), 'Goblin Token');
+  });
+
+  it('treats an "image" link that is really a page as a page', async () => {
+    const calls = api({
+      image: { 'https://wiki.example/File:Goblin.png': 415, 'https://upload.example/Goblin.png': 200 },
+      page: { 'https://wiki.example/File:Goblin.png': { kind: 'page', url: 'https://wiki.example/File:Goblin.png', title: '', images: [{ url: 'https://upload.example/Goblin.png' }] } },
+    });
+    importFromAddress('https://wiki.example/File:Goblin.png');
+    await settle();
+    expect(calls).toHaveLength(3);
+    expect(imported).toHaveBeenCalledWith(expect.anything(), 'Goblin');
+  });
+
+  it('explains what to do when a site blocks fetching', async () => {
+    api({});
+    importFromAddress('https://strict.example/gallery');
+    await settle();
+    expect(webImportStore.getState()).toMatchObject({ status: 'error' });
+    expect(webImportStore.getState().error).toMatch(/Copy image address/);
+  });
+
+  it('ignores text that is not an address when pasted, but explains in the box', () => {
+    api({});
+    expect(importFromAddress('goblin boss', 'paste')).toBe(false);
+    expect(webImportStore.getState().status).toBe('idle');
+    expect(importFromAddress('goblin boss', 'box')).toBe(false);
+    expect(webImportStore.getState().error).toMatch(/https:\/\//);
+  });
+});
