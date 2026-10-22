@@ -5,6 +5,7 @@ import { useShortcuts } from '../editor/useShortcuts';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { restore, startAutosave } from '../state/autosave';
 import { watchFrameImages } from '../state/frameLibrary';
+import { watchLabelFonts } from '../fonts/fontLoader';
 import { watchLibraryImages } from '../state/libraryAssets';
 import { Toasts } from '../ui/Toasts';
 import { AdSlot } from './AdSlot';
@@ -26,6 +27,7 @@ function boot() {
     startAutosave();
     watchLibraryImages();
     watchFrameImages();
+    watchLabelFonts();
   });
 }
 

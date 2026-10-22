@@ -6,11 +6,27 @@ Every font, icon, image and other asset bundled with Token Maker, with its sourc
 |---|---|---|
 | Grenze (font) | Omnibus-Type, via [@fontsource/grenze](https://fontsource.org/fonts/grenze) | SIL Open Font License 1.1 |
 | Atkinson Hyperlegible (font) | Braille Institute, via [@fontsource/atkinson-hyperlegible](https://fontsource.org/fonts/atkinson-hyperlegible) | SIL Open Font License 1.1 |
+| Cinzel (label font) | Natanael Gama, via [@fontsource/cinzel](https://fontsource.org/fonts/cinzel) | SIL Open Font License 1.1 |
+| Cinzel Decorative (label font) | Natanael Gama, via [@fontsource/cinzel-decorative](https://fontsource.org/fonts/cinzel-decorative) | SIL Open Font License 1.1 |
+| IM Fell English (label font) | Igino Marini, via [@fontsource/im-fell-english](https://fontsource.org/fonts/im-fell-english) | SIL Open Font License 1.1 |
+| MedievalSharp (label font) | Wojciech Kalinowski, via [@fontsource/medievalsharp](https://fontsource.org/fonts/medievalsharp) | SIL Open Font License 1.1 |
+| Pirata One (label font) | Rodrigo Fuenzalida, Nicolas Massi, via [@fontsource/pirata-one](https://fontsource.org/fonts/pirata-one) | SIL Open Font License 1.1 |
+| UnifrakturMaguntia (label font) | J. "Mach" Wust, via [@fontsource/unifrakturmaguntia](https://fontsource.org/fonts/unifrakturmaguntia) | SIL Open Font License 1.1 |
+| Uncial Antiqua (label font) | Astigmatic, via [@fontsource/uncial-antiqua](https://fontsource.org/fonts/uncial-antiqua) | SIL Open Font License 1.1 |
+| Almendra (label font) | Ana Sanfelippo, via [@fontsource/almendra](https://fontsource.org/fonts/almendra) | SIL Open Font License 1.1 |
+| Metamorphous (label font) | James Grieshaber, via [@fontsource/metamorphous](https://fontsource.org/fonts/metamorphous) | SIL Open Font License 1.1 |
+| Grenze Gotisch (label font) | Omnibus-Type, via [@fontsource/grenze-gotisch](https://fontsource.org/fonts/grenze-gotisch) | SIL Open Font License 1.1 |
+| Macondo (label font) | John Vargas Beltrán, via [@fontsource/macondo](https://fontsource.org/fonts/macondo) | SIL Open Font License 1.1 |
+| Alegreya SC (label font) | Juan Pablo del Peral, Huerta Tipográfica, via [@fontsource/alegreya-sc](https://fontsource.org/fonts/alegreya-sc) | SIL Open Font License 1.1 |
+| Spectral (label font) | Production Type, via [@fontsource/spectral](https://fontsource.org/fonts/spectral) | SIL Open Font License 1.1 |
+| Germania One (label font) | John Vargas Beltrán, via [@fontsource/germania-one](https://fontsource.org/fonts/germania-one) | SIL Open Font License 1.1 |
+| Eagle Lake (label font) | Astigmatic, via [@fontsource/eagle-lake](https://fontsource.org/fonts/eagle-lake) | SIL Open Font License 1.1 |
 | Lucide icons | [lucide.dev](https://lucide.dev) (`lucide-react`) | ISC |
 | Placeholder logo / favicon | Made for the project | — |
 | 27 code-drawn frames and 5 shapes | Ported from the owner's own [LK-to-Owlbear-Combined](https://github.com/GroudonMcL/LK-to-Owlbear-Combined) extension | Owner's own code |
 | 10 built-in background pictures (`public/backgrounds/`) | Drawn by code for the project (`scripts/make-backgrounds.ts`) | — (made for the project; no attribution needed) |
 | 8 built-in picture frames (`public/frames/`) | Drawn by code for the project (`scripts/make-frames.ts`) | — (made for the project; no attribution needed) |
 | 18 decorations (gems, crown, star, skull, horn, wing, ribbon, laurel, chain, leaf, class icons) | Drawn by code at render time (`src/render/decorationPainters.ts`) | — |
+| Label shapes (banner, plaque, pill, box) | Drawn by code at render time (`src/render/label.ts`) | — |
 | Foreground overlays (foliage, smoke, mist, cobwebs, vignette, edge shadow) | Drawn by code at render time (`src/render/overlays.ts`) | — |
 | Sample art in frame tiles, frame sheet and tests | Drawn by code for the project (`src/render/sampleArt.ts`, `scripts/make-fixture.ts`) | — |

@@ -1,11 +1,14 @@
 // "Your presets" (DESIGN.md §6.9), kept in this browser's IndexedDB in a
 // database of their own, so "New token" never deletes them. Sharing adds the
 // pictures of any uploaded frame the look uses, so the preset works in
-// another browser; importing saves those pictures here.
+// another browser; importing saves those pictures here. Uploaded label fonts
+// travel the same way.
 
 import { createStore as createIdbStore, del, entries, set, type UseStore } from 'idb-keyval';
 import { useStore } from 'zustand';
 import { createStore } from 'zustand/vanilla';
+import { UPLOAD_PREFIX } from '../fonts/catalog';
+import { hasUploadedFont, saveUploadedFont, uploadedFont } from '../fonts/fontLoader';
 import { hasUploadedFrame, saveUploadedFrame, uploadedFrameBlob } from '../state/frameLibrary';
 import { migratePreset, PresetError, type TokenPreset } from './preset';
 
@@ -45,8 +48,9 @@ export async function refreshSavedPresets(): Promise<void> {
 
 /** Saves (or replaces) a preset in this browser. Pictures in it are saved as uploaded frames, not with the preset. */
 export async function savePreset(p: TokenPreset): Promise<void> {
-  const { images, ...preset } = p;
+  const { images, fonts, ...preset } = p;
   void images;
+  void fonts;
   const db = store();
   if (!db) throw new PresetError("This browser can't save presets (private browsing may block it).");
   await set(preset.id, { preset, saved: Date.now() } satisfies Saved, db);
@@ -67,16 +71,36 @@ const blobToDataUrl = (blob: Blob) =>
     r.readAsDataURL(blob);
   });
 
-/** The preset ready to share: with the picture of any uploaded frame it uses. */
+/** The uploaded font a look's label uses, if any. */
+const labelUpload = (p: TokenPreset) => {
+  const font = p.look.label?.font;
+  return font?.startsWith(UPLOAD_PREFIX) ? font.slice(UPLOAD_PREFIX.length) : null;
+};
+
+/** The preset ready to share: with the picture of any uploaded frame and any uploaded label font it uses. */
 export async function withSharedImages(p: TokenPreset): Promise<TokenPreset> {
+  let out = p;
   const src = p.look.frame.image?.source;
-  if (src?.type !== 'upload') return p;
-  const blob = await uploadedFrameBlob(src.id);
-  return blob ? { ...p, images: { ...p.images, [src.id]: await blobToDataUrl(blob) } } : p;
+  if (src?.type === 'upload') {
+    const blob = await uploadedFrameBlob(src.id);
+    if (blob) out = { ...out, images: { ...out.images, [src.id]: await blobToDataUrl(blob) } };
+  }
+  const fontId = labelUpload(p);
+  if (fontId) {
+    const font = await uploadedFont(fontId);
+    if (font) out = { ...out, fonts: { ...out.fonts, [fontId]: { name: font.name, data: await blobToDataUrl(font.blob) } } };
+  }
+  return out;
 }
 
-/** Saves any frame pictures a shared preset brings that this browser doesn't have yet. */
+/** Saves any frame pictures and label fonts a shared preset brings that this browser doesn't have yet. */
 export async function installSharedImages(p: TokenPreset): Promise<void> {
+  const fontId = labelUpload(p);
+  const font = fontId ? p.fonts?.[fontId] : undefined;
+  if (fontId && font && !(await hasUploadedFont(fontId))) {
+    const blob = await (await fetch(font.data)).blob();
+    await saveUploadedFont(blob, font.name, fontId).catch((e) => console.warn(e));
+  }
   const img = p.look.frame.image;
   if (img?.source.type !== 'upload') return;
   const url = p.images?.[img.source.id];

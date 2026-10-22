@@ -1992,3 +1992,72 @@ input[type='range']::-moz-range-thumb {
   flex: 1;
   min-width: 0;
 }
+
+/* ---- Label (Phase 8) ---- */
+.label-style {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.font-picker__list {
+  display: grid;
+  max-height: 232px;
+  overflow-y: auto;
+  padding: var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 10px);
+  background: var(--surface-sunken);
+  overscroll-behavior: contain;
+}
+
+.font-picker__item {
+  min-height: 36px;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text);
+  font-size: 19px;
+  line-height: 1.2;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--dur-fast);
+}
+
+.font-picker__item:hover {
+  background: var(--surface-raised);
+}
+
+.font-picker__item[aria-checked='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.font-picker__group {
+  margin: var(--space-2) var(--space-2) var(--space-1);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.font-picker__actions {
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.font-picker__sample {
+  margin: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 22px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (pointer: coarse) {
+  .font-picker__item {
+    min-height: var(--hit);
+  }
+}

@@ -35,6 +35,8 @@ export interface TokenPreset {
    * frame's id. Only in shared files and codes, so they load in another browser.
    */
   images?: Record<string, string>;
+  /** Uploaded label fonts the look uses, with their file as a `data:` URL, keyed by the font's id (shared files and codes only). */
+  fonts?: Record<string, { name: string; data: string }>;
 }
 
 export class PresetError extends Error {}
@@ -64,6 +66,8 @@ export function lookFromDoc(doc: TokenDocument): PresetLook {
     copy.background.image = null;
     if (copy.background.kind === 'image') copy.background.kind = 'none';
   }
+  // A label's style is part of the look; its words belong to the token.
+  if (copy.label) copy.label.text = null;
   return copy;
 }
 
@@ -80,7 +84,7 @@ const tidyName = (name: string) => name.trim().replace(/\s+/g, ' ').slice(0, 60)
  */
 export function applyLook(doc: TokenDocument, look: PresetLook): TokenDocument {
   const copy = JSON.parse(JSON.stringify(look)) as PresetLook;
-  const label = copy.label && doc.label ? { ...copy.label, text: doc.label.text } : copy.label;
+  const label = copy.label ? { ...copy.label, text: doc.label?.text ?? null } : null;
   // Keep the user's own background picture when the preset has no picture of its own.
   const background =
     doc.background.image?.type === 'asset' && copy.background.kind !== 'image' && copy.background.image === null
@@ -115,6 +119,16 @@ export function migratePreset(raw: unknown): TokenPreset {
       if (typeof url === 'string' && /^data:image\/(png|webp|jpeg|gif|avif);base64,/.test(url) && url.length < 12_000_000) images[id.slice(0, 80)] = url;
     }
   }
+  const fonts: Record<string, { name: string; data: string }> = {};
+  if (isObject(p.fonts)) {
+    for (const [id, f] of Object.entries(p.fonts)) {
+      if (!isObject(f)) continue;
+      const data = f.data;
+      if (typeof data === 'string' && /^data:(font\/[a-z0-9.+-]+|application\/[a-z0-9.+-]+)?;base64,/.test(data) && data.length < 14_000_000) {
+        fonts[id.slice(0, 80)] = { name: typeof f.name === 'string' ? f.name.slice(0, 60) : 'Shared font', data };
+      }
+    }
+  }
   return {
     schemaVersion: PRESET_SCHEMA_VERSION,
     docVersion: SCHEMA_VERSION,
@@ -122,6 +136,7 @@ export function migratePreset(raw: unknown): TokenPreset {
     name: tidyName(typeof p.name === 'string' ? p.name : ''),
     look: lookFromDoc(doc),
     ...(Object.keys(images).length ? { images } : {}),
+    ...(Object.keys(fonts).length ? { fonts } : {}),
   };
 }
 

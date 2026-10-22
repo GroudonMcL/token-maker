@@ -16,6 +16,7 @@ import {
   MIN_SQUARES,
   newDecoration,
   newEffect,
+  newLabel,
   newOverlay,
   SIZE_PRESETS,
 } from './defaults';
@@ -33,6 +34,7 @@ import {
   type EffectPlacement,
   type Gradient,
   type ImageAdjustments,
+  type LabelSettings,
   type LightingSettings,
   type LightPresetId,
   type MaskStroke,
@@ -67,6 +69,8 @@ export const MIGRATIONS: Record<number, (doc: Json) => Json> = {
     const lighting = obj(doc.lighting);
     return { ...doc, decorations: [], lighting: { ...lighting, rim: { softness: 0, ...obj(lighting.rim) } } };
   },
+  // v6 → v7 (Phase 8): the label. Nothing could add one before, so any old placeholder is dropped.
+  6: (doc) => ({ ...doc, label: null }),
 };
 
 export class DocumentVersionError extends Error {}
@@ -216,6 +220,48 @@ function decoration(raw: Json, index: number): Decoration | null {
     flip: bool(raw.flip, d.flip),
     color: hex(raw.color, d.color),
     opacity: num(raw.opacity, d.opacity, 0, 1),
+  };
+}
+
+const LABEL_SHAPES = ['banner', 'plaque', 'pill', 'box', 'ring'] as const;
+/** Fonts are a built-in id or "upload:<id>": letters, digits and dashes only. */
+const FONT_ID = /^(upload:)?[a-zA-Z0-9-]{1,80}$/;
+
+export function label(raw: unknown): LabelSettings | null {
+  if (!isObject(raw)) return null;
+  const d = newLabel();
+  const outline = obj(raw.outline);
+  const textOutline = obj(raw.textOutline);
+  const shadow = obj(raw.shadow);
+  return {
+    shape: oneOf(raw.shape, LABEL_SHAPES, d.shape),
+    text: typeof raw.text === 'string' ? raw.text.slice(0, 120) : null,
+    place: oneOf(raw.place, ['top', 'bottom', 'free'] as const, d.place),
+    x: num(raw.x, d.x, -1, 1),
+    y: num(raw.y, d.y, -1, 1),
+    angle: num(raw.angle, d.angle, -360, 360),
+    arc: num(raw.arc, d.arc, 20, 360),
+    width: num(raw.width, d.width, 0.1, 8),
+    curve: num(raw.curve, d.curve, -100, 100),
+    corners: oneOf(raw.corners, ['rounded', 'sharp'] as const, d.corners),
+    fill: hex(raw.fill, d.fill),
+    opacity: num(raw.opacity, d.opacity, 0, 1),
+    outline: { width: num(outline.width, d.outline.width, 0, 0.2), color: hex(outline.color, d.outline.color) },
+    font: typeof raw.font === 'string' && FONT_ID.test(raw.font) ? raw.font : d.font,
+    size: num(raw.size, d.size, 0.02, 2),
+    color: hex(raw.color, d.color),
+    bold: bool(raw.bold, d.bold),
+    italic: bool(raw.italic, d.italic),
+    letterSpacing: num(raw.letterSpacing, d.letterSpacing, -0.1, 0.5),
+    align: oneOf(raw.align, ['left', 'center', 'right'] as const, d.align),
+    textOutline: { width: num(textOutline.width, d.textOutline.width, 0, 0.2), color: hex(textOutline.color, d.textOutline.color) },
+    shadow: {
+      enabled: bool(shadow.enabled, d.shadow.enabled),
+      color: hex(shadow.color, d.shadow.color),
+      opacity: num(shadow.opacity, d.shadow.opacity, 0, 1),
+      blur: num(shadow.blur, d.shadow.blur, 0, 0.5),
+    },
+    shrinkToFit: bool(raw.shrinkToFit, d.shrinkToFit),
   };
 }
 
@@ -372,6 +418,6 @@ export function sanitize(raw: Json): TokenDocument {
       },
       popOut: outer(shadows.popOut, d.shadows.popOut),
     },
-    label: isObject(raw.label) && typeof raw.label.text === 'string' ? (raw.label as TokenDocument['label']) : null,
+    label: label(raw.label),
   };
 }
