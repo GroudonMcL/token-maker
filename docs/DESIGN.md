@@ -196,6 +196,8 @@ Options (one at a time):
 
 The background is affected by its own position/zoom, independent of the art.
 
+*(Phase 4, as built: `background` in the document keeps every kind's settings (colour, gradient, picture), so switching kinds never loses work, plus an opacity for all kinds. Gradients have a type (linear/radial), an angle and 2–16 stops, each with position, colour and opacity; the same editor is used by the Gradient overlay. A picture is `{type: 'library', id}`, `{type: 'asset', assetId}` (the user's own, autosaved like the art) or `{type: 'art'}` (the art's original picture, defaulting to 130% zoom and some blur). It covers the frame's opening at zoom 100%; zoom (50–400%) and offset move it, using a "Move on the canvas" tool. Blur 100 = 5% of the picture's longer side, worked on a 640 px copy and cached. The built-in library is 10 pictures drawn by code (`scripts/make-backgrounds.ts` → `public/backgrounds/*.webp`, loaded when first used and never autosaved). Your own background picture can come from upload or a pasted link (the Phase 2 web importer, with a target); drag-and-drop and Ctrl+V on the page still always set the art.)*
+
 ### 6.4 Foreground overlays
 
 Stackable list, drawn over the art and inside the frame:
@@ -208,12 +210,16 @@ Stackable list, drawn over the art and inside the frame:
 
 Each overlay: opacity, blend mode (normal, multiply, screen, overlay, soft light), position/scale where it makes sense.
 
+*(Phase 4, as built: overlays are a list in the document, drawn bottom first; the panel shows the top first with up/down, hide and remove buttons, up to 12. Kinds: Gradient, Vignette (colour, size, softness), Edge shadow (colour, side, reach, softness), Mist (colour, side, reach, softness, scale), Smoke (colour, amount, softness, scale), Foliage (colour, side it grows from, reach, leaf scale) and Cobwebs (colour, corner, size, scale). All are drawn by code with a seeded random layout ("Shuffle" picks another), so a token looks the same every time and at every size; each is drawn once into its own canvas and reused. Lighting is its own section (§6.5) rather than an overlay.)*
+
 ### 6.5 Lighting
 
 - **Directional light:** a direction dial, colour, strength; optional **rim light** (a thin bright edge on the subject, best with a removed background).
 - **Presets** that set the directional light, then remain editable: Torchlight (warm, from below), Moonlight (cold, from above), Holy glow, Fel green, Firelight flicker look, Underdark (dim purple).
 - Lighting is part of "processed art" (§5), so pop-out parts are lit identically.
 - The light direction drives shadow direction (§6.7).
+
+*(Phase 4, as built: `lighting` holds direction (degrees the light comes from: 0 right, 90 below, 225 top left), on/off, the preset last picked, colour, strength, "darkness away from the light" (falloff), rim light (on, strength, width) and "light the background too". Presets switch the light on and set direction, colour, strength, falloff and rim; any change by hand keeps the light but clears the preset's name. On the art, lighting is the last processed-art step (`src/image/lighting.ts`): the side away from the light darkens, the colour is tinted towards the light's hue (normalised, so a dark colour still tints), and the near side brightens and glows; the rim lights pixels whose neighbour towards the light is see-through (so it follows a removed background's edge). The direction is turned into the picture's own coordinates, so rotated or flipped art is lit from the right side. The background gets the same kind of light with canvas gradients. The dial is always shown because shadows already follow it; the shadow controls are Phase 5.)*
 
 ### 6.6 Pop-out (art over the border)
 

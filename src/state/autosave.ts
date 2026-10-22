@@ -18,18 +18,25 @@ function store(): UseStore | null {
   return idb;
 }
 
-/** Saves the document and its image (if not saved yet), and removes images no longer used. */
+/** The user's own pictures the document uses (the art, and a background picture of their own). */
+export function usedAssetIds(doc: TokenDocument): string[] {
+  const ids = [doc.art.assetId, doc.background.image?.type === 'asset' ? doc.background.image.assetId : null];
+  return [...new Set(ids.filter((id): id is string => !!id && id.startsWith(ASSET_PREFIX)))];
+}
+
+/** Saves the document and its pictures (if not saved yet), and removes pictures no longer used. */
 export async function saveNow(doc: TokenDocument): Promise<void> {
   const db = store();
   if (!db) return;
   await set(DOC_KEY, doc, db);
-  const used = doc.art.assetId;
+  const used = usedAssetIds(doc);
   const saved = (await keys(db)).filter((k): k is string => typeof k === 'string' && k.startsWith(ASSET_PREFIX));
-  if (used && !saved.includes(used)) {
-    const asset = assetStore.getState().assets.get(used);
-    if (asset) await set(used, asset.blob, db);
+  for (const id of used) {
+    if (saved.includes(id)) continue;
+    const asset = assetStore.getState().assets.get(id);
+    if (asset) await set(id, asset.blob, db);
   }
-  await Promise.all(saved.filter((k) => k !== used).map((k) => del(k, db)));
+  await Promise.all(saved.filter((k) => !used.includes(k)).map((k) => del(k, db)));
 }
 
 /** Loads the autosaved token, if any. Returns true when something was restored. */
@@ -40,15 +47,13 @@ export async function restore(): Promise<boolean> {
     const raw = await get(DOC_KEY, db);
     if (!raw) return false;
     const doc = migrateDocument(raw);
-    if (doc.art.assetId) {
-      const blob = await get<Blob>(doc.art.assetId, db);
-      if (blob) {
-        const image = await decodeImage(blob);
-        addAsset({ id: doc.art.assetId, blob, ...image });
-      } else {
-        doc.art.assetId = null;
-      }
+    for (const id of usedAssetIds(doc)) {
+      const blob = await get<Blob>(id, db);
+      if (blob) addAsset({ id, blob, ...(await decodeImage(blob)) });
     }
+    const has = (id: string | null) => !!id && assetStore.getState().assets.has(id);
+    if (doc.art.assetId && !has(doc.art.assetId)) doc.art.assetId = null;
+    if (doc.background.image?.type === 'asset' && !has(doc.background.image.assetId)) doc.background.image = null;
     resetDoc(doc);
     return true;
   } catch (err) {

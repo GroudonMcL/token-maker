@@ -71,6 +71,12 @@ To see the phone layout on your computer: in Chrome or Edge press `F12`, then cl
   - **Erase / restore brush:** click **Use the brush**, then paint on the picture. **Erase** hides what you paint, **Restore** brings it back. While the brush is on, the frame turns half see-through and removed parts show red inside it. Pick **Brush size** (Advanced: softness, pen pressure). Two fingers still move and zoom. Press **Done** (or `Esc`) to go back to moving the art. Each stroke is one undo step.
   - Nothing you do here changes your original picture, so you can always change your mind.
   - Hover over a control's name (or press and hold it on a phone) to see what it does, with a before/after picture.
+- **Background (Phase 4):** what fills the frame behind the art.
+  - **Colour**, **Gradient** (two colours, linear or radial; **Advanced** edits every colour stop), or **Picture**.
+  - A picture can be one of 10 **built-in** scenes (forest, dungeon stone, parchment, night sky, lava, water, tavern wood, snow, swamp, desert), **your own** (upload, or paste a link), or the **token's art** (an enlarged, blurred copy).
+  - **Blur** and **Zoom** change the picture only. **Move on the canvas** lets you drag it into place; **Reset position** centres it again.
+- **Foreground (Phase 4):** add overlays drawn over the art inside the frame: Vignette, Gradient, Edge shadow, Mist, Smoke, Foliage and Cobwebs. Each has opacity and a blend mode (Multiply darkens, Screen lightens…), and most have colour, side, reach and scale. Use the arrows to reorder, the eye to hide, and the bin to remove. **Shuffle** rearranges leaves, smoke and webs.
+- **Lighting (Phase 4):** pick a preset (Torchlight, Moonlight, Holy glow, Fel green, Firelight, Underdark) or switch on **Light the art** and set it yourself: drag the dot round the **direction dial**, choose a colour and strength, and add a **rim light** (a bright edge, best on a cut-out character). The background is lit too unless you turn that off. Changing a preset's settings keeps the light; it just isn't called by the preset's name any more.
 - **Undo/Redo:** the arrows in the top bar, or `Ctrl+Z` / `Ctrl+Y`. A whole drag counts as one step.
 - **Export PNG** (bottom bar) downloads the token at 256 pixels per grid square.
 - Your token is saved in the browser as you work, so refreshing the page keeps it. **New** starts again.
@@ -93,6 +99,7 @@ Useful pages while developing:
 | `npm run lint` | Checks code style and common bugs (ESLint). |
 | `npm run build` | Builds the finished site into the `dist` folder (this is what Cloudflare runs). |
 | `npm run preview` | Serves the built `dist` folder so you can try the real build. |
+| `npm run make-backgrounds` | Redraws the 10 built-in background pictures (`public/backgrounds/`). They're drawn by code, so nothing needs crediting. |
 | `npm run help-images` | Redraws the before/after pictures in the Image help tips (`public/help/`). Run it after changing how an adjustment looks. |
 | `npm run make-fixture` | Redraws the goblin test pictures in `e2e/fixtures/`. |
 | `npm run frame-sheet -- sheet.png` | Draws every frame on one picture so you can check them by eye. Add a shape and size, e.g. `npm run frame-sheet -- sheet.png hexagon 220 2` for Large hexagons. |
@@ -166,7 +173,7 @@ src/import/            Decoding images and naming tokens from file names
 src/editor/            The canvas (Stage), toolbar actions, drop/paste, shortcuts, brush and eyedropper tools
 src/sections/          Panel sections that are built (Import, Image, Frame & shape, Size, Export)
 src/export/            PNG download
-scripts/               frame-sheet.ts, make-fixture.ts (the test pictures), help-images.ts
+scripts/               frame-sheet.ts, make-fixture.ts (the test pictures), help-images.ts, make-backgrounds.ts
 src/styles/tokens.css  Design tokens: every colour, font, size, radius and shadow
 src/styles/app.css     The stylesheet for the whole UI
 src/components/        Shared controls (Section, Slider, ColorSwatches, SegmentedButtons,

@@ -15,7 +15,8 @@
     "frame-sheet": "tsx scripts/frame-sheet.ts",
     "pages:dev": "npm run build && npx --yes wrangler@4 pages dev dist --port 8788 --compatibility-date=2026-09-01",
     "help-images": "tsx scripts/help-images.ts",
-    "make-fixture": "tsx scripts/make-fixture.ts"
+    "make-fixture": "tsx scripts/make-fixture.ts",
+    "make-backgrounds": "tsx scripts/make-backgrounds.ts"
   },
   "dependencies": {
     "@fontsource/atkinson-hyperlegible": "^5.3.0",

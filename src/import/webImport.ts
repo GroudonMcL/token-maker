@@ -15,7 +15,7 @@ import type { ApiErrorBody, ApiErrorCode, FoundImage, PageImagesResult } from '.
 import { pinterestKind } from '../../server/pinterest.ts';
 import { revealSection } from '../layout/reveal';
 import { toast } from '../ui/toast';
-import { importImageFile } from './importImage';
+import { importTo, type ImportTarget } from './importImage';
 import { friendlyError, isDataImageUrl, looksLikeImageUrl, nameFromImageUrl, nameFromTitle, normaliseAddress } from './webAddress';
 
 export interface WebImportState {
@@ -28,9 +28,12 @@ export interface WebImportState {
   /** The picture being loaded, or last loaded, from `images`. */
   picked?: string;
   error?: string;
+  /** Where the picture goes: the art (Import section) or the background (Background section). */
+  target: ImportTarget;
 }
 
-const IDLE: WebImportState = { status: 'idle', address: '', images: [], pageTitle: '' };
+const IDLE: WebImportState = { status: 'idle', address: '', images: [], pageTitle: '', target: 'art' };
+const target = () => webImportStore.getState().target;
 
 export const webImportStore = createStore<WebImportState>(() => IDLE);
 export const useWebImport = <T>(select: (s: WebImportState) => T) => useStore(webImportStore, select);
@@ -69,7 +72,7 @@ async function loadImage(url: string, name: string): Promise<void> {
   const res = await apiFetch(proxiedImageUrl(url));
   if (!res.ok) throw await apiError(res);
   const blob = await res.blob();
-  await importImageFile(blob, name || nameFromImageUrl(url));
+  await importTo(target(), blob, name || nameFromImageUrl(url));
 }
 
 async function findImages(url: string): Promise<PageImagesResult> {
@@ -97,8 +100,9 @@ export type ImportSource = 'box' | 'paste' | 'drop';
  * Imports from a web address (or a data: image URL). Returns false when the
  * text isn't an address at all, so callers can treat it as ordinary text.
  */
-export function importFromAddress(text: string, source: ImportSource = 'box'): boolean {
+export function importFromAddress(text: string, source: ImportSource = 'box', to: ImportTarget = 'art'): boolean {
   const raw = text.trim();
+  webImportStore.setState({ target: to });
   if (isDataImageUrl(raw)) {
     void importDataUrl(raw, source);
     return true;
@@ -115,7 +119,7 @@ export function importFromAddress(text: string, source: ImportSource = 'box'): b
 async function importDataUrl(dataUrl: string, source: ImportSource) {
   try {
     const blob = await (await fetch(dataUrl)).blob();
-    await importImageFile(blob, '');
+    await importTo(target(), blob, '');
   } catch (err) {
     setError(err, '', source);
   }
@@ -124,7 +128,8 @@ async function importDataUrl(dataUrl: string, source: ImportSource) {
 async function run(url: URL, source: ImportSource) {
   const mine = ++generation;
   const address = url.toString();
-  webImportStore.setState({ ...IDLE, status: 'loading', address });
+  const to = target();
+  webImportStore.setState({ ...IDLE, status: 'loading', address, target: to });
   if (source !== 'box') revealSection('import');
   const current = () => mine === generation;
   try {
@@ -132,7 +137,7 @@ async function run(url: URL, source: ImportSource) {
     if (!pin && looksLikeImageUrl(url)) {
       try {
         await loadImage(address, '');
-        if (current()) webImportStore.setState(IDLE);
+        if (current()) webImportStore.setState({ ...IDLE, target: to });
         return;
       } catch (err) {
         // Some "image" addresses are really pages (e.g. a gallery page per picture).
@@ -143,15 +148,15 @@ async function run(url: URL, source: ImportSource) {
     if (!current()) return;
     if (found.kind === 'image') {
       await loadImage(found.url, '');
-      if (current()) webImportStore.setState(IDLE);
+      if (current()) webImportStore.setState({ ...IDLE, target: to });
     } else if (found.kind === 'pinterest') {
       await loadFirstWorking(found.images, nameFromTitle(found.title));
-      if (current()) webImportStore.setState(IDLE);
+      if (current()) webImportStore.setState({ ...IDLE, target: to });
     } else if (found.images.length === 1) {
       await loadImage(found.images[0]!.url, nameForPicked(found.images[0]!, found.title));
-      if (current()) webImportStore.setState(IDLE);
+      if (current()) webImportStore.setState({ ...IDLE, target: to });
     } else {
-      webImportStore.setState({ status: 'choosing', address: found.url, images: found.images, pageTitle: found.title });
+      webImportStore.setState({ status: 'choosing', address: found.url, images: found.images, pageTitle: found.title, target: to });
       if (source !== 'box') toast(`Found ${found.images.length} pictures. Pick one in the Import section.`);
     }
   } catch (err) {
@@ -192,6 +197,6 @@ function messageOf(err: unknown): string {
 
 function setError(err: unknown, address: string, source: ImportSource) {
   const error = messageOf(err);
-  webImportStore.setState({ ...IDLE, status: 'error', address, error });
+  webImportStore.setState({ ...IDLE, status: 'error', address, error, target: target() });
   if (source !== 'box') toast(error, 'error', 8000);
 }

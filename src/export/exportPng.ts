@@ -4,6 +4,8 @@
 import { DEFAULT_PX_PER_SQUARE, outputSize } from '../document/sizing';
 import type { TokenDocument } from '../document/types';
 import { prepareArt } from '../image/artWorker';
+import { ensureLibraryImages } from '../state/libraryAssets';
+import { getAssets } from '../state/assets';
 import { render, type AssetMap } from '../render/render';
 
 /** A file name with only safe characters (DESIGN.md §6.11). */
@@ -22,7 +24,9 @@ export function safeFileName(name: string, ext: string): string {
 export async function renderPng(doc: TokenDocument, assets: AssetMap, pxPerSquare = DEFAULT_PX_PER_SQUARE): Promise<Blob> {
   const size = outputSize(doc.size.squares, pxPerSquare);
   await prepareArt(doc, assets); // full-size processed art, usually ready already
-  const canvas = render(doc, assets, size);
+  await ensureLibraryImages(doc); // a built-in background picture, usually loaded already
+  // The store may have gained the background picture since `assets` was read.
+  const canvas = render(doc, new Map([...getAssets(), ...assets]), size);
   if ('convertToBlob' in canvas) return canvas.convertToBlob({ type: 'image/png' });
   return new Promise((resolve, reject) =>
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Could not create the PNG.'))), 'image/png'),

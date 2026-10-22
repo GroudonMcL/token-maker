@@ -3,6 +3,7 @@ import { useGlobalImport } from '../editor/useGlobalImport';
 import { useShortcuts } from '../editor/useShortcuts';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { restore, startAutosave } from '../state/autosave';
+import { watchLibraryImages } from '../state/libraryAssets';
 import { Toasts } from '../ui/Toasts';
 import { AdSlot } from './AdSlot';
 import { BottomBar } from './BottomBar';
@@ -19,7 +20,10 @@ let booted = false;
 function boot() {
   if (booted) return;
   booted = true;
-  void restore().finally(() => startAutosave());
+  void restore().finally(() => {
+    startAutosave();
+    watchLibraryImages();
+  });
 }
 
 /**

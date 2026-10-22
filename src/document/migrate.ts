@@ -3,8 +3,21 @@
 // defaults, so a damaged or partial file can never crash the editor.
 
 import { FRAME_STYLES, SHAPES } from '../render/catalog';
-import { createDocument, DEFAULT_ADJUST, MAX_SQUARES, MIN_SQUARES, SIZE_PRESETS } from './defaults';
-import { SCHEMA_VERSION, type ImageAdjustments, type MaskStroke, type TokenDocument } from './types';
+import { copyGradient, createDocument, DEFAULT_ADJUST, LIGHT_PRESETS, MAX_SQUARES, MIN_SQUARES, newOverlay, SIZE_PRESETS } from './defaults';
+import {
+  SCHEMA_VERSION,
+  type BackgroundImageSource,
+  type BackgroundLayer,
+  type BlendMode,
+  type Gradient,
+  type ImageAdjustments,
+  type LightingSettings,
+  type LightPresetId,
+  type MaskStroke,
+  type OverlayKind,
+  type OverlayLayer,
+  type TokenDocument,
+} from './types';
 
 type Json = Record<string, unknown>;
 
@@ -17,6 +30,9 @@ export const MIGRATIONS: Record<number, (doc: Json) => Json> = {
   // v1 → v2 (Phase 3): image adjustments, background removal and brush strokes.
   // Nothing to convert: the new fields start at their defaults (filled in by sanitize).
   1: (doc) => doc,
+  // v2 → v3 (Phase 4): background, foreground overlays and lighting. The old
+  // placeholders hold nothing worth keeping except the light direction.
+  2: (doc) => doc,
 };
 
 export class DocumentVersionError extends Error {}
@@ -52,6 +68,78 @@ const str = (v: unknown, fallback: string) => (typeof v === 'string' ? v : fallb
 const hex = (v: unknown, fallback: string) => (typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v) ? v.toLowerCase() : fallback);
 const obj = (v: unknown): Json => (isObject(v) ? v : {});
 const arr = (v: unknown) => (Array.isArray(v) ? v.filter(isObject) : []);
+
+const MAX_OVERLAYS = 12;
+const BLENDS: readonly BlendMode[] = ['normal', 'multiply', 'screen', 'overlay', 'soft-light'];
+const OVERLAY_KINDS: readonly OverlayKind[] = ['gradient', 'vignette', 'foliage', 'smoke', 'mist', 'cobwebs', 'shadow'];
+const PRESET_IDS = new Set<string>(LIGHT_PRESETS.map((p) => p.id));
+const oneOf = <T extends string>(v: unknown, options: readonly T[], fallback: T): T => (options.includes(v as T) ? (v as T) : fallback);
+
+function gradient(raw: Json, base: Gradient): Gradient {
+  const stops = arr(raw.stops)
+    .slice(0, 16)
+    .map((s) => ({ offset: num(s.offset, 0, 0, 1), color: hex(s.color, '#000000'), opacity: num(s.opacity, 1, 0, 1) }))
+    .sort((a, b) => a.offset - b.offset);
+  return {
+    type: oneOf(raw.type, ['linear', 'radial'] as const, base.type),
+    angle: num(raw.angle, base.angle, -360, 360),
+    stops: stops.length >= 2 ? stops : copyGradient(base).stops,
+  };
+}
+
+function background(raw: Json, d: BackgroundLayer): BackgroundLayer {
+  const img = obj(raw.image);
+  const image: BackgroundImageSource | null =
+    img.type === 'library' && typeof img.id === 'string'
+      ? { type: 'library', id: img.id }
+      : img.type === 'asset' && typeof img.assetId === 'string'
+        ? { type: 'asset', assetId: img.assetId }
+        : img.type === 'art'
+          ? { type: 'art' }
+          : null;
+  return {
+    kind: oneOf(raw.kind, ['none', 'color', 'gradient', 'image'] as const, d.kind),
+    opacity: num(raw.opacity, d.opacity, 0, 1),
+    color: hex(raw.color, d.color),
+    gradient: gradient(obj(raw.gradient), d.gradient),
+    image,
+    blur: num(raw.blur, d.blur, 0, 100),
+    zoom: num(raw.zoom, d.zoom, 0.2, 8),
+    offsetX: num(raw.offsetX, d.offsetX, -5, 5),
+    offsetY: num(raw.offsetY, d.offsetY, -5, 5),
+  };
+}
+
+function overlay(raw: Json, index: number): OverlayLayer {
+  const d = newOverlay(oneOf(raw.kind, OVERLAY_KINDS, 'vignette'), str(raw.id, `overlay-${index}`));
+  return {
+    ...d,
+    visible: bool(raw.visible, d.visible),
+    opacity: num(raw.opacity, d.opacity, 0, 1),
+    blend: oneOf(raw.blend, BLENDS, d.blend),
+    color: hex(raw.color, d.color),
+    size: num(raw.size, d.size, 0, 100),
+    softness: num(raw.softness, d.softness, 0, 100),
+    angle: num(raw.angle, d.angle, -360, 360),
+    scale: num(raw.scale, d.scale, 50, 200),
+    seed: Math.round(num(raw.seed, d.seed, 0, 1e6)),
+    gradient: gradient(obj(raw.gradient), d.gradient),
+  };
+}
+
+function lighting(raw: Json, d: LightingSettings): LightingSettings {
+  const rim = obj(raw.rim);
+  return {
+    direction: num(raw.direction, d.direction, -360, 360),
+    enabled: bool(raw.enabled, d.enabled),
+    preset: typeof raw.preset === 'string' && PRESET_IDS.has(raw.preset) ? (raw.preset as LightPresetId) : null,
+    color: hex(raw.color, d.color),
+    strength: num(raw.strength, d.strength, 0, 100),
+    falloff: num(raw.falloff, d.falloff, 0, 100),
+    rim: { enabled: bool(rim.enabled, d.rim.enabled), strength: num(rim.strength, d.rim.strength, 0, 100), width: num(rim.width, d.rim.width, 0, 100) },
+    background: bool(raw.background, d.background),
+  };
+}
 
 /** Most stroke data any one document keeps (about 2 MB of numbers). */
 const MAX_STROKE_NUMBERS = 300_000;
@@ -142,9 +230,9 @@ export function sanitize(raw: Json): TokenDocument {
       },
       strokes: strokes(art.strokes),
     },
-    background: d.background,
-    foreground: arr(raw.foreground) as TokenDocument['foreground'],
-    lighting: { direction: num(obj(raw.lighting).direction, d.lighting.direction, -360, 360) },
+    background: background(obj(raw.background), d.background),
+    foreground: arr(raw.foreground).slice(0, MAX_OVERLAYS).map((o, i) => overlay(o, i)),
+    lighting: lighting(obj(raw.lighting), d.lighting),
     effects: arr(raw.effects) as TokenDocument['effects'],
     frame: {
       kind: 'code',

@@ -6,7 +6,8 @@
 import { useStore } from 'zustand';
 import { createStore } from 'zustand/vanilla';
 
-export type Tool = 'move' | 'brush' | 'eyedropper';
+/** move the art · paint the brush · pick a colour · move the background picture (Phase 4). */
+export type Tool = 'move' | 'brush' | 'eyedropper' | 'background';
 
 export interface ToolState {
   tool: Tool;

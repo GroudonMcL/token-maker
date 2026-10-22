@@ -5,6 +5,7 @@ import type { ArtTransform, MaskStroke } from '../document/types';
 import { HelpTip } from '../components/HelpTip';
 import { requestFullArt, useProcessedVersion } from '../image/artWorker';
 import { maskOverlay } from '../image/maskOverlay';
+import { artEdits } from '../image/process';
 import { DRAFT_SIDE, peekProcessedArt, processedArt, sourcePixels } from '../image/processedArt';
 import { artCorners, baseScale, imageClipPolygon, imagePointAt, rotateAround, zoomAround } from '../render/geometry';
 import { renderToken } from '../render/render';
@@ -37,7 +38,8 @@ type Gesture =
   | { kind: 'pan'; start: ArtTransform; x: number; y: number; distance: number; angle: number }
   | { kind: 'view'; start: View; x: number; y: number }
   | { kind: 'scale' | 'rotate'; start: ArtTransform; centre: Point; startPoint: Point }
-  | { kind: 'brush'; stroke: MaskStroke; index: number };
+  | { kind: 'brush'; stroke: MaskStroke; index: number }
+  | { kind: 'background'; x: number; y: number; offsetX: number; offsetY: number };
 
 /**
  * The canvas: the token (drawn by the same renderer as the export), the whole
@@ -64,7 +66,7 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
   // Processed art: the full-size result when ready, else a quick copy (DESIGN.md §5).
   const settling = useStore(docHistory, (s) => s.pendingBase !== null);
   const version = useProcessedVersion();
-  const edits = doc.art;
+  const edits = artEdits(doc);
   const display = art ? (peekProcessedArt(art, edits) ?? processedArt(art, edits, DRAFT_SIDE)) : null;
   const needsFull = !!art && !peekProcessedArt(art, edits);
   useEffect(() => {
@@ -252,6 +254,10 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
     setDragging(true);
     const g = gesture.current;
     if (g?.kind === 'brush') cancelStroke(g); // two fingers: move and zoom instead
+    if (pointers.current.size === 1 && tool === 'background') {
+      gesture.current = { kind: 'background', x: e.clientX, y: e.clientY, offsetX: doc.background.offsetX, offsetY: doc.background.offsetY };
+      return;
+    }
     if (pointers.current.size === 1 && tool === 'eyedropper') {
       pickBackground(e.clientX, e.clientY);
       gesture.current = null;
@@ -298,6 +304,13 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
     }
     if (!g || !pointers.current.has(e.pointerId)) return;
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (g.kind === 'background') {
+      // Offsets are fractions of the token's half-size; R here includes the view zoom.
+      const offsetX = Math.min(5, Math.max(-5, g.offsetX + (e.clientX - g.x) / R));
+      const offsetY = Math.min(5, Math.max(-5, g.offsetY + (e.clientY - g.y) / R));
+      updateDoc((d) => ({ ...d, background: { ...d.background, offsetX, offsetY } }), { transient: true });
+      return;
+    }
     if (g.kind === 'brush') {
       const c = strokeContext()!;
       const next = extendStroke(c, g.stroke, toUnits(e.clientX, e.clientY), pointerPressure(e, toolStore.getState().usePressure));
@@ -549,7 +562,12 @@ function ToolBar({ bottom }: { bottom: number }) {
   const tool = useTool((s) => s.tool);
   const mode = useTool((s) => s.brushMode);
   return (
-    <div className="stage__toolbar" role="toolbar" aria-label={tool === 'brush' ? 'Brush' : 'Eyedropper'} style={{ bottom }}>
+    <div
+      className="stage__toolbar"
+      role="toolbar"
+      aria-label={tool === 'brush' ? 'Brush' : tool === 'background' ? 'Move background' : 'Eyedropper'}
+      style={{ bottom }}
+    >
       {tool === 'brush' ? (
         <>
           <button type="button" className="stage__tool-btn" aria-pressed={mode === 'erase'} onClick={() => setBrush({ brushMode: 'erase' })}>
@@ -561,6 +579,8 @@ function ToolBar({ bottom }: { bottom: number }) {
             Restore
           </button>
         </>
+      ) : tool === 'background' ? (
+        <span className="stage__tool-hint">Drag to move the background</span>
       ) : (
         <span className="stage__tool-hint">Tap the background colour</span>
       )}

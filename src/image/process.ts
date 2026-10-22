@@ -8,14 +8,44 @@
 // stage, so changing Brightness doesn't redo the background flood-fill and a
 // brush stroke doesn't redo the colours.
 
-import type { ArtLayer } from '../document/types';
+import type { ArtLayer, TokenDocument } from '../document/types';
 import { parseHex } from '../render/color';
 import { adjustColours, hasColourAdjustments, type PixelBuffer } from './adjust';
 import { blurImage, sharpenImage } from './filters';
 import { removalMask, type Rgb } from './removal';
+import { applyLighting, artLight, type ArtLight } from './lighting';
 import { applyStrokes } from './strokes';
 
-export type ArtEdits = Pick<ArtLayer, 'adjust' | 'removal' | 'strokes'>;
+export type ArtEdits = Pick<ArtLayer, 'adjust' | 'removal' | 'strokes'> & {
+  /** Lighting (Phase 4), already turned into the picture's own coordinates. */
+  light?: ArtLight | null;
+};
+
+const lightKeys = new Map<string, ArtLight>();
+const editsByDoc = new WeakMap<TokenDocument, ArtEdits>();
+
+/**
+ * Everything that changes the processed art, taken from the document. The
+ * same object comes back for the same document, and the light object is
+ * reused while the light is unchanged, so caches can compare by identity.
+ */
+export function artEdits(doc: TokenDocument): ArtEdits {
+  let e = editsByDoc.get(doc);
+  if (e) return e;
+  let light = artLight(doc.lighting, doc.art.transform);
+  if (light) {
+    const k = JSON.stringify(light);
+    const known = lightKeys.get(k);
+    if (known) light = known;
+    else {
+      if (lightKeys.size > 64) lightKeys.clear();
+      lightKeys.set(k, light);
+    }
+  }
+  e = { adjust: doc.art.adjust, removal: doc.art.removal, strokes: doc.art.strokes, light };
+  editsByDoc.set(doc, e);
+  return e;
+}
 
 export interface ProcessResult {
   pixels: PixelBuffer;
@@ -25,18 +55,19 @@ export interface ProcessResult {
 
 /** True when the art looks exactly like the picture (nothing to compute). */
 export function isUnedited(e: ArtEdits): boolean {
-  return !hasColourAdjustments(e.adjust) && e.adjust.blur === 0 && e.adjust.sharpness === 0 && !hasMask(e);
+  return !hasColourAdjustments(e.adjust) && e.adjust.blur === 0 && e.adjust.sharpness === 0 && !hasMask(e) && !e.light;
 }
 
 export const hasMask = (e: ArtEdits) => e.removal.enabled || e.strokes.length > 0;
 
-let lastKey: { adjust: unknown; removal: unknown; strokes: unknown; key: string } | null = null;
+let lastKey: { adjust: unknown; removal: unknown; strokes: unknown; light: unknown; key: string } | null = null;
 
 /** A text key for exactly the inputs that change the result (remembered, as strokes can be long). */
 export function editsKey(e: ArtEdits): string {
-  if (lastKey && lastKey.adjust === e.adjust && lastKey.removal === e.removal && lastKey.strokes === e.strokes) return lastKey.key;
-  const key = JSON.stringify([e.adjust, e.removal.enabled ? e.removal : 0, e.strokes]);
-  lastKey = { adjust: e.adjust, removal: e.removal, strokes: e.strokes, key };
+  const light = e.light ?? null;
+  if (lastKey && lastKey.adjust === e.adjust && lastKey.removal === e.removal && lastKey.strokes === e.strokes && lastKey.light === light) return lastKey.key;
+  const key = JSON.stringify([e.adjust, e.removal.enabled ? e.removal : 0, e.strokes, light]);
+  lastKey = { adjust: e.adjust, removal: e.removal, strokes: e.strokes, light, key };
   return key;
 }
 
@@ -112,6 +143,7 @@ export function processPixels(src: PixelBuffer, e: ArtEdits, cache: ProcessCache
   // Blur: 100 = 2 % of the longer side. Sharpen at about 1/1600 of it (≈1.3 px on a 2048 px image).
   if (e.adjust.blur > 0) blurImage(out, (e.adjust.blur / 100) * 0.02 * long);
   if (e.adjust.sharpness > 0) sharpenImage(out, (e.adjust.sharpness / 100) * 2, long / 1600);
-  // Lighting joins here in Phase 4, so pop-out parts (Phase 5) are lit the same.
+  // Lighting last, so pop-out parts (Phase 5) are lit the same.
+  if (e.light) applyLighting(out, e.light);
   return { pixels: out, mask };
 }

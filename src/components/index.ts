@@ -7,3 +7,5 @@ export { ImageStrip, type StripImage } from './ImageStrip';
 export { Toggle } from './Toggle';
 export { HelpTip } from './HelpTip';
 export { ControlLabel } from './ControlLabel';
+export { DirectionDial } from './DirectionDial';
+export { GradientEditor } from './GradientEditor';

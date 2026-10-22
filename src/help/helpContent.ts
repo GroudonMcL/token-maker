@@ -237,6 +237,68 @@ export const helpContent = {
     media: beforeAfter('image-showRemoved', 'removed parts shown tinted red'),
   },
 
+  // ---- Background (Phase 4) ----
+  'background.kind': { title: 'Background', text: 'What fills the frame behind your art: nothing, a colour, a gradient or a picture.' },
+  'background.color': { title: 'Background colour', text: 'One flat colour behind the art.' },
+  'background.gradientType': { title: 'Gradient type', text: 'Linear runs from one side to the other; radial spreads out from the middle.' },
+  'background.gradientAngle': { title: 'Angle', text: 'Which way a linear gradient runs: 0° goes left to right, 90° top to bottom.' },
+  'background.gradientColors': { title: 'Gradient colours', text: 'The colours at the two ends. Advanced has every colour stop.' },
+  'background.gradientStops': {
+    title: 'Colour stops',
+    text: 'Each stop is a colour at a point along the gradient, with its own opacity. Add stops for more colours; drag Position to move one.',
+  },
+  'background.source': {
+    title: 'Picture from',
+    text: "A built-in scene, a picture of your own (uploaded or from a link), or an enlarged copy of the token's own art.",
+  },
+  'background.library': { title: 'Built-in pictures', text: 'Scenes drawn for Token Maker, free to use on any token.' },
+  'background.upload': { title: 'Your own background', text: 'Choose a picture from your device, or paste a link below. It only changes the background, not your art.' },
+  'background.blur': {
+    title: 'Blur',
+    text: 'Softens the background picture so your art stands out. A blurred copy of the art itself makes a neat matching background.',
+  },
+  'background.zoom': { title: 'Zoom', text: 'Makes the background picture bigger or smaller, without changing the art.' },
+  'background.move': { title: 'Move the background', text: 'Turn this on, then drag on the canvas to slide the background picture. Reset puts it back in the middle.' },
+  'background.opacity': { title: 'Opacity', text: 'How solid the background is. Below 100% the backing colour shows through.' },
+
+  // ---- Foreground (Phase 4) ----
+  'foreground.add': {
+    title: 'Add an overlay',
+    text: 'Overlays are drawn over your art, inside the frame. Stack as many as you like; the top of the list is drawn last.',
+  },
+  'foreground.color': { title: 'Colour', text: "The overlay's colour." },
+  'foreground.angle': { title: 'Side', text: 'Which side or corner of the token the overlay sits on.' },
+  'foreground.size': { title: 'Reach', text: 'How far in from the edge it reaches, or how much of it there is.' },
+  'foreground.softness': { title: 'Softness', text: 'How gently the overlay fades out.' },
+  'foreground.scale': { title: 'Scale', text: 'The size of the leaves, smoke puffs, mist banks or webs.' },
+  'foreground.opacity': { title: 'Opacity', text: 'How strong the overlay is.' },
+  'foreground.blend': {
+    title: 'Blend mode',
+    text: 'How the overlay mixes with the art: Multiply darkens, Screen lightens, Overlay and Soft light add contrast and colour.',
+  },
+  'foreground.shuffle': { title: 'Shuffle', text: 'Rearranges the leaves, smoke or webs at random. Each layout is kept, so the token always looks the same.' },
+
+  // ---- Lighting (Phase 4) ----
+  'lighting.presets': {
+    title: 'Lighting presets',
+    text: 'Ready-made lights: Torchlight from below, Moonlight from above, and more. Pick one, then change anything you like.',
+  },
+  'lighting.enabled': { title: 'Light the art', text: 'Shines a coloured light on the art from one side, darkening the far side.' },
+  'lighting.direction': {
+    title: 'Light direction',
+    text: 'Where the light comes from: drag the dot round the dial. Shadows fall away from it, even when the light is off.',
+  },
+  'lighting.color': { title: 'Light colour', text: 'Warm orange for torches and fire, cool blue for moonlight, green for fel magic.' },
+  'lighting.strength': { title: 'Strength', text: 'How bright and coloured the light is.' },
+  'lighting.falloff': { title: 'Darkness away from the light', text: 'How much darker the side facing away from the light gets.' },
+  'lighting.rim': {
+    title: 'Rim light',
+    text: 'A thin bright edge on the side facing the light. It works best when the background has been removed.',
+  },
+  'lighting.rimStrength': { title: 'Rim strength', text: 'How bright the rim is.' },
+  'lighting.rimWidth': { title: 'Rim width', text: 'How thick the rim is.' },
+  'lighting.background': { title: 'Light the background too', text: 'Lights the background picture the same way, so the art and the scene match.' },
+
   // ---- Frame & shape ----
   'frame.shape': { title: 'Shape', text: 'The outline of the token. Hexagons suit hex-grid maps.' },
   'frame.style': {

@@ -1,10 +1,10 @@
-import { importImageFile } from '../import/importImage';
+import { importTo, type ImportTarget } from '../import/importImage';
 import { toast } from '../ui/toast';
 
-/** Imports an image, showing a friendly message if it fails. */
-export async function importWithMessage(file: File | Blob, name?: string): Promise<void> {
+/** Imports an image (as the art, or the background), showing a friendly message if it fails. */
+export async function importWithMessage(file: File | Blob, name?: string, target: ImportTarget = 'art'): Promise<void> {
   try {
-    await importImageFile(file, name);
+    await importTo(target, file, name);
   } catch (err) {
     toast(err instanceof Error ? err.message : "That image couldn't be opened.", 'error');
   }
