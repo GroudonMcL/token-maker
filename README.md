@@ -79,6 +79,7 @@ To see the phone layout on your computer: in Chrome or Edge press `F12`, then cl
 - **Lighting (Phase 4):** pick a preset (Torchlight, Moonlight, Holy glow, Fel green, Firelight, Underdark) or switch on **Light the art** and set it yourself: drag the dot round the **direction dial**, choose a colour and strength, and add a **rim light** (a bright edge, best on a cut-out character). The background is lit too unless you turn that off. Changing a preset's settings keeps the light; it just isn't called by the preset's name any more.
 - **Pop-out (Phase 5):** make parts of the art break over the border, like a dragon's horns. Zoom or move the art so those parts reach over the frame, press **Paint pop-out** and paint over them (they are tinted teal while you paint; **Show the pop-out mask** hides the tint). **Erase** on the canvas bar takes parts back. The painted parts stick to the art, so moving, zooming, turning or flipping it takes them along. **Pop-out on** switches it off without losing your painting, and **Clear pop-out** starts again. Remove a flat background first (Image section), or the background pops out too.
 - **Shadows (Phase 5, in Lighting & shadows):** the **drop shadow** around the token (it includes pop-out parts), the **pop-out shadow** that pop-out parts cast onto the frame, and the **inner shadow** of the frame onto the art. Drop and pop-out shadows fall away from the light; switch off "follow the light" to set their direction, distance, blur, colour and opacity yourself. Sizes are per grid square, so a shadow looks the same on the map at every creature size.
+- **Effects (Phase 6):** pick an effect from the picker (every tile is a live preview on your token's shape and frame; hover a name, or press and hold it, for a before/after picture) to add it to the stack: **Glows** (outer, inner), **Elemental** (fire, frost, poison, lightning, necrotic, radiant), **Conditions** (bloodied, petrified, ethereal, frightened, poisoned, charmed, unconscious) and **Atmosphere** (mist, embers, sparkles, smoke). Each effect has a **Placement** — *Behind art* (shows where the background was removed, e.g. a halo round a cut-out creature), *Over art* or *On border* — and an **Intensity**. **Advanced** adds colour, size (per grid square), spread and **Shuffle**. Stack as many as you like (up to 12); the arrows reorder them, the eye hides one and the bin removes it. Effects with the same placement are drawn in list order, top of the list last.
 - **Undo/Redo:** the arrows in the top bar, or `Ctrl+Z` / `Ctrl+Y`. A whole drag counts as one step.
 - **Export PNG** (bottom bar) downloads the token at 256 pixels per grid square.
 - Your token is saved in the browser as you work, so refreshing the page keeps it. **New** starts again.
@@ -102,9 +103,10 @@ Useful pages while developing:
 | `npm run build` | Builds the finished site into the `dist` folder (this is what Cloudflare runs). |
 | `npm run preview` | Serves the built `dist` folder so you can try the real build. |
 | `npm run make-backgrounds` | Redraws the 10 built-in background pictures (`public/backgrounds/`). They're drawn by code, so nothing needs crediting. |
-| `npm run help-images` | Redraws the before/after pictures in the Image help tips (`public/help/`). Run it after changing how an adjustment looks. |
+| `npm run help-images` | Redraws the before/after pictures in the Image and Effects help tips (`public/help/`). Run it after changing how an adjustment or effect looks. |
 | `npm run make-fixture` | Redraws the goblin test pictures in `e2e/fixtures/`. |
 | `npm run frame-sheet -- sheet.png` | Draws every frame on one picture so you can check them by eye. Add a shape and size, e.g. `npm run frame-sheet -- sheet.png hexagon 220 2` for Large hexagons. |
+| `npm run effect-sheet -- effects.png` | Draws every effect behind the art, over the art and on the border on one picture. Takes the same shape, size and squares options as the frame sheet. |
 
 ### Testing the server functions the way Cloudflare runs them
 
@@ -169,14 +171,15 @@ server/                The image proxy (DESIGN.md §7): safety rules (safeFetch.
                        server/fixtures/ holds saved sample pages for the tests.
 public/                Files copied as-is (favicon, _headers for Cloudflare)
 src/document/          The TokenDocument: types, defaults, migrations, per-square sizing
-src/render/            The renderer: shapes, the 27 frames, crop maths, render()
+src/render/            The renderer: shapes, the 27 frames, crop maths, render(), and the effects
+                       (effects.ts places and caches them; effectPainters.ts draws each one)
 src/state/             Undo/redo history, the token store, images in memory, autosave
 src/import/            Decoding images and naming tokens from file names
 src/editor/            The canvas (Stage), toolbar actions, drop/paste, shortcuts, brush, pop-out brush and eyedropper tools
 src/sections/          Panel sections that are built (Import, Image, Background, Foreground, Lighting & shadows,
-                       Pop-out, Frame & shape, Size, Export)
+                       Pop-out, Effects, Frame & shape, Size, Export)
 src/export/            PNG download
-scripts/               frame-sheet.ts, make-fixture.ts (the test pictures), help-images.ts, make-backgrounds.ts
+scripts/               frame-sheet.ts, effect-sheet.ts, make-fixture.ts (the test pictures), help-images.ts, make-backgrounds.ts
 src/styles/tokens.css  Design tokens: every colour, font, size, radius and shadow
 src/styles/app.css     The stylesheet for the whole UI
 src/components/        Shared controls (Section, Slider, ColorSwatches, SegmentedButtons,

@@ -1841,3 +1841,24 @@ input[type='range']::-moz-range-thumb {
   border-radius: 50%;
   box-shadow: 0 0 6px currentColor;
 }
+
+/* Effects (Phase 6) */
+.tile:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.overlay-card__swatch {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+}
+
+.overlay-card__note {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}

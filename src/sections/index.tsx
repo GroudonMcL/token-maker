@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react';
 import type { SectionId } from '../layout/sections';
 import { BackgroundSection } from './BackgroundSection';
+import { EffectsSection } from './EffectsSection';
 import { ExportSection } from './ExportSection';
 import { ForegroundSection } from './ForegroundSection';
 import { FrameSection } from './FrameSection';
@@ -18,6 +19,7 @@ export const SECTION_CONTENT: Partial<Record<SectionId, ComponentType>> = {
   foreground: ForegroundSection,
   lighting: LightingSection,
   popout: PopOutSection,
+  effects: EffectsSection,
   frame: FrameSection,
   size: SizeSection,
   export: ExportSection,

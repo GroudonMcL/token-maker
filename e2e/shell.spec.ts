@@ -15,8 +15,8 @@ test.describe('app shell', () => {
     await page.goto('/');
     const panel = page.getByRole('complementary', { name: 'Token settings' });
     await expect(panel).toBeVisible();
-    await panel.getByRole('button', { name: 'Effects', exact: true }).click();
-    await expect(panel.getByText('Glows, elements, conditions and atmosphere.')).toBeVisible();
+    await panel.getByRole('button', { name: 'Decorations', exact: true }).click();
+    await expect(panel.getByText('Gems, skulls, horns, wings and more.')).toBeVisible();
     // Export waits for an image.
     await expect(page.locator('.bottom-bar').getByRole('button', { name: 'Export PNG' })).toBeDisabled();
   });
@@ -27,9 +27,9 @@ test.describe('app shell', () => {
     const sheet = page.locator('.bottom-sheet');
     await expect(sheet).toHaveAttribute('data-snap', 'peek');
     await expect(page.getByRole('tab')).toHaveCount(10);
-    await page.getByRole('tab', { name: 'Effects' }).click();
+    await page.getByRole('tab', { name: 'Decor' }).click();
     await expect(sheet).toHaveAttribute('data-snap', 'half');
-    await expect(page.getByRole('tabpanel').getByText('Glows, elements, conditions and atmosphere.')).toBeVisible();
+    await expect(page.getByRole('tabpanel').getByText('Gems, skulls, horns, wings and more.')).toBeVisible();
 
     // drag the handle up to full height
     const grab = page.locator('.bottom-sheet__grab');

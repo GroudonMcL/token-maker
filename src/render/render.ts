@@ -12,6 +12,7 @@ import { tracePolygon, type Ctx } from './frameKit';
 import { drawBackground } from './background';
 import { drawFrame } from './frames';
 import { drawOverlays } from './overlays';
+import { drawEffects, needsSubject, type EffectArea, type Subject } from './effects';
 import { baseScale } from './geometry';
 import { shapePolygon } from './shapes';
 
@@ -81,6 +82,29 @@ export function renderToken(ctx: Ctx, doc: TokenDocument, assets: AssetMap, size
     placeArt(pctx);
     pctx.drawImage(parts.image, -art.width / 2, -art.height / 2, art.width, art.height);
   }
+  // The geometry effects grow from (layers 4, 7 and 10), and the art's own
+  // outline for glows round a cut-out creature.
+  const area: EffectArea = {
+    shape: doc.shape,
+    R,
+    unit: px(1),
+    // The art runs under the inner half of the frame; effects grow from where it shows.
+    opening: (hasFrame ? Math.max(insets.image, insets.frameInner) : insets.image) * R,
+    bandOuter: insets.frameOuter * R,
+    bandInner: hasFrame ? insets.frameInner * R : insets.frameOuter * R + px(0.08),
+  };
+  let subject: Subject | null = null;
+  if (art && shown && clip.length && doc.effects.some(needsSubject)) {
+    const c = newCanvas(size, size);
+    const sctx = c.getContext('2d') as Ctx;
+    sctx.translate(R, R);
+    tracePolygon(sctx, clip);
+    sctx.clip();
+    placeArt(sctx);
+    sctx.drawImage(shown.image, -art.width / 2, -art.height / 2, art.width, art.height);
+    subject = { image: c as CanvasImageSource, key: `${objectId(shown.image)}|${doc.art.assetId}|${JSON.stringify(doc.art.transform)}` };
+  }
+
   /** Fills the token's whole outline: the shape, plus pop-out parts (and decorations in Phase 7). */
   const paintSilhouette = (c: Ctx, dx = 0) => {
     tracePolygon(c, silhouette.map((p) => ({ x: p.x + dx, y: p.y })));
@@ -105,7 +129,8 @@ export function renderToken(ctx: Ctx, doc: TokenDocument, assets: AssetMap, size
 
   // 3. Background (src/render/background.ts), lit like the art when lighting asks for it.
   drawBackground(ctx, doc, assets, clip, R);
-  // 4. Effects behind the art — Phase 6.
+  // 4. Effects behind the art (src/render/effects.ts).
+  if (doc.effects.length) drawEffects(ctx, doc.effects, 'behind', area, size, subject);
 
   // 5. Processed art, clipped to the inner shape: the picture after
   // adjustments, background removal and brush strokes (src/image/), drawn
@@ -121,7 +146,8 @@ export function renderToken(ctx: Ctx, doc: TokenDocument, assets: AssetMap, size
 
   // 6. Foreground overlays (src/render/overlays.ts).
   if (doc.foreground.length) drawOverlays(ctx, doc.foreground, clip, size);
-  // 7. Effects over the art — Phase 6.
+  // 7. Effects over the art.
+  if (doc.effects.length) drawEffects(ctx, doc.effects, 'over', area, size, subject);
 
   // 8–9 go on their own layer when the frame is to be see-through, so its
   // overlapping strokes fade evenly (editor only, never in exports).
@@ -172,7 +198,8 @@ export function renderToken(ctx: Ctx, doc: TokenDocument, assets: AssetMap, size
     ctx.restore();
   }
 
-  // 10. Effects on the border — Phase 6.
+  // 10. Effects on the border.
+  if (doc.effects.length) drawEffects(ctx, doc.effects, 'border', area, size);
   // 11. Decorations — Phase 7.
 
   if (pop) {
@@ -195,6 +222,15 @@ export function renderToken(ctx: Ctx, doc: TokenDocument, assets: AssetMap, size
   // 14. Label — Phase 8.
 
   ctx.restore();
+}
+
+const ids = new WeakMap<object, number>();
+let nextId = 1;
+/** A number that stays the same for the same object (for cache keys). */
+function objectId(o: object): number {
+  let id = ids.get(o);
+  if (!id) ids.set(o, (id = nextId++));
+  return id;
 }
 
 /** Unit vector of the direction a shadow falls. */

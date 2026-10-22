@@ -71,13 +71,14 @@ A checklist of build phases, following [`BUILD-PROMPTS.md`](BUILD-PROMPTS.md). D
   - [x] Tests: pixel-identical seam test, mask stays aligned after move/rotate/flip, nothing outside the square, pop-out and drop shadows follow the light (and unlinked angle), drop shadow includes pop-out parts, pop-out off, migration v3 → v4; Playwright pop-out paint → move → undo → off with export matching the preview, and unlinking the shadow, on desktop, tablet and phone
   - **Done when:** a dragon's horns break over the border with a matching shadow and stay on the dragon when the art moves ✔
 
-- [ ] **Phase 6 — Styles and effects**
-  - [ ] Reorderable effect list; placement (behind art / over art / on border); Intensity; Advanced: colour, size, spread, Shuffle seed
-  - [ ] Glows, elemental, condition looks, atmosphere
-  - [ ] Each effect a function of (settings, size, seed, time); sizes per grid square
-  - [ ] Live thumbnails in a tile grid; help tips with before/after images
-  - [ ] Tests: deterministic per seed, placement order, smooth with 3 effects on a phone viewport
-  - **Done when:** stack a frost glow on the border, mist over the art and a "bloodied" look, reorder them, and export
+- [x] **Phase 6 — Styles and effects**
+  - [x] Reorderable effect list (up to 12, top drawn last, hide/remove, one undo step each); placement (behind art / over art / on border); Intensity; Advanced: colour, size (per square), spread, Shuffle seed; document v4 → v5
+  - [x] Glows (inner, outer — behind the art it hugs a cut-out creature), elemental (fire, frost, poison, lightning, necrotic, radiant), condition looks (bloodied, petrified, ethereal, frightened, poisoned, charmed, unconscious), atmosphere (mist, embers, sparkles, smoke), all drawn by code
+  - [x] Each effect a function of (settings, size, seed, time) in `src/render/effectPainters.ts`; time is 0 for now but already moves flames, embers, sparkles and lightning; sizes per grid square
+  - [x] Each effect is drawn once into cached layers and composited, so Intensity drags never redraw it
+  - [x] Live thumbnails in a tile grid on the token's own shape and frame; help tips with before/after pictures for every effect and control (`npm run help-images`); `npm run effect-sheet` for checking by eye
+  - [x] Tests: every effect in every placement draws the same pixels twice for a seed, Shuffle changes the layout, time changes the moving ones, nothing outside the square, Intensity/hide, placement layers and list order, condition looks, per-square size on Medium vs Large, layer reuse, a 3-effect phone-size render; migration v4 → v5 and effect checks; the panel (add, reorder, hide, remove, undo, help ids); Playwright frost + mist + bloodied → reorder → export (matches the preview, survives a reload), placement and intensity, and smooth slider moves with 3 effects on desktop, tablet and phone
+  - **Done when:** stack a frost glow on the border, mist over the art and a "bloodied" look, reorder them, and export ✔
 
 - [ ] **Phase 7 — Image frames, decorations and presets**
   - [ ] PNG frames: built-in set + uploads, automatic hole detection with nudging, saved in IndexedDB

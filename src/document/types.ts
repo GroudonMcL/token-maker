@@ -3,7 +3,7 @@
 
 import type { FrameStyle, ShapeId } from '../render/catalog';
 
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 export type SizePreset = 'tiny' | 'small' | 'medium' | 'large' | 'huge' | 'gargantuan' | 'custom';
 
@@ -264,10 +264,59 @@ export interface LightingSettings {
   /** Light the background the same way, so it matches the art. */
   background: boolean;
 }
+
+// ---- Phase 6: styles and effects (DESIGN.md §6.8) ----
+
+export type EffectKind =
+  // Glows
+  | 'innerGlow'
+  | 'outerGlow'
+  // Elemental
+  | 'fire'
+  | 'frost'
+  | 'poison'
+  | 'lightning'
+  | 'necrotic'
+  | 'radiant'
+  // Condition looks
+  | 'bloodied'
+  | 'petrified'
+  | 'ethereal'
+  | 'frightened'
+  | 'poisoned'
+  | 'charmed'
+  | 'unconscious'
+  // Atmosphere
+  | 'mist'
+  | 'embers'
+  | 'sparkles'
+  | 'smoke';
+
+/** Where an effect is drawn: under the art (layer 4), over it (layer 7) or on the frame (layer 10). */
+export type EffectPlacement = 'behind' | 'over' | 'border';
+
+/**
+ * One effect in the stack, drawn bottom of the list first within its
+ * placement. Every kind shares these fields.
+ */
+export interface EffectLayer {
+  id: string;
+  kind: EffectKind;
+  visible: boolean;
+  placement: EffectPlacement;
+  /** 0…100: how strong it is. */
+  intensity: number;
+  color: string;
+  /** Per square: how far it reaches (flame height, glow width, particle size). */
+  size: number;
+  /** 0…100: how much of the token it covers, or how solid a glow stays before fading. */
+  spread: number;
+  /** "Shuffle": picks another random layout, kept so the token always looks the same. */
+  seed: number;
+}
+
 // ---- Layers built in later phases. Kept minimal so the shape is settled now. ----
 
-/** Phase 6. */
-export type EffectLayer = { id: string; kind: string; placement: 'behind' | 'over' | 'border'; [key: string]: unknown };
 /** Phase 7. */
 export type Decoration = { id: string; kind: string; [key: string]: unknown };
 /** Phase 8. */

@@ -3,12 +3,15 @@
 // defaults, so a damaged or partial file can never crash the editor.
 
 import { FRAME_STYLES, SHAPES } from '../render/catalog';
-import { copyGradient, createDocument, DEFAULT_ADJUST, LIGHT_PRESETS, MAX_SQUARES, MIN_SQUARES, newOverlay, SIZE_PRESETS } from './defaults';
+import { copyGradient, createDocument, DEFAULT_ADJUST, EFFECTS, LIGHT_PRESETS, MAX_EFFECTS, MAX_SQUARES, MIN_SQUARES, newEffect, newOverlay, SIZE_PRESETS } from './defaults';
 import {
   SCHEMA_VERSION,
   type BackgroundImageSource,
   type BackgroundLayer,
   type BlendMode,
+  type EffectKind,
+  type EffectLayer,
+  type EffectPlacement,
   type Gradient,
   type ImageAdjustments,
   type LightingSettings,
@@ -36,6 +39,9 @@ export const MIGRATIONS: Record<number, (doc: Json) => Json> = {
   2: (doc) => doc,
   // v3 → v4 (Phase 5): pop-out mask strokes start empty (filled in by sanitize).
   3: (doc) => doc,
+  // v4 → v5 (Phase 6): effects. Nothing could be added before, so any old
+  // placeholder entries are dropped.
+  4: (doc) => ({ ...doc, effects: [] }),
 };
 
 export class DocumentVersionError extends Error {}
@@ -127,6 +133,24 @@ function overlay(raw: Json, index: number): OverlayLayer {
     scale: num(raw.scale, d.scale, 50, 200),
     seed: Math.round(num(raw.seed, d.seed, 0, 1e6)),
     gradient: gradient(obj(raw.gradient), d.gradient),
+  };
+}
+
+const EFFECT_KINDS: readonly EffectKind[] = EFFECTS.map((e) => e.kind);
+const PLACEMENTS: readonly EffectPlacement[] = ['behind', 'over', 'border'];
+
+function effect(raw: Json, index: number): EffectLayer | null {
+  if (!EFFECT_KINDS.includes(raw.kind as EffectKind)) return null;
+  const d = newEffect(raw.kind as EffectKind, str(raw.id, `effect-${index}`));
+  return {
+    ...d,
+    visible: bool(raw.visible, d.visible),
+    placement: oneOf(raw.placement, PLACEMENTS, d.placement),
+    intensity: num(raw.intensity, d.intensity, 0, 100),
+    color: hex(raw.color, d.color),
+    size: num(raw.size, d.size, 0, 1),
+    spread: num(raw.spread, d.spread, 0, 100),
+    seed: Math.round(num(raw.seed, d.seed, 0, 1e6)),
   };
 }
 
@@ -246,7 +270,10 @@ export function sanitize(raw: Json): TokenDocument {
     background: background(obj(raw.background), d.background),
     foreground: arr(raw.foreground).slice(0, MAX_OVERLAYS).map((o, i) => overlay(o, i)),
     lighting: lighting(obj(raw.lighting), d.lighting),
-    effects: arr(raw.effects) as TokenDocument['effects'],
+    effects: arr(raw.effects)
+      .map((e, i) => effect(e, i))
+      .filter((e): e is EffectLayer => e !== null)
+      .slice(0, MAX_EFFECTS),
     frame: {
       kind: 'code',
       presetId: str(frame.presetId, d.frame.presetId),
