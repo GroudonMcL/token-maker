@@ -1,0 +1,137 @@
+import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';
+import type { HelpId } from '../help/helpContent';
+import { ControlLabel } from './ControlLabel';
+
+/**
+ * A slider with a value box you can type into (DESIGN.md §10).
+ *
+ * `onChange` fires continuously while dragging; `onCommit` fires once when a
+ * drag, key press or typed entry finishes. Wire `onChange` to a transient
+ * store update and `onCommit` to the store's commit so a whole drag is one
+ * undo step (DESIGN.md §4.3).
+ */
+export function Slider({
+  label,
+  helpId,
+  value,
+  min,
+  max,
+  step = 1,
+  unit = '',
+  disabled,
+  onChange,
+  onCommit,
+}: {
+  label: string;
+  helpId: HelpId;
+  value: number;
+  min: number;
+  max: number;
+  step?: number;
+  unit?: string;
+  disabled?: boolean;
+  onChange: (value: number) => void;
+  onCommit?: (value: number) => void;
+}) {
+  const id = useId();
+  const dragging = useRef(false);
+  const latest = useRef(value);
+  useEffect(() => {
+    latest.current = value;
+  }, [value]);
+  const [draft, setDraft] = useState<string | null>(null); // text while typing
+
+  const clamp = (v: number) => {
+    const stepped = Math.round((v - min) / step) * step + min;
+    const decimals = (String(step).split('.')[1] ?? '').length;
+    return Number(Math.min(max, Math.max(min, stepped)).toFixed(decimals));
+  };
+
+  const finish = () => {
+    if (!dragging.current) return;
+    dragging.current = false;
+    onCommit?.(latest.current);
+  };
+
+  // A drag may end outside the slider, so listen on the window.
+  useEffect(() => {
+    window.addEventListener('pointerup', finish);
+    window.addEventListener('pointercancel', finish);
+    return () => {
+      window.removeEventListener('pointerup', finish);
+      window.removeEventListener('pointercancel', finish);
+    };
+  });
+
+  const commitDraft = () => {
+    if (draft === null) return;
+    const n = Number(draft);
+    setDraft(null);
+    if (draft.trim() === '' || Number.isNaN(n)) return;
+    const v = clamp(n);
+    if (v !== value) onChange(v);
+    onCommit?.(v);
+  };
+
+  const pct = ((value - min) / (max - min)) * 100;
+
+  return (
+    <div className="slider" data-control="slider" data-help-id={helpId}>
+      <ControlLabel
+        htmlFor={id}
+        label={label}
+        helpId={helpId}
+        aside={
+          <span className="slider__value">
+            <input
+              className="slider__number"
+              type="text"
+              inputMode="decimal"
+              aria-label={`${label} value`}
+              disabled={disabled}
+              value={draft ?? String(value)}
+              onChange={(e) => setDraft(e.target.value)}
+              onFocus={(e) => e.target.select()}
+              onBlur={commitDraft}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitDraft();
+                if (e.key === 'Escape') setDraft(null);
+                if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                  e.preventDefault();
+                  const v = clamp(value + (e.key === 'ArrowUp' ? step : -step) * (e.shiftKey ? 10 : 1));
+                  setDraft(null);
+                  onChange(v);
+                  onCommit?.(v);
+                }
+              }}
+            />
+            {unit && <span className="slider__unit">{unit}</span>}
+          </span>
+        }
+      />
+      <input
+        id={id}
+        className="slider__range"
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        disabled={disabled}
+        style={{ '--fill': `${pct}%` } as CSSProperties}
+        onPointerDown={() => {
+          dragging.current = true;
+        }}
+        onChange={(e) => {
+          latest.current = Number(e.target.value);
+          onChange(latest.current);
+        }}
+        onKeyUp={(e) => {
+          if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(e.key)) {
+            onCommit?.(latest.current);
+          }
+        }}
+      />
+    </div>
+  );
+}

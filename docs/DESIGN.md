@@ -293,19 +293,67 @@ Desktop and phone are **equally important**.
 
 **Phone (< 768 px):** canvas fills the top part of the screen; a **bottom sheet** with icon tabs for each section (Import, Image, Background, Foreground, Lighting, Effects, Frame, Decor, Label, Export) that can be dragged up/down; big touch targets (≥ 44 px); pinch to zoom, two-finger rotate; brushes work with finger and pen.
 
-**Tablet:** desktop layout with a narrower panel, or phone layout in portrait.
+**Tablet:** desktop layout with a narrower panel, or phone layout in portrait. *(Phase 0: from 768 px wide the desktop layout is used with a 290 px panel; below 768 px the phone layout is used.)*
+
+**Phone tabs → sections** (Phase 0): the ten phone tabs hold the thirteen sections like this: Image = Image + Pop-out; Frame = Frame & shape + Size + Presets; every other tab holds the one section of the same name. On phones, the token summary and the Export button sit at the top of the bottom sheet instead of in a separate bottom bar.
 
 **Panel sections** (in this order): Import · Image (adjust, background removal, brush) · Background · Foreground · Lighting & shadows · Pop-out · Effects · Frame & shape · Decorations · Size · Label · Presets · Export.
 
-**Ad slot:** reserved space **below the editor** (the user scrolls down to see it), never covering the tool, behind a feature flag that is **off** for version 1. When on, a small notice explains ads keep the site free.
+**Ad slot:** reserved space **below the editor** (the user scrolls down to see it), never covering the tool, behind a feature flag that is **off** for version 1. When on, a small notice explains ads keep the site free. *(The flag is `VITE_FEATURE_ADS=true`, read in `src/config/features.ts`.)*
+
+**Theme button:** the top bar also has a small theme button (System → Dark → Light), added in Phase 0.
 
 ---
 
 ## 9. Visual design
 
-A **fresh look** — not the extension's LegendKeeper styling. Design it deliberately in Phase 0 and record the result here (colours, fonts, spacing, components). Suggested direction, open to change: a dark "artisan's workbench" — deep charcoal surfaces, one warm accent colour, a characterful display font for headings and a clean sans-serif for controls, subtle texture, and the token itself always the brightest thing on screen. Must support light and dark themes and meet WCAG AA contrast.
+**Direction: "Lamplit Workbench" with a moonlit sky** (chosen in Phase 0). A tinkerer's bench at night: warm charcoal surfaces, one brass/gold accent, and a deep navy tint that fades down from the top of the screen. The token is always the brightest, most saturated thing on screen. Dark is the default theme. Light theme follows the system setting, or the user can pick it with the theme button in the top bar.
 
-> Phase 0 fills in this section with the final design tokens.
+The single source for every value below is `src/styles/tokens.css`. Change values there, not in components. `src/styles/contrast.test.ts` fails if a theme drops below WCAG AA contrast.
+
+**Fonts** (bundled through `@fontsource`, never loaded from Google at runtime)
+
+| Role | Font | Use |
+|---|---|---|
+| Display | Grenze 500/600 (SIL OFL) | Logo, section titles, page headings |
+| UI | Atkinson Hyperlegible 400/700 (SIL OFL) | Every control, label and body text. Chosen because it is very easy to read. |
+
+Type scale: 12 / 13 / 15 (body) / 18 (section titles) / 22 / 28 px.
+
+**Colours**
+
+| Token | Dark | Light | Use |
+|---|---|---|---|
+| `--bg-top` | `#0f1a2e` | `#dbe3ef` | Navy tint at the top (top bar, start of the page gradient) |
+| `--bg` | `#16130f` | `#efe9df` | Page background (end of the gradient) |
+| `--bg-gradient` | navy → `#141721` → charcoal | pale blue → warm parchment | Page background, top to bottom |
+| `--surface` | `#211d18` | `#f8f4ee` | Panels, bars, bottom sheet |
+| `--surface-raised` | `#2a251f` | `#ffffff` | Buttons, help cards, hovered rows |
+| `--surface-sunken` | `#110f0c` | `#e3dbcd` | Canvas edges, input boxes |
+| `--border` / `--border-strong` | `#3a332a` / `#574c3e` | `#d3c8b6` / `#b3a58e` | Dividers / control outlines |
+| `--text` | `#f1e9dc` | `#2a221a` | Main text |
+| `--text-muted` | `#b3a794` | `#5f5242` | Secondary text (AA on all surfaces) |
+| `--text-faint` | `#8a7f6f` | `#7d6f5c` | Large text / decorative only (3:1) |
+| `--accent` | `#d6a24e` | `#8f5d12` | Brass/gold: primary button, selection, active tab |
+| `--accent-hover` | `#e3b469` | `#7a4f0e` | Hover on accent |
+| `--accent-soft` | gold 18% | gold 14% | Selected-tile and badge fills |
+| `--on-accent` | `#1a1206` | `#fffaf2` | Text on the accent |
+| `--focus` | `#f0c470` | `#8f5d12` | Keyboard focus ring |
+| `--danger` / `--success` | `#e07a6a` / `#8cc58a` | `#a8402f` / `#3d7a3b` | Errors / confirmations |
+
+**Spacing** (4 px grid): 4, 8, 12, 16, 24, 32, 48 px (`--space-1` … `--space-7`).
+
+**Radii:** 6 px (small controls, swatches), 10 px (buttons, cards), 14 px (bottom sheet, large panels), pill (floating toolbar, badges).
+
+**Shadows:** `--shadow-sm` (buttons), `--shadow-md` (floating toolbar), `--shadow-lg` (help cards, bottom sheet). Darker and stronger in dark theme, warm brown and soft in light theme.
+
+**Sizes:** controls are at least 32 px tall with a mouse and **44 px on touch screens** (`--hit`). Top bar 52 px, bottom bar 56 px, side panel 360 px (290 px on tablets).
+
+**Components** (in `src/components/`, demonstrated at `/kit`): collapsible `Section` with an `Advanced` sub-drop-down, `Slider` (shows its value, accepts typed numbers, one undo step per drag), `ColorSwatches` (swatches + picker + hex box), `SegmentedButtons`, `TileGrid` (grouped picture tiles, like the frame picker), `ImageStrip`, `Toggle`, `HelpTip`. Every one takes a required `helpId`.
+
+**Motion:** 120 ms for hovers, 220 ms for opening and closing, all switched off for `prefers-reduced-motion`.
+
+**Logo:** a placeholder gold ring with a star (`src/layout/BrandMark.tsx`, `public/favicon.svg`) until the final name and logo are decided.
 
 ---
 

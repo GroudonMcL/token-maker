@@ -1,0 +1,158 @@
+import { Download } from 'lucide-react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
+import { Section } from '../components';
+import { PHONE_TABS, sectionById } from './sections';
+import { SectionPlaceholder } from './SectionPlaceholder';
+import { TokenSummary } from './TokenSummary';
+
+export type SheetSnap = 'peek' | 'half' | 'full';
+const ORDER: SheetSnap[] = ['peek', 'half', 'full'];
+export const PEEK_HEIGHT = 140; // handle + summary row + tab row
+
+function snapHeight(snap: SheetSnap, container: number) {
+  if (snap === 'peek') return PEEK_HEIGHT;
+  if (snap === 'half') return Math.max(PEEK_HEIGHT, Math.round(container * 0.5));
+  return Math.max(PEEK_HEIGHT, Math.round(container * 0.88));
+}
+
+/**
+ * Phone bottom sheet (DESIGN.md §8): drag the handle up/down (or tap it, or
+ * use arrow keys) to resize; icon tabs switch between sections.
+ */
+export function BottomSheet() {
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const [container, setContainer] = useState(800);
+  const [snap, setSnap] = useState<SheetSnap>('peek');
+  const [dragHeight, setDragHeight] = useState<number | null>(null);
+  const [tab, setTab] = useState(PHONE_TABS[0]!.id);
+  const drag = useRef<{ startY: number; startH: number; moved: boolean } | null>(null);
+  const panelId = useId();
+
+  // Track the editor height so snap points stay proportional.
+  useLayoutEffect(() => {
+    const parent = sheetRef.current?.parentElement;
+    if (!parent) return;
+    const update = () => setContainer(parent.clientHeight || window.innerHeight);
+    update();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(update) : null;
+    ro?.observe(parent);
+    return () => ro?.disconnect();
+  }, []);
+
+  const height = dragHeight ?? snapHeight(snap, container);
+
+  const onPointerDown = (e: PointerEvent<HTMLElement>) => {
+    if (e.button !== 0) return;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    drag.current = { startY: e.clientY, startH: height, moved: false };
+  };
+  const onPointerMove = (e: PointerEvent<HTMLElement>) => {
+    const d = drag.current;
+    if (!d) return;
+    const dy = e.clientY - d.startY;
+    if (Math.abs(dy) > 4) d.moved = true;
+    if (!d.moved) return;
+    const max = snapHeight('full', container);
+    setDragHeight(Math.min(max, Math.max(PEEK_HEIGHT - 40, d.startH - dy)));
+  };
+  const onPointerUp = () => {
+    const d = drag.current;
+    drag.current = null;
+    if (!d) return;
+    if (!d.moved) {
+      setSnap(snap === 'peek' ? 'half' : 'peek'); // a tap toggles open/closed
+      return;
+    }
+    const h = dragHeight ?? height;
+    const nearest = ORDER.reduce((best, s) =>
+      Math.abs(snapHeight(s, container) - h) < Math.abs(snapHeight(best, container) - h) ? s : best,
+    );
+    setSnap(nearest);
+    setDragHeight(null);
+  };
+  const onHandleKey = (e: KeyboardEvent) => {
+    const i = ORDER.indexOf(snap);
+    if (e.key === 'ArrowUp') setSnap(ORDER[Math.min(2, i + 1)]!);
+    else if (e.key === 'ArrowDown') setSnap(ORDER[Math.max(0, i - 1)]!);
+    else return;
+    e.preventDefault();
+  };
+
+  const chooseTab = (id: string) => {
+    setTab(id);
+    if (snap === 'peek') setSnap('half');
+  };
+
+  // Keep the active tab button visible in the scrolling tab row.
+  useEffect(() => {
+    sheetRef.current?.querySelector(`[data-tab="${tab}"]`)?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+  }, [tab]);
+
+  const active = PHONE_TABS.find((t) => t.id === tab)!;
+
+  return (
+    <div
+      ref={sheetRef}
+      className="bottom-sheet"
+      data-snap={snap}
+      data-dragging={dragHeight !== null || undefined}
+      style={{ height }}
+    >
+      <div className="bottom-sheet__grab" onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
+        <button
+          type="button"
+          className="bottom-sheet__handle"
+          aria-label={snap === 'peek' ? 'Open settings panel' : 'Resize settings panel'}
+          aria-expanded={snap !== 'peek'}
+          aria-controls={panelId}
+          onKeyDown={onHandleKey}
+          onClick={(e) => {
+            // Pointer taps are handled in onPointerUp; this handles Enter/Space.
+            if (e.detail === 0) setSnap(snap === 'peek' ? 'half' : 'peek');
+          }}
+        >
+          <span className="bottom-sheet__bar" />
+        </button>
+        <div className="bottom-sheet__summary">
+          <TokenSummary />
+          <button
+            type="button"
+            className="btn btn--primary"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={() => chooseTab('export')}
+          >
+            <Download size={18} aria-hidden="true" />
+            Export
+          </button>
+        </div>
+      </div>
+      <div className="bottom-sheet__tabs" role="tablist" aria-label="Settings">
+        {PHONE_TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            data-tab={t.id}
+            className="bottom-sheet__tab"
+            aria-selected={t.id === tab}
+            aria-controls={panelId}
+            onClick={() => chooseTab(t.id)}
+          >
+            {t.icon}
+            <span>{t.label}</span>
+          </button>
+        ))}
+      </div>
+      <div className="bottom-sheet__content" id={panelId} role="tabpanel" aria-label={active.label} hidden={snap === 'peek' && dragHeight === null}>
+        {active.sections.map((sid) => {
+          const s = sectionById(sid);
+          return (
+            <Section key={sid} title={s.title} helpId={s.helpId} icon={s.icon} defaultOpen>
+              <SectionPlaceholder text={s.placeholder} />
+            </Section>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

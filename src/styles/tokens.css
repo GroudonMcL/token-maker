@@ -1,0 +1,137 @@
+/*
+ * Token Maker design tokens — "Lamplit Workbench" (DESIGN.md §9).
+ * Every colour, font, size, radius and shadow used by the UI comes from here.
+ * Dark is the default theme. Light applies when the system prefers light
+ * (unless the user forced dark) or when the user picks light.
+ */
+:root {
+  color-scheme: dark;
+
+  /* Fonts (bundled, never loaded from Google at runtime) */
+  --font-display: 'Grenze', Georgia, 'Times New Roman', serif;
+  --font-ui: 'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* Type scale */
+  --text-xs: 0.75rem;   /* 12px — captions, value read-outs */
+  --text-sm: 0.8125rem; /* 13px — control labels */
+  --text-md: 0.9375rem; /* 15px — body */
+  --text-lg: 1.125rem;  /* 18px — section headings */
+  --text-xl: 1.375rem;  /* 22px — page headings, logo */
+  --text-2xl: 1.75rem;  /* 28px — About/Privacy titles */
+
+  /* Spacing (4px grid) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  /* Radii */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+
+  /* Sizes */
+  --hit: 32px;            /* minimum control height with a mouse */
+  --topbar-h: 52px;
+  --bottombar-h: 56px;
+  --panel-w: 360px;
+  --panel-w-narrow: 290px;
+
+  /* Motion */
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --dur-fast: 120ms;
+  --dur: 220ms;
+
+  /* ---- Colours: dark theme (default) ---- */
+  --bg-top: #0f1a2e;           /* navy glow at the top of the page */
+  --bg: #16130f;               /* warm charcoal */
+  --bg-gradient: linear-gradient(180deg, #0f1a2e 0%, #141721 32%, #16130f 70%);
+  --surface: #211d18;          /* panels, bars */
+  --surface-raised: #2a251f;   /* inputs, hovered rows, popovers */
+  --surface-sunken: #110f0c;   /* canvas well */
+  --border: #3a332a;
+  --border-strong: #574c3e;
+  --text: #f1e9dc;
+  --text-muted: #b3a794;
+  --text-faint: #8a7f6f;       /* placeholders, disabled — large text only */
+  --accent: #d6a24e;           /* brass/gold */
+  --accent-hover: #e3b469;
+  --accent-soft: rgba(214, 162, 78, 0.18);
+  --on-accent: #1a1206;
+  --focus: #f0c470;
+  --danger: #e07a6a;
+  --success: #8cc58a;
+  --overlay: rgba(6, 8, 14, 0.6);
+  --checker-a: #2a251f;        /* transparency checkerboard */
+  --checker-b: #221e19;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 14px 40px rgba(0, 0, 0, 0.5);
+}
+
+@media (pointer: coarse) {
+  :root { --hit: 44px; }
+}
+
+/* ---- Colours: light theme ---- */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    color-scheme: light;
+    --bg-top: #dbe3ef;
+    --bg: #efe9df;
+    --bg-gradient: linear-gradient(180deg, #dbe3ef 0%, #e8e6e4 32%, #efe9df 70%);
+    --surface: #f8f4ee;
+    --surface-raised: #ffffff;
+    --surface-sunken: #e3dbcd;
+    --border: #d3c8b6;
+    --border-strong: #b3a58e;
+    --text: #2a221a;
+    --text-muted: #5f5242;
+    --text-faint: #7d6f5c;
+    --accent: #8f5d12;
+    --accent-hover: #7a4f0e;
+    --accent-soft: rgba(143, 93, 18, 0.14);
+    --on-accent: #fffaf2;
+    --focus: #8f5d12;
+    --danger: #a8402f;
+    --success: #3d7a3b;
+    --overlay: rgba(40, 32, 22, 0.35);
+    --checker-a: #e7e0d4;
+    --checker-b: #f4efe7;
+    --shadow-sm: 0 1px 2px rgba(60, 44, 20, 0.15);
+    --shadow-md: 0 4px 14px rgba(60, 44, 20, 0.14);
+    --shadow-lg: 0 14px 40px rgba(60, 44, 20, 0.22);
+  }
+}
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg-top: #dbe3ef;
+  --bg: #efe9df;
+  --bg-gradient: linear-gradient(180deg, #dbe3ef 0%, #e8e6e4 32%, #efe9df 70%);
+  --surface: #f8f4ee;
+  --surface-raised: #ffffff;
+  --surface-sunken: #e3dbcd;
+  --border: #d3c8b6;
+  --border-strong: #b3a58e;
+  --text: #2a221a;
+  --text-muted: #5f5242;
+  --text-faint: #7d6f5c;
+  --accent: #8f5d12;
+  --accent-hover: #7a4f0e;
+  --accent-soft: rgba(143, 93, 18, 0.14);
+  --on-accent: #fffaf2;
+  --focus: #8f5d12;
+  --danger: #a8402f;
+  --success: #3d7a3b;
+  --overlay: rgba(40, 32, 22, 0.35);
+  --checker-a: #e7e0d4;
+  --checker-b: #f4efe7;
+  --shadow-sm: 0 1px 2px rgba(60, 44, 20, 0.15);
+  --shadow-md: 0 4px 14px rgba(60, 44, 20, 0.14);
+  --shadow-lg: 0 14px 40px rgba(60, 44, 20, 0.22);
+}
