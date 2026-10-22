@@ -4,6 +4,7 @@ import { ControlLabel, ImageStrip } from '../components';
 import { UploadButton } from '../editor/UploadButton';
 import { MIN_IMAGE_SIDE } from '../../server/extractImages.ts';
 import { clearWebImport, importFromAddress, pickWebImage, proxiedImageUrl, useWebImport } from '../import/webImport';
+import type { ImportTarget } from '../import/importImage';
 import { commitDoc, updateDoc, useDoc } from '../state/tokenStore';
 
 /** Import section: upload, drop, paste, web addresses and Pinterest links (DESIGN.md §6.1). */
@@ -44,13 +45,18 @@ export function ImportSection() {
   );
 }
 
-/** The web-address box, its messages, and the strip of pictures found on a page. */
-function WebAddress() {
+/**
+ * The web-address box, its messages, and the strip of pictures found on a
+ * page. The Background section has its own box, which sends pictures to the
+ * background instead; each box only shows what it asked for.
+ */
+export function WebAddress({ target = 'art', hint = 'Paste a link to a picture, a web page, or a Pinterest pin.' }: { target?: ImportTarget; hint?: string }) {
   const id = useId();
   const [text, setText] = useState('');
-  const status = useWebImport((s) => s.status);
-  const error = useWebImport((s) => s.error);
-  const images = useWebImport((s) => s.images);
+  const mine = useWebImport((s) => s.target === target);
+  const status = useWebImport((s) => (mine ? s.status : 'idle'));
+  const error = useWebImport((s) => (mine ? s.error : undefined));
+  const images = useWebImport((s) => (mine ? s.images : NONE));
   const picked = useWebImport((s) => s.picked);
   const address = useWebImport((s) => s.address);
   const busy = status === 'loading';
@@ -64,7 +70,7 @@ function WebAddress() {
         data-help-id="import.web"
         onSubmit={(e) => {
           e.preventDefault();
-          if (text.trim()) importFromAddress(text, 'box');
+          if (text.trim()) importFromAddress(text, 'box', target);
         }}
       >
         <ControlLabel htmlFor={id} label="Web address" helpId="import.web" />
@@ -92,7 +98,7 @@ function WebAddress() {
             Fetching {hostOf(address)}…
           </p>
         ) : (
-          <p className="control__hint">Paste a link to a picture, a web page, or a Pinterest pin.</p>
+          <p className="control__hint">{hint}</p>
         )}
         {error && (
           <p className="control__error" role="alert">
@@ -121,6 +127,8 @@ function WebAddress() {
     </>
   );
 }
+
+const NONE: never[] = [];
 
 function hostOf(address: string): string {
   try {

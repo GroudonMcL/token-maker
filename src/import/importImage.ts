@@ -19,6 +19,28 @@ export function tidyName(fileName: string): string {
   return tidy.slice(0, 60).trim();
 }
 
+/** Where an imported picture goes: the token's art, or the background behind it (DESIGN.md §6.3). */
+export type ImportTarget = 'art' | 'background';
+
+/** Makes a picture the background (an "image" background of the user's own). */
+export async function importBackgroundFile(file: File | Blob, fileName = (file as File).name ?? ''): Promise<void> {
+  if (!isImageFile({ type: file.type, name: fileName })) {
+    throw new ImageDecodeError("That isn't an image file. Try PNG, JPG, WebP, GIF, AVIF, BMP or SVG.");
+  }
+  const decoded = await decodeImage(file);
+  const id = newAssetId();
+  addAsset({ id, blob: file, ...decoded });
+  updateDoc((doc) => ({
+    ...doc,
+    background: { ...doc.background, kind: 'image', image: { type: 'asset', assetId: id }, zoom: 1, offsetX: 0, offsetY: 0 },
+  }));
+}
+
+/** Imports to the art or the background. */
+export function importTo(target: ImportTarget, file: File | Blob, fileName?: string): Promise<void> {
+  return target === 'background' ? importBackgroundFile(file, fileName) : importImageFile(file, fileName);
+}
+
 export async function importImageFile(file: File | Blob, fileName = (file as File).name ?? ''): Promise<void> {
   if (!isImageFile({ type: file.type, name: fileName })) {
     throw new ImageDecodeError("That isn't an image file. Try PNG, JPG, WebP, GIF, AVIF, BMP or SVG.");

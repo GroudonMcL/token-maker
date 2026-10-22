@@ -8,7 +8,7 @@ import { createStore } from 'zustand/vanilla';
 import type { TokenDocument } from '../document/types';
 import type { AssetMap, RenderSource } from '../render/render';
 import type { WorkerRequest, WorkerResponse } from './art.worker';
-import { editsKey, isUnedited, type ArtEdits } from './process';
+import { artEdits, editsKey, isUnedited, type ArtEdits } from './process';
 import { fullSide, peekProcessedArt, processedArt, sourcePixels, storeProcessedArt, type ProcessedArt } from './processedArt';
 
 /** Goes up whenever a full-size result arrives, so the preview redraws. */
@@ -125,5 +125,6 @@ function done(job: Job, art: ProcessedArt) {
 /** Makes sure the export has the full-size art ready (the renderer then finds it in the cache). */
 export async function prepareArt(doc: TokenDocument, assets: AssetMap): Promise<void> {
   const src = doc.art.assetId ? assets.get(doc.art.assetId) : undefined;
-  if (src && !isUnedited(doc.art)) await requestFullArt(src, doc.art, true);
+  const edits = artEdits(doc);
+  if (src && !isUnedited(edits)) await requestFullArt(src, edits, true);
 }

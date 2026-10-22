@@ -3,11 +3,14 @@
 // It is a pure function of (document, assets, size): it reads nothing else.
 
 import { computeInsets, perSquareToPx } from '../document/sizing';
+import { artEdits } from '../image/process';
 import { newCanvas, processedArt } from '../image/processedArt';
 import type { OuterShadow, TokenDocument } from '../document/types';
 import { parseHex, rgba } from './color';
 import { tracePolygon, type Ctx } from './frameKit';
+import { drawBackground } from './background';
 import { drawFrame } from './frames';
+import { drawOverlays } from './overlays';
 import { baseScale } from './geometry';
 import { shapePolygon } from './shapes';
 
@@ -64,14 +67,15 @@ export function renderToken(ctx: Ctx, doc: TokenDocument, assets: AssetMap, size
     ctx.fill();
   }
 
-  // 3. Background layer — Phase 4.
+  // 3. Background (src/render/background.ts), lit like the art when lighting asks for it.
+  drawBackground(ctx, doc, assets, clip, R);
   // 4. Effects behind the art — Phase 6.
 
   // 5. Processed art, clipped to the inner shape: the picture after
   // adjustments, background removal and brush strokes (src/image/), drawn
   // with the move/zoom/rotate transform. Lighting joins in Phase 4.
   if (art && clip.length) {
-    const shown = options.processedArt ?? processedArt(art, doc.art).source;
+    const shown = options.processedArt ?? processedArt(art, artEdits(doc)).source;
     ctx.save();
     tracePolygon(ctx, clip);
     ctx.clip();
@@ -87,7 +91,8 @@ export function renderToken(ctx: Ctx, doc: TokenDocument, assets: AssetMap, size
     ctx.restore();
   }
 
-  // 6. Foreground overlays — Phase 4.
+  // 6. Foreground overlays (src/render/overlays.ts).
+  if (doc.foreground.length) drawOverlays(ctx, doc.foreground, clip, size);
   // 7. Effects over the art — Phase 6.
 
   // 8–9 go on their own layer when the frame is to be see-through, so its

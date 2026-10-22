@@ -3,7 +3,7 @@
 
 import type { FrameStyle, ShapeId } from '../render/catalog';
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 export type SizePreset = 'tiny' | 'small' | 'medium' | 'large' | 'huge' | 'gargantuan' | 'custom';
 
@@ -149,16 +149,103 @@ export interface ShadowSettings {
   popOut: OuterShadow;
 }
 
-// ---- Layers built in later phases. Kept minimal so the shape is settled now. ----
+// ---- Phase 4: background, foreground overlays and lighting (DESIGN.md §6.3–6.5) ----
 
-/** Phase 4. */
-export type BackgroundLayer = { kind: 'none' };
-/** Phase 4. */
-export type OverlayLayer = { id: string; kind: string; [key: string]: unknown };
-/** Phase 4: light direction is degrees the light comes FROM (225 = top left). */
+export interface GradientStop {
+  /** 0…1 along the gradient. */
+  offset: number;
+  color: string;
+  /** 0…1 */
+  opacity: number;
+}
+
+export interface Gradient {
+  type: 'linear' | 'radial';
+  /** Linear: the direction it runs towards, degrees (0 = left → right, 90 = top → bottom). */
+  angle: number;
+  /** Two or more, sorted by offset. */
+  stops: GradientStop[];
+}
+
+export type BackgroundKind = 'none' | 'color' | 'gradient' | 'image';
+
+/** Where a background picture comes from. */
+export type BackgroundImageSource =
+  /** One of the built-in pictures (public/backgrounds/<id>.webp). */
+  | { type: 'library'; id: string }
+  /** The user's own picture, kept like the art (an "asset:…" id). */
+  | { type: 'asset'; assetId: string }
+  /** An enlarged copy of the token's own art. */
+  | { type: 'art' };
+
+/**
+ * The layer behind the art, inside the frame. Every kind keeps its settings,
+ * so switching between Colour, Gradient and Image never loses work.
+ */
+export interface BackgroundLayer {
+  kind: BackgroundKind;
+  /** 0…1, for every kind. */
+  opacity: number;
+  color: string;
+  gradient: Gradient;
+  image: BackgroundImageSource | null;
+  /** 0…100: 100 blurs by 5 % of the picture's longer side. */
+  blur: number;
+  /** The picture's own move/zoom, independent of the art. Zoom 1 covers the frame's opening; offsets are fractions of the token's half-size. */
+  zoom: number;
+  offsetX: number;
+  offsetY: number;
+}
+
+export type BlendMode = 'normal' | 'multiply' | 'screen' | 'overlay' | 'soft-light';
+export type OverlayKind = 'gradient' | 'vignette' | 'foliage' | 'smoke' | 'mist' | 'cobwebs' | 'shadow';
+
+/**
+ * One foreground overlay, drawn over the art inside the frame. All kinds
+ * share these fields; each uses the ones that make sense for it.
+ */
+export interface OverlayLayer {
+  id: string;
+  kind: OverlayKind;
+  visible: boolean;
+  /** 0…1 */
+  opacity: number;
+  blend: BlendMode;
+  color: string;
+  /** 0…100: how far it reaches in (vignette, mist, shadow, foliage, cobwebs) or how much there is (smoke). */
+  size: number;
+  /** 0…100 */
+  softness: number;
+  /** Degrees: which side it sits on (shadow, foliage, mist, cobwebs). 90 = bottom, 270 = top. */
+  angle: number;
+  /** 50…200 %: size of the leaves, puffs or webs. */
+  scale: number;
+  /** Changes the random layout of leaves, smoke and webs. */
+  seed: number;
+  gradient: Gradient;
+}
+
+export type LightPresetId = 'torchlight' | 'moonlight' | 'holy' | 'fel' | 'firelight' | 'underdark';
+
+/** Light direction is the degrees the light comes FROM (0 = right, 90 = below, 225 = top left). It also sets the shadows' direction. */
 export interface LightingSettings {
   direction: number;
+  /** Directional light on the art. Off = the art keeps its own lighting. */
+  enabled: boolean;
+  /** The preset last picked; cleared when a setting is changed by hand. */
+  preset: LightPresetId | null;
+  color: string;
+  /** 0…100 */
+  strength: number;
+  /** 0…100: how much darker the side away from the light gets. */
+  falloff: number;
+  /** A thin bright edge on the side facing the light (best with a removed background). */
+  rim: { enabled: boolean; strength: number; width: number };
+  /** Light the background the same way, so it matches the art. */
+  background: boolean;
 }
+// ---- Layers built in later phases. Kept minimal so the shape is settled now. ----
+
 /** Phase 6. */
 export type EffectLayer = { id: string; kind: string; placement: 'behind' | 'over' | 'border'; [key: string]: unknown };
 /** Phase 7. */

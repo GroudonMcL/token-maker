@@ -60,12 +60,38 @@ describe('migrateDocument', () => {
   it('upgrades a version 1 document, starting the image edits at their defaults', () => {
     const v1 = { schemaVersion: 1, name: 'Old goblin', art: { assetId: 'asset:1', transform: { zoom: 2 } } };
     const doc = migrateDocument(v1);
-    expect(doc.schemaVersion).toBe(2);
+    expect(doc.schemaVersion).toBe(SCHEMA_VERSION);
     expect(doc.art.assetId).toBe('asset:1');
     expect(doc.art.transform.zoom).toBe(2);
     expect(doc.art.adjust).toEqual(createDocument().art.adjust);
     expect(doc.art.removal).toEqual({ enabled: false, color: null, intensity: 20, softness: 15 });
     expect(doc.art.strokes).toEqual([]);
+  });
+
+  it('upgrades a version 2 document: keeps the light direction, starts background, overlays and lighting at their defaults', () => {
+    const v2 = { schemaVersion: 2, background: { kind: 'none' }, foreground: [], lighting: { direction: 300 } };
+    const doc = migrateDocument(v2);
+    expect(doc.lighting).toEqual({ ...createDocument().lighting, direction: 300 });
+    expect(doc.background).toEqual(createDocument().background);
+    expect(doc.foreground).toEqual([]);
+  });
+
+  it('checks backgrounds, overlays and lighting', () => {
+    const doc = migrateDocument({
+      schemaVersion: SCHEMA_VERSION,
+      background: { kind: 'image', image: { type: 'library', id: 'forest' }, blur: 500, zoom: 0, gradient: { stops: [{ offset: 2, color: 'red' }] } },
+      foreground: [{ kind: 'vignette', blend: 'darken', opacity: 2, id: 'v' }, { kind: 'lasers' }, 'junk'],
+      lighting: { enabled: true, preset: 'disco', strength: 300, rim: { enabled: true } },
+    });
+    expect(doc.background.kind).toBe('image');
+    expect(doc.background.image).toEqual({ type: 'library', id: 'forest' });
+    expect(doc.background.blur).toBe(100);
+    expect(doc.background.zoom).toBe(0.2);
+    expect(doc.background.gradient.stops.length).toBeGreaterThanOrEqual(2); // one stop isn't a gradient: defaults used
+    expect(doc.foreground).toHaveLength(2);
+    expect(doc.foreground[0]).toMatchObject({ id: 'v', kind: 'vignette', blend: 'multiply', opacity: 1 });
+    expect(doc.foreground[1]!.kind).toBe('vignette'); // unknown kinds become a vignette rather than vanishing
+    expect(doc.lighting).toMatchObject({ enabled: true, preset: null, strength: 100, rim: { enabled: true, strength: 60, width: 30 } });
   });
 
   it('checks image edits and brush strokes', () => {

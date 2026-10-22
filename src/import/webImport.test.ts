@@ -1,12 +1,20 @@
 import { webImportStore, importFromAddress, pickWebImage, clearWebImport } from './webImport';
-import { importImageFile } from './importImage';
+import { importBackgroundFile, importImageFile } from './importImage';
 
-vi.mock('./importImage', async (original) => ({
-  ...(await original<typeof import('./importImage')>()),
-  importImageFile: vi.fn(async () => {}),
-}));
+vi.mock('./importImage', async (original) => {
+  const real = await original<typeof import('./importImage')>();
+  const importImageFile = vi.fn<(file: Blob, name?: string) => Promise<void>>(async () => {});
+  const importBackgroundFile = vi.fn<(file: Blob, name?: string) => Promise<void>>(async () => {});
+  return {
+    ...real,
+    importImageFile,
+    importBackgroundFile,
+    importTo: (target: 'art' | 'background', file: Blob, name?: string) => (target === 'art' ? importImageFile : importBackgroundFile)(file, name),
+  };
+});
 
 const imported = vi.mocked(importImageFile);
+const toBackground = vi.mocked(importBackgroundFile);
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
 
 /** A pretend /api: maps the `url` parameter of each endpoint to an answer. */
@@ -114,5 +122,14 @@ describe('importing from a web address', () => {
     expect(webImportStore.getState().status).toBe('idle');
     expect(importFromAddress('goblin boss', 'box')).toBe(false);
     expect(webImportStore.getState().error).toMatch(/https:\/\//);
+  });
+
+  it('a link typed in the Background section becomes the background, not the art', async () => {
+    api({ image: { 'https://cdn.example/goblin-boss.png': 200 } });
+    importFromAddress('https://cdn.example/goblin-boss.png', 'box', 'background');
+    await settle();
+    expect(toBackground).toHaveBeenCalled();
+    expect(imported).not.toHaveBeenCalled();
+    expect(webImportStore.getState().target).toBe('background');
   });
 });
