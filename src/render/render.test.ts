@@ -6,10 +6,13 @@ import { outputSize } from '../document/sizing';
 import type { TokenDocument } from '../document/types';
 import { FRAME_PRESETS, SHAPES } from './catalog';
 import type { Ctx } from './frameKit';
+import { DEFAULT_ADJUST, DEFAULT_REMOVAL } from '../document/defaults';
+import { setCanvasFactory } from '../image/processedArt';
 import { renderToken, type RenderSource } from './render';
 import { sampleArt } from './sampleArt';
 
 const make = (w: number, h: number) => createCanvas(w, h) as unknown as HTMLCanvasElement;
+setCanvasFactory(make);
 
 function solid(color: string, w = 200, h = 200): RenderSource {
   const c = make(w, h);
@@ -154,5 +157,52 @@ describe('renderer', () => {
       const b = big.at(x * 4 + 1.5, y * 4 + 1.5);
       for (let i = 0; i < 4; i++) expect(Math.abs(a[i]! - b[i]!)).toBeLessThan(30);
     }
+  });
+
+  describe('processed art (Phase 3)', () => {
+    // A green figure on a flat white background.
+    function figure(): RenderSource {
+      const c = make(200, 200);
+      const ctx = c.getContext('2d')!;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, 200, 200);
+      ctx.fillStyle = '#3c8c32';
+      ctx.fillRect(70, 40, 60, 140);
+      return { image: c, width: 200, height: 200 };
+    }
+    const plain = () => doc({ frame: { ...createDocument().frame, style: 'none', presetId: 'none', backingColor: '#ff00ff' } });
+    const withArt = (d: TokenDocument, art: Partial<TokenDocument['art']>) => ({ ...d, art: { ...d.art, ...art } });
+
+    it('draws the adjusted picture', () => {
+      const out = draw(withArt(plain(), { adjust: { ...DEFAULT_ADJUST, invert: true } }), figure());
+      const [r, g, b] = out.at(out.size / 2, out.size / 2);
+      expect([r, g, b]).toEqual([0xff - 0x3c, 0xff - 0x8c, 0xff - 0x32]);
+    });
+
+    it('shows the backing where the background was removed, and keeps the figure', () => {
+      const out = draw(withArt(plain(), { removal: { ...DEFAULT_REMOVAL, enabled: true, softness: 0 } }), figure());
+      const c = out.size / 2;
+      expect(out.at(c, c).slice(0, 3)).toEqual([0x3c, 0x8c, 0x32]);
+      expect(out.at(c - out.size * 0.3, c).slice(0, 3)).toEqual([255, 0, 255]); // backing, not white
+    });
+
+    it('an erase stroke shows the backing; restoring it brings the picture back', () => {
+      const erase = { mode: 'erase' as const, size: 0.2, softness: 0, points: [0.5, 0.5, 1] };
+      const erased = draw(withArt(plain(), { strokes: [erase] }), figure());
+      const c = erased.size / 2;
+      expect(erased.at(c, c).slice(0, 3)).toEqual([255, 0, 255]);
+      const restored = draw(withArt(plain(), { strokes: [erase, { ...erase, mode: 'restore' }] }), figure());
+      expect(restored.at(c, c).slice(0, 3)).toEqual([0x3c, 0x8c, 0x32]);
+    });
+
+    it('the mask moves with the art', () => {
+      const d = withArt(plain(), { removal: { ...DEFAULT_REMOVAL, enabled: true, softness: 0 } });
+      const moved = { ...d, art: { ...d.art, transform: { ...d.art.transform, offsetX: 0.5, lockFill: false } } };
+      const out = draw(moved, figure());
+      const c = out.size / 2;
+      // The figure is now right of centre; the centre shows the backing.
+      expect(out.at(c, c).slice(0, 3)).toEqual([255, 0, 255]);
+      expect(out.at(c + out.size / 4, c).slice(0, 3)).toEqual([0x3c, 0x8c, 0x32]);
+    });
   });
 });

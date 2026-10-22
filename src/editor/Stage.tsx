@@ -1,14 +1,20 @@
-import { ImagePlus } from 'lucide-react';
+import { Check, Eraser, ImagePlus, Undo2 } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { useStore } from 'zustand';
-import type { ArtTransform } from '../document/types';
+import type { ArtTransform, MaskStroke } from '../document/types';
 import { HelpTip } from '../components/HelpTip';
-import { artCorners, baseScale, imageClipPolygon, rotateAround, zoomAround } from '../render/geometry';
+import { requestFullArt, useProcessedVersion } from '../image/artWorker';
+import { maskOverlay } from '../image/maskOverlay';
+import { DRAFT_SIDE, peekProcessedArt, processedArt, sourcePixels } from '../image/processedArt';
+import { artCorners, baseScale, imageClipPolygon, imagePointAt, rotateAround, zoomAround } from '../render/geometry';
 import { renderToken } from '../render/render';
 import type { Point } from '../render/shapes';
 import { assetStore } from '../state/assets';
-import { commitDoc, useDoc } from '../state/tokenStore';
+import { commitDoc, docHistory, updateDoc, useDoc } from '../state/tokenStore';
+import { toast } from '../ui/toast';
 import { setTransform } from './artActions';
+import { extendStroke, pickColour, pointerPressure, startStroke, type StrokeContext } from './brush';
+import { setBrush, setTool, toolStore, useTool } from './tools';
 import { UploadButton } from './UploadButton';
 
 const PADDING = 40;
@@ -18,7 +24,8 @@ const HANDLE_MARGIN = 18;
 
 type Gesture =
   | { kind: 'pan'; start: ArtTransform; x: number; y: number; distance: number; angle: number }
-  | { kind: 'scale' | 'rotate'; start: ArtTransform; centre: Point; startPoint: Point };
+  | { kind: 'scale' | 'rotate'; start: ArtTransform; centre: Point; startPoint: Point }
+  | { kind: 'brush'; stroke: MaskStroke; index: number };
 
 /**
  * The canvas: the token (drawn by the same renderer as the export), the whole
@@ -37,6 +44,22 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const gesture = useRef<Gesture | null>(null);
   const wheelTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const maskRef = useRef<HTMLCanvasElement>(null);
+  const tool = useTool((s) => (art ? s.tool : 'move'));
+  const brushSize = useTool((s) => s.brushSize);
+  const showRemoved = useTool((s) => s.showRemoved);
+  const [cursor, setCursor] = useState<Point | null>(null);
+
+  // Processed art: the full-size result when ready, else a quick copy (DESIGN.md §5).
+  const settling = useStore(docHistory, (s) => s.pendingBase !== null);
+  const version = useProcessedVersion();
+  const edits = doc.art;
+  const display = art ? (peekProcessedArt(art, edits) ?? processedArt(art, edits, DRAFT_SIDE)) : null;
+  const needsFull = !!art && !peekProcessedArt(art, edits);
+  useEffect(() => {
+    // Ask the worker for the full-size art once a drag has finished.
+    if (art && needsFull && !settling) void requestFullArt(art, edits);
+  }, [art, edits, needsFull, settling, version]);
 
   useLayoutEffect(() => {
     const el = stageRef.current;
@@ -56,6 +79,20 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
   const cy = reserveTop + availH / 2;
   const clip = imageClipPolygon(doc);
 
+  /** Draws an image of the art's shape (the art, or its mask) where the art is on screen. */
+  function drawArt(ctx: CanvasRenderingContext2D, image: CanvasImageSource, dpr: number) {
+    if (!art) return;
+    const t = doc.art.transform;
+    const s = baseScale(art.width, art.height, clip) * t.zoom * R * dpr;
+    ctx.save();
+    ctx.translate((cx + t.offsetX * R) * dpr, (cy + t.offsetY * R) * dpr);
+    ctx.rotate((t.rotation * Math.PI) / 180);
+    ctx.scale(t.flipX ? -s : s, t.flipY ? -s : s);
+    ctx.imageSmoothingQuality = 'medium';
+    ctx.drawImage(image, -art.width / 2, -art.height / 2, art.width, art.height);
+    ctx.restore();
+  }
+
   // Draw on the next frame whenever anything visual changes.
   useEffect(() => {
     if (!box.width || !box.height) return;
@@ -69,7 +106,7 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
           token.height = px;
         }
         const tctx = token.getContext('2d');
-        if (tctx) renderToken(tctx, doc, assets, px);
+        if (tctx) renderToken(tctx, doc, assets, px, { processedArt: display?.source });
       }
       const context = contextRef.current;
       if (context) {
@@ -81,23 +118,38 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
         }
         const ctx = context.getContext('2d');
         if (ctx) ctx.clearRect(0, 0, w, h);
-        if (ctx && art) {
-          const t = doc.art.transform;
-          const s = baseScale(art.width, art.height, clip) * t.zoom * R * dpr;
+        if (ctx && art && display) drawArt(ctx, display.source.image, dpr);
+      }
+      // Removed parts tinted red while the brush is on.
+      const maskCanvas = maskRef.current;
+      if (maskCanvas) {
+        const w = Math.round(box.width * dpr);
+        const h = Math.round(box.height * dpr);
+        if (maskCanvas.width !== w || maskCanvas.height !== h) {
+          maskCanvas.width = w;
+          maskCanvas.height = h;
+        }
+        const ctx = maskCanvas.getContext('2d');
+        if (ctx) ctx.clearRect(0, 0, w, h);
+        if (ctx && art && display?.mask && tool === 'brush' && showRemoved && clip.length) {
+          // Only inside the frame's opening, where the art shows.
           ctx.save();
-          ctx.translate((cx + t.offsetX * R) * dpr, (cy + t.offsetY * R) * dpr);
-          ctx.rotate((t.rotation * Math.PI) / 180);
-          ctx.scale(t.flipX ? -s : s, t.flipY ? -s : s);
-          ctx.imageSmoothingQuality = 'medium';
-          ctx.drawImage(art.image, -art.width / 2, -art.height / 2);
+          ctx.beginPath();
+          clip.forEach((p, i) => ctx[i ? 'lineTo' : 'moveTo']((cx + p.x * R) * dpr, (cy + p.y * R) * dpr));
+          ctx.closePath();
+          ctx.clip();
+          drawArt(ctx, maskOverlay(display.mask, display.maskWidth, display.maskHeight), dpr);
           ctx.restore();
         }
       }
     });
     return () => cancelAnimationFrame(frame);
-    // clip is derived from doc
+    // clip and drawArt are derived from doc
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [box, tokenCss, R, cx, cy, doc, assets, art]);
+  }, [box, tokenCss, R, cx, cy, doc, assets, art, display, tool, showRemoved]);
+
+  const strokeContext = (): StrokeContext | null =>
+    art ? { transform: doc.art.transform, width: art.width, height: art.height, clip, R } : null;
 
   /** Client position → R units from the token centre. */
   const toUnits = (clientX: number, clientY: number): Point => {
@@ -120,19 +172,69 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
     };
   };
 
+  /** Removes a stroke that was just started (a second finger turned it into a pinch). */
+  const cancelStroke = (g: Extract<Gesture, { kind: 'brush' }>) => {
+    updateDoc((d) => ({ ...d, art: { ...d.art, strokes: d.art.strokes.filter((_, i) => i !== g.index) } }), { transient: true });
+  };
+
   const onPointerDown = (e: ReactPointerEvent) => {
     if (!art || e.button > 0) return;
-    if ((e.target as HTMLElement).closest('.float-toolbar, .stage__handle, .stage__help, button, a, input')) return;
+    if ((e.target as HTMLElement).closest('.float-toolbar, .stage__handle, .stage__help, .stage__toolbar, button, a, input')) return;
     stageRef.current?.setPointerCapture(e.pointerId);
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     setDragging(true);
+    const g = gesture.current;
+    if (g?.kind === 'brush') cancelStroke(g); // two fingers: move and zoom instead
+    if (pointers.current.size === 1 && tool === 'eyedropper') {
+      pickBackground(e.clientX, e.clientY);
+      gesture.current = null;
+      return;
+    }
+    if (pointers.current.size === 1 && tool === 'brush') {
+      const c = strokeContext()!;
+      const { brushMode, brushSize: sizePx, brushSoftness, usePressure } = toolStore.getState();
+      const stroke = startStroke(c, toUnits(e.clientX, e.clientY), pointerPressure(e, usePressure), {
+        mode: brushMode,
+        sizePx,
+        softness: brushSoftness,
+      });
+      const index = doc.art.strokes.length;
+      gesture.current = { kind: 'brush', stroke, index };
+      updateDoc((d) => ({ ...d, art: { ...d.art, strokes: [...d.art.strokes, stroke] } }), { transient: true });
+      return;
+    }
     startPan();
   };
 
+  /** Eyedropper: the tapped colour becomes the background colour to remove. */
+  const pickBackground = (clientX: number, clientY: number) => {
+    if (!art) return;
+    const q = imagePointAt(doc.art.transform, art.width, art.height, clip, toUnits(clientX, clientY));
+    const colour = pickColour(sourcePixels(art, DRAFT_SIDE), q.x, q.y);
+    if (!colour) {
+      toast('Tap on the picture to pick its background colour.', 'error');
+      return;
+    }
+    updateDoc((d) => ({ ...d, art: { ...d.art, removal: { ...d.art.removal, enabled: true, color: colour } } }));
+    setTool('move');
+  };
+
   const onPointerMove = (e: ReactPointerEvent) => {
+    if (tool === 'brush' && e.pointerType !== 'touch') {
+      const rect = stageRef.current!.getBoundingClientRect();
+      setCursor({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+    }
     const g = gesture.current;
     if (!g || !pointers.current.has(e.pointerId)) return;
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (g.kind === 'brush') {
+      const c = strokeContext()!;
+      const next = extendStroke(c, g.stroke, toUnits(e.clientX, e.clientY), pointerPressure(e, toolStore.getState().usePressure));
+      if (next === g.stroke) return;
+      g.stroke = next;
+      updateDoc((d) => ({ ...d, art: { ...d.art, strokes: d.art.strokes.map((s, i) => (i === g.index ? next : s)) } }), { transient: true });
+      return;
+    }
     if (g.kind !== 'pan') return;
     const pts = [...pointers.current.values()];
     const x = pts.reduce((s, p) => s + p.x, 0) / pts.length;
@@ -154,8 +256,8 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
     if (pointers.current.size === 0) {
       setDragging(false);
       gesture.current = null;
-      commitDoc();
-    } else {
+      commitDoc(); // a whole stroke or drag is one undo step
+    } else if (gesture.current?.kind !== 'brush') {
       startPan(); // a finger lifted: carry on with the rest
     }
   };
@@ -180,6 +282,10 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
   }, []);
 
   const onKeyDown = (e: ReactKeyboardEvent) => {
+    if (e.key === 'Escape' && tool !== 'move') {
+      setTool('move');
+      return;
+    }
     if (!art || e.target !== stageRef.current) return;
     const step = e.shiftKey ? 0.08 : 0.015;
     const moves: Record<string, [number, number]> = {
@@ -221,7 +327,7 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
   };
   const moveHandle = (e: ReactPointerEvent) => {
     const g = gesture.current;
-    if (!g || g.kind === 'pan') return;
+    if (!g || g.kind === 'pan' || g.kind === 'brush') return;
     const rect = stageRef.current!.getBoundingClientRect();
     const p = { x: e.clientX - rect.left, y: e.clientY - rect.top };
     const from = { x: g.startPoint.x - g.centre.x, y: g.startPoint.y - g.centre.y };
@@ -249,6 +355,8 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
       className="stage"
       data-dragging={dragging || undefined}
       data-has-art={!!art || undefined}
+      data-tool={tool}
+      onPointerLeave={() => setCursor(null)}
       tabIndex={art ? 0 : -1}
       aria-label={art ? 'Token preview. Drag to move the art, scroll to zoom, arrow keys to nudge.' : undefined}
       onPointerDown={onPointerDown}
@@ -266,12 +374,14 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
         aria-label={`Token preview: ${doc.name}`}
         style={{ width: tokenCss, height: tokenCss, left: cx - R, top: cy - R }}
       />
+      <canvas ref={maskRef} className="stage__mask" aria-hidden="true" />
       {art && corners.length === 4 && (
         <svg className="stage__overlay" width={box.width} height={box.height} aria-hidden="true">
           <polygon className="stage__outline" points={corners.map((p) => `${p.x},${p.y}`).join(' ')} />
         </svg>
       )}
       {art &&
+        tool === 'move' &&
         corners.map((p, i) => {
           const q = keepIn(p);
           return (
@@ -287,7 +397,7 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
             />
           );
         })}
-      {art && (
+      {art && tool === 'move' && (
         <span
           className="stage__handle stage__handle--rotate"
           style={{ left: rotateHandle.x, top: rotateHandle.y }}
@@ -297,6 +407,10 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
           onPointerUp={endHandle}
           onPointerCancel={endHandle}
         />
+      )}
+      {tool !== 'move' && <ToolBar bottom={reserveBottom + 12} />}
+      {tool === 'brush' && cursor && (
+        <span className="stage__brush-cursor" aria-hidden="true" style={{ left: cursor.x, top: cursor.y, width: brushSize, height: brushSize }} />
       )}
       {art && (
         <div className="stage__help" data-control="stage" data-help-id="canvas.stage" style={{ bottom: reserveBottom + 12 }}>
@@ -315,6 +429,34 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
           </UploadButton>
         </div>
       )}
+    </div>
+  );
+}
+
+/** Shown on the canvas while the brush or eyedropper is on: quick mode switch and Done. */
+function ToolBar({ bottom }: { bottom: number }) {
+  const tool = useTool((s) => s.tool);
+  const mode = useTool((s) => s.brushMode);
+  return (
+    <div className="stage__toolbar" role="toolbar" aria-label={tool === 'brush' ? 'Brush' : 'Eyedropper'} style={{ bottom }}>
+      {tool === 'brush' ? (
+        <>
+          <button type="button" className="stage__tool-btn" aria-pressed={mode === 'erase'} onClick={() => setBrush({ brushMode: 'erase' })}>
+            <Eraser size={16} aria-hidden="true" />
+            Erase
+          </button>
+          <button type="button" className="stage__tool-btn" aria-pressed={mode === 'restore'} onClick={() => setBrush({ brushMode: 'restore' })}>
+            <Undo2 size={16} aria-hidden="true" />
+            Restore
+          </button>
+        </>
+      ) : (
+        <span className="stage__tool-hint">Tap the background colour</span>
+      )}
+      <button type="button" className="btn btn--primary btn--small" onClick={() => setTool('move')}>
+        <Check size={16} aria-hidden="true" />
+        Done
+      </button>
     </div>
   );
 }

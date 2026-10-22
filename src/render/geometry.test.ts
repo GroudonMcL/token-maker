@@ -2,6 +2,7 @@ import { createDocument, DEFAULT_TRANSFORM } from '../document/defaults';
 import type { ArtTransform } from '../document/types';
 import {
   artCorners,
+  imagePointAt,
   clampTransform,
   fillTransform,
   fitTransform,
@@ -64,5 +65,19 @@ describe('crop geometry', () => {
   it('starts tall portraits higher up, where faces usually are', () => {
     expect(initialTransform(300, 800, clip).offsetY).toBeGreaterThan(0);
     expect(initialTransform(800, 800, clip).offsetY).toBe(0);
+  });
+
+  it('finds the picture point under a canvas point, whatever the transform', () => {
+    const clip = [{ x: -1, y: -1 }, { x: 1, y: -1 }, { x: 1, y: 1 }, { x: -1, y: 1 }];
+    const t = { ...DEFAULT_TRANSFORM, zoom: 2, offsetX: 0.3, offsetY: -0.2, rotation: 90, flipX: true };
+    // Every corner of the drawn picture maps back to that corner of the picture.
+    const corners = artCorners(t, 400, 200, clip);
+    const back = corners.map((c) => imagePointAt(t, 400, 200, clip, c));
+    // artCorners ignores flips, so with flipX the left/right corners swap.
+    expect(back[0]!.x).toBeCloseTo(1);
+    expect(back[0]!.y).toBeCloseTo(0);
+    expect(back[2]!.x).toBeCloseTo(0);
+    expect(back[2]!.y).toBeCloseTo(1);
+    expect(imagePointAt(t, 400, 200, clip, { x: 0.3, y: -0.2 })).toEqual({ x: 0.5, y: 0.5 });
   });
 });

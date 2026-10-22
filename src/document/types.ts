@@ -3,7 +3,7 @@
 
 import type { FrameStyle, ShapeId } from '../render/catalog';
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 export type SizePreset = 'tiny' | 'small' | 'medium' | 'large' | 'huge' | 'gargantuan' | 'custom';
 
@@ -46,6 +46,60 @@ export interface ArtLayer {
   /** e.g. "asset:abc123", or null before an image is imported. */
   assetId: string | null;
   transform: ArtTransform;
+  /** Colour and detail adjustments (Phase 3). */
+  adjust: ImageAdjustments;
+  /** Flat-colour background removal (Phase 3). */
+  removal: BackgroundRemoval;
+  /** Erase/restore brush strokes on the removal mask, in order (Phase 3). */
+  strokes: MaskStroke[];
+}
+
+/**
+ * Image adjustments (DESIGN.md §6.2). All 0 = unchanged. Most run -100…100;
+ * hue is degrees (-180…180); sharpness, blur, grayscale and sepia run 0…100.
+ */
+export interface ImageAdjustments {
+  brightness: number;
+  contrast: number;
+  saturation: number;
+  hue: number;
+  temperature: number;
+  tint: number;
+  exposure: number;
+  highlights: number;
+  shadows: number;
+  sharpness: number;
+  /** Blur radius, measured on the image itself (100 = 2 % of its longer side). */
+  blur: number;
+  vibrance: number;
+  grayscale: number;
+  sepia: number;
+  invert: boolean;
+}
+
+export interface BackgroundRemoval {
+  enabled: boolean;
+  /** The colour to remove, or null to find it from the image's edges. */
+  color: string | null;
+  /** 0…100: how different a colour may be and still count as background. */
+  intensity: number;
+  /** 0…100: how soft the cut-out edge is. */
+  softness: number;
+}
+
+/**
+ * One erase or restore brush stroke on the art's mask. Stored in the art
+ * image's own coordinates (0…1 across its width and height), so it moves with
+ * the art and draws the same at every resolution.
+ */
+export interface MaskStroke {
+  mode: 'erase' | 'restore';
+  /** Brush diameter as a fraction of the image's longer side. */
+  size: number;
+  /** 0 = hard edge, 1 = very soft. */
+  softness: number;
+  /** Flat list of x, y, pressure (0…1) for each point. */
+  points: number[];
 }
 
 export interface FrameSettings {

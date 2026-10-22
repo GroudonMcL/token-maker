@@ -35,14 +35,14 @@ A checklist of build phases, following [`BUILD-PROMPTS.md`](BUILD-PROMPTS.md). D
   - [x] Tests: SSRF rules, HTML image extraction (srcset, og:image), Pinterest parsing from saved sample HTML, the endpoints with a pretend internet, the editor's import flow, and Playwright web imports on desktop, tablet and phone
   - **Done when:** an image link, a normal page link and a Pinterest pin link each get an image into the editor ✔
 
-- [ ] **Phase 3 — Image editing, background removal and brushes**
-  - [ ] Brightness, Contrast, Saturation; Advanced: Hue, Temperature, Tint, Exposure, Highlights, Shadows, Sharpness, Blur, Vibrance, Grayscale, Sepia, Invert
-  - [ ] Cached "processed art" bitmap (transform → adjustments → removal mask → lighting hook), smooth on phones
-  - [ ] Flat-colour background removal (auto from edges or eyedropper), Intensity and Edge softness, stored as a mask
-  - [ ] Erase/restore brush (size, softness, simple mode, pressure), undoable
-  - [ ] Help tips with before/after images
-  - [ ] Tests: adjustment and mask pixel tests; Playwright brushing on desktop and phone
-  - **Done when:** remove a flat background, tidy it with the brush, tune the image, and the export matches the preview
+- [x] **Phase 3 — Image editing, background removal and brushes**
+  - [x] Brightness, Contrast, Saturation; Advanced: Hue, Temperature, Tint, Exposure, Highlights, Shadows, Sharpness, Blur, Vibrance, Grayscale, Sepia, Invert
+  - [x] Cached "processed art" bitmap (transform → adjustments → removal mask → lighting hook), smooth on phones
+  - [x] Flat-colour background removal (auto from edges or eyedropper), Intensity and Edge softness, stored as a mask
+  - [x] Erase/restore brush (size, softness, simple mode, pressure), undoable
+  - [x] Help tips with before/after images
+  - [x] Tests: adjustment and mask pixel tests, renderer tests with removal and strokes, migration v1 → v2; Playwright removal, brushing (mouse and real touch), eyedropper and export-matches-preview on desktop, tablet and phone
+  - **Done when:** remove a flat background, tidy it with the brush, tune the image, and the export matches the preview ✔
 
 - [ ] **Phase 4 — Background, foreground overlays and lighting**
   - [ ] Background: colour, gradient (simple + Advanced multi-stop), image (library, own image, token's own art), blur, own move/zoom

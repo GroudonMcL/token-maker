@@ -63,6 +63,11 @@ To see the phone layout on your computer: in Chrome or Edge press `F12`, then cl
 - The toolbar above the canvas has zoom, rotate 90°, flip, fit, fill, "Keep the frame filled" (lock) and reset.
 - **Frame & shape** (right-hand panel, or the **Frame** tab on a phone): pick a shape, one of 27 frames, a colour, thickness and spacing.
 - **Size:** Tiny to Gargantuan or Custom. The border stays the same thickness on the map at every size.
+- **Image (Phase 3):** open the **Image** section (the **Image** tab on a phone).
+  - **Brightness, Contrast, Saturation** are always there; **Advanced** has Hue, Temperature, Tint, Exposure, Highlights, Shadows, Sharpness, Blur, Vibrance, Grayscale, Sepia and Invert. **Reset adjustments** puts them all back.
+  - **Remove flat background** makes a plain background see-through. The colour is found from the picture's edges; if it picks the wrong one, click **Pick colour** and click the background (**Auto** goes back). **Intensity** removes more or less; **Edge softness** softens the cut.
+  - **Erase / restore brush:** click **Use the brush**, then paint on the picture. **Erase** hides what you paint, **Restore** brings it back. While the brush is on, removed parts show red inside the frame. Pick **Brush size** (Advanced: softness, pen pressure). Two fingers still move and zoom. Press **Done** (or `Esc`) to go back to moving the art. Each stroke is one undo step.
+  - Nothing you do here changes your original picture, so you can always change your mind.
 - **Undo/Redo:** the arrows in the top bar, or `Ctrl+Z` / `Ctrl+Y`. A whole drag counts as one step.
 - **Export PNG** (bottom bar) downloads the token at 256 pixels per grid square.
 - Your token is saved in the browser as you work, so refreshing the page keeps it. **New** starts again.
@@ -85,6 +90,8 @@ Useful pages while developing:
 | `npm run lint` | Checks code style and common bugs (ESLint). |
 | `npm run build` | Builds the finished site into the `dist` folder (this is what Cloudflare runs). |
 | `npm run preview` | Serves the built `dist` folder so you can try the real build. |
+| `npm run help-images` | Redraws the before/after pictures in the Image help tips (`public/help/`). Run it after changing how an adjustment looks. |
+| `npm run make-fixture` | Redraws the goblin test pictures in `e2e/fixtures/`. |
 | `npm run frame-sheet -- sheet.png` | Draws every frame on one picture so you can check them by eye. Add a shape and size, e.g. `npm run frame-sheet -- sheet.png hexagon 220 2` for Large hexagons. |
 
 ### Testing the server functions the way Cloudflare runs them
@@ -153,10 +160,10 @@ src/document/          The TokenDocument: types, defaults, migrations, per-squar
 src/render/            The renderer: shapes, the 27 frames, crop maths, render()
 src/state/             Undo/redo history, the token store, images in memory, autosave
 src/import/            Decoding images and naming tokens from file names
-src/editor/            The canvas (Stage), toolbar actions, drop/paste, shortcuts
-src/sections/          Panel sections that are built (Import, Frame & shape, Size, Export)
+src/editor/            The canvas (Stage), toolbar actions, drop/paste, shortcuts, brush and eyedropper tools
+src/sections/          Panel sections that are built (Import, Image, Frame & shape, Size, Export)
 src/export/            PNG download
-scripts/               frame-sheet.ts, make-fixture.ts (the test picture)
+scripts/               frame-sheet.ts, make-fixture.ts (the test pictures), help-images.ts
 src/styles/tokens.css  Design tokens: every colour, font, size, radius and shadow
 src/styles/app.css     The stylesheet for the whole UI
 src/components/        Shared controls (Section, Slider, ColorSwatches, SegmentedButtons,

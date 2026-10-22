@@ -138,3 +138,16 @@ export function artCorners(t: ArtTransform, w: number, h: number, clip: Point[])
     return { x: r.x + t.offsetX, y: r.y + t.offsetY };
   });
 }
+
+/**
+ * The inverse of how the art is drawn: a point in token units (R = 1, from
+ * the token centre) → the same spot on the picture, as 0–1 across its width
+ * and height. Values outside 0–1 are off the picture.
+ */
+export function imagePointAt(t: ArtTransform, w: number, h: number, clip: Point[], p: Point): Point {
+  const s = baseScale(w, h, clip) * t.zoom;
+  const r = rotatePoint({ x: p.x - t.offsetX, y: p.y - t.offsetY }, (-t.rotation * Math.PI) / 180);
+  const x = (r.x / s) * (t.flipX ? -1 : 1);
+  const y = (r.y / s) * (t.flipY ? -1 : 1);
+  return { x: (x + w / 2) / w, y: (y + h / 2) / h };
+}

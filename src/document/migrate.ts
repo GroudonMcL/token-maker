@@ -3,8 +3,8 @@
 // defaults, so a damaged or partial file can never crash the editor.
 
 import { FRAME_STYLES, SHAPES } from '../render/catalog';
-import { createDocument, MAX_SQUARES, MIN_SQUARES, SIZE_PRESETS } from './defaults';
-import { SCHEMA_VERSION, type TokenDocument } from './types';
+import { createDocument, DEFAULT_ADJUST, MAX_SQUARES, MIN_SQUARES, SIZE_PRESETS } from './defaults';
+import { SCHEMA_VERSION, type ImageAdjustments, type MaskStroke, type TokenDocument } from './types';
 
 type Json = Record<string, unknown>;
 
@@ -13,7 +13,11 @@ type Json = Record<string, unknown>;
  * When the document shape changes: bump SCHEMA_VERSION in types.ts and add
  * the step here, with a test in migrate.test.ts.
  */
-export const MIGRATIONS: Record<number, (doc: Json) => Json> = {};
+export const MIGRATIONS: Record<number, (doc: Json) => Json> = {
+  // v1 → v2 (Phase 3): image adjustments, background removal and brush strokes.
+  // Nothing to convert: the new fields start at their defaults (filled in by sanitize).
+  1: (doc) => doc,
+};
 
 export class DocumentVersionError extends Error {}
 
@@ -49,6 +53,38 @@ const hex = (v: unknown, fallback: string) => (typeof v === 'string' && /^#[0-9a
 const obj = (v: unknown): Json => (isObject(v) ? v : {});
 const arr = (v: unknown) => (Array.isArray(v) ? v.filter(isObject) : []);
 
+/** Most stroke data any one document keeps (about 2 MB of numbers). */
+const MAX_STROKE_NUMBERS = 300_000;
+
+function adjustments(raw: Json): ImageAdjustments {
+  const out = { ...DEFAULT_ADJUST };
+  for (const key of Object.keys(DEFAULT_ADJUST) as (keyof ImageAdjustments)[]) {
+    if (key === 'invert') out.invert = bool(raw.invert, false);
+    else {
+      const [min, max] = key === 'hue' ? [-180, 180] : ['sharpness', 'blur', 'grayscale', 'sepia'].includes(key) ? [0, 100] : [-100, 100];
+      out[key] = num(raw[key], 0, min, max);
+    }
+  }
+  return out;
+}
+
+function strokes(raw: unknown): MaskStroke[] {
+  const out: MaskStroke[] = [];
+  let total = 0;
+  for (const s of arr(raw)) {
+    const points = Array.isArray(s.points) ? s.points.filter((n): n is number => typeof n === 'number' && Number.isFinite(n)) : [];
+    if (points.length < 3 || total + points.length > MAX_STROKE_NUMBERS) continue;
+    total += points.length;
+    out.push({
+      mode: s.mode === 'restore' ? 'restore' : 'erase',
+      size: num(s.size, 0.05, 0.0005, 2),
+      softness: num(s.softness, 0.5, 0, 1),
+      points: points.slice(0, points.length - (points.length % 3)),
+    });
+  }
+  return out;
+}
+
 /** Checks every field of a current-version document, using defaults for anything missing or invalid. */
 export function sanitize(raw: Json): TokenDocument {
   const d = createDocument();
@@ -74,6 +110,8 @@ export function sanitize(raw: Json): TokenDocument {
   };
   const inner = obj(shadows.inner);
   const assetId = art.assetId;
+  const removal = obj(art.removal);
+  const removalColor = removal.color === null ? null : hex(removal.color, '');
 
   return {
     schemaVersion: SCHEMA_VERSION,
@@ -94,6 +132,14 @@ export function sanitize(raw: Json): TokenDocument {
         flipY: bool(t.flipY, false),
         lockFill: bool(t.lockFill, d.art.transform.lockFill),
       },
+      adjust: adjustments(obj(art.adjust)),
+      removal: {
+        enabled: bool(removal.enabled, d.art.removal.enabled),
+        color: removalColor || null,
+        intensity: num(removal.intensity, d.art.removal.intensity, 0, 100),
+        softness: num(removal.softness, d.art.removal.softness, 0, 100),
+      },
+      strokes: strokes(art.strokes),
     },
     background: d.background,
     foreground: arr(raw.foreground) as TokenDocument['foreground'],
