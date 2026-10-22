@@ -20,6 +20,13 @@ export interface HelpEntry {
   media?: HelpMedia;
 }
 
+/** A before → after picture in public/help/ (made by `npm run help-images`). */
+const beforeAfter = (name: string, what: string): HelpMedia => ({
+  kind: 'image',
+  src: `/help/${name}.webp`,
+  alt: `Before and after: ${what}`,
+});
+
 export const helpContent = {
   // ---- Panel sections (DESIGN.md §8, in order) ----
   'section.import': {
@@ -80,9 +87,154 @@ export const helpContent = {
     title: 'Upload an image',
     text: 'Choose a picture from your device. You can also drag one anywhere onto the page, or paste it with Ctrl+V (long-press and Paste on a phone).',
   },
+  'import.web': {
+    title: 'Web address',
+    text: 'Paste a link to a picture, a web page or a Pinterest pin and press Get. A page shows its pictures so you can pick one; you can also paste or drag a link anywhere on the page.',
+  },
+  'import.pagePictures': {
+    title: 'Pictures on the page',
+    text: 'Pick the picture to use for your token. Tiny icons are hidden, and you can pick a different one at any time.',
+  },
   'import.name': {
     title: 'Token name',
     text: "Used for the downloaded file's name. It is filled in from the image's file name, and you can change it.",
+  },
+
+  // ---- Image (Phase 3) ----
+  'image.brightness': {
+    title: 'Brightness',
+    text: 'Makes the whole picture lighter or darker.',
+    media: beforeAfter('image-brightness', 'the goblin gets brighter'),
+  },
+  'image.contrast': {
+    title: 'Contrast',
+    text: 'Pushes light and dark parts further apart for a punchier look, or closer together for a softer one.',
+    media: beforeAfter('image-contrast', 'the goblin gets punchier'),
+  },
+  'image.saturation': {
+    title: 'Saturation',
+    text: 'Makes colours stronger, or weaker down to black and white at -100.',
+    media: beforeAfter('image-saturation', 'the colours get stronger'),
+  },
+  'image.advanced': {
+    title: 'More adjustments',
+    text: 'Fine-tune colour, light, detail and style. You never need these for a good token.',
+    media: beforeAfter('image-advanced', 'a warmer, older look'),
+  },
+  'image.hue': {
+    title: 'Hue',
+    text: 'Shifts every colour around the colour wheel, for example to turn a green goblin blue.',
+    media: beforeAfter('image-hue', 'the green goblin turns blue'),
+  },
+  'image.temperature': {
+    title: 'Temperature',
+    text: 'Warmer (more orange) or cooler (more blue), like daylight versus moonlight.',
+    media: beforeAfter('image-temperature', 'the picture gets warmer'),
+  },
+  'image.tint': {
+    title: 'Tint',
+    text: 'Moves colours towards magenta or green, to fix a colour cast.',
+    media: beforeAfter('image-tint', 'the picture shifts towards magenta'),
+  },
+  'image.exposure': {
+    title: 'Exposure',
+    text: 'Brightens or darkens like a camera does: the darkest parts stay dark.',
+    media: beforeAfter('image-exposure', 'the picture gets brighter like a longer exposure'),
+  },
+  'image.highlights': {
+    title: 'Highlights',
+    text: 'Changes only the bright parts: lower it to bring back detail in a washed-out sky or armour.',
+    media: beforeAfter('image-highlights', 'the bright sky gets darker'),
+  },
+  'image.shadows': {
+    title: 'Shadows',
+    text: 'Changes only the dark parts: raise it to see detail hidden in shadow.',
+    media: beforeAfter('image-shadows', 'the dark parts get lighter'),
+  },
+  'image.sharpness': {
+    title: 'Sharpness',
+    text: 'Makes edges crisper, which helps small tokens read well on the map.',
+    media: beforeAfter('image-sharpness', 'a soft picture gets crisper'),
+  },
+  'image.blur': {
+    title: 'Blur',
+    text: 'Softens the whole picture.',
+    media: beforeAfter('image-blur', 'the picture gets softer'),
+  },
+  'image.vibrance': {
+    title: 'Vibrance',
+    text: 'Like Saturation, but boosts dull colours most, so bright colours and skin don’t go garish.',
+    media: beforeAfter('image-vibrance', 'the dull colours get stronger'),
+  },
+  'image.grayscale': {
+    title: 'Grayscale',
+    text: 'Takes the colour out, part way or completely.',
+    media: beforeAfter('image-grayscale', 'the colour is taken out'),
+  },
+  'image.sepia': {
+    title: 'Sepia',
+    text: 'Gives an old brown-photograph look.',
+    media: beforeAfter('image-sepia', 'an old brown-photograph look'),
+  },
+  'image.invert': {
+    title: 'Invert',
+    text: 'Swaps every colour for its opposite, like a photo negative.',
+    media: beforeAfter('image-invert', 'every colour swapped for its opposite'),
+  },
+  'image.removeBg': {
+    title: 'Remove flat background',
+    text: 'Makes a plain background around your character see-through. It works best on pictures with a single-colour background, and the picture itself is never changed.',
+    media: beforeAfter('image-removeBg', 'the white background becomes see-through'),
+  },
+  'image.bgColour': {
+    title: 'Background colour',
+    text: 'The colour to remove, found automatically from the edges of the picture. Use Pick colour and tap the background if it chose the wrong one.',
+    media: beforeAfter('image-bgColour', 'the white background colour is found and removed'),
+  },
+  'image.intensity': {
+    title: 'Intensity',
+    text: 'How different a colour can be from the background colour and still be removed. Raise it if bits of background are left; lower it if your character gets eaten away.',
+    media: beforeAfter('image-intensity', 'leftover background specks are removed at a higher intensity'),
+  },
+  'image.softness': {
+    title: 'Edge softness',
+    text: 'Softens the cut-out edge so it blends in rather than looking jagged.',
+    media: beforeAfter('image-softness', 'a hard cut-out edge becomes soft'),
+  },
+  'image.brush': {
+    title: 'Erase / restore brush',
+    text: 'Turn the brush on, then paint on the picture to erase parts or bring removed parts back. Two fingers still move and zoom the art, and each stroke can be undone.',
+    media: beforeAfter('image-brush', 'a stroke of the erase brush'),
+  },
+  'image.brushMode': {
+    title: 'Erase or restore',
+    text: 'Erase makes what you paint see-through; Restore brings it back.',
+    media: beforeAfter('image-brushMode', 'Restore brings back part of an erased stroke'),
+  },
+  'image.brushSize': {
+    title: 'Brush size',
+    text: 'How big the brush is on your screen. Zoom in on the art for fine detail.',
+    media: beforeAfter('image-brushSize', 'a small brush and a big brush'),
+  },
+  'image.brushAdvanced': {
+    title: 'Brush options',
+    text: 'Softness, pen pressure and how removed parts are shown.',
+    media: beforeAfter('image-brushAdvanced', 'a hard brush and a soft brush'),
+  },
+  'image.brushSoftness': {
+    title: 'Brush softness',
+    text: 'A soft brush fades out at its edge for smooth blends; 0% gives a hard edge.',
+    media: beforeAfter('image-brushSoftness', 'a hard brush and a soft brush'),
+  },
+  'image.pressure': {
+    title: 'Pen pressure',
+    text: 'With a pen or stylus, pressing lightly paints a thinner line.',
+    media: beforeAfter('image-pressure', 'pressing lightly at each end makes the line thinner'),
+  },
+  'image.showRemoved': {
+    title: 'Show removed parts in red',
+    text: 'While the brush is on, removed parts of the picture are tinted red so you can see what Restore would bring back.',
+    media: beforeAfter('image-showRemoved', 'removed parts shown tinted red'),
   },
 
   // ---- Frame & shape ----

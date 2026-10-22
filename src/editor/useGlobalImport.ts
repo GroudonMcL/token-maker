@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { isImageFile } from '../import/decode';
+import { addressFromDrop, normaliseAddress } from '../import/webAddress';
+import { importFromAddress } from '../import/webImport';
 import { toast } from '../ui/toast';
 import { importWithMessage } from './importWithMessage';
-
-const WEB_LINKS_LATER = 'Importing from web links arrives in a later update. For now, save the image and upload it.';
 
 /**
  * Drag and drop anywhere on the page, and paste (DESIGN.md §6.1).
@@ -14,7 +14,8 @@ export function useGlobalImport(): boolean {
 
   useEffect(() => {
     let depth = 0;
-    const hasFiles = (e: DragEvent) => [...(e.dataTransfer?.types ?? [])].some((t) => t === 'Files' || t === 'text/uri-list');
+    const hasFiles = (e: DragEvent) =>
+      [...(e.dataTransfer?.types ?? [])].some((t) => t === 'Files' || t === 'text/uri-list' || t === 'text/html');
     const onEnter = (e: DragEvent) => {
       if (!hasFiles(e)) return;
       depth++;
@@ -35,7 +36,12 @@ export function useGlobalImport(): boolean {
       const file = [...e.dataTransfer.files].find((f) => isImageFile(f));
       if (file) void importWithMessage(file);
       else if (e.dataTransfer.files.length) toast("That isn't an image file. Try PNG, JPG, WebP, GIF, AVIF, BMP or SVG.", 'error');
-      else if (e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain')) toast(WEB_LINKS_LATER, 'error');
+      else {
+        // An image or link dragged from another browser tab (DESIGN.md §6.1 item 2).
+        const dt = e.dataTransfer;
+        const address = addressFromDrop({ html: dt.getData('text/html'), uriList: dt.getData('text/uri-list'), text: dt.getData('text/plain') });
+        if (!address || !importFromAddress(address, 'drop')) toast("That isn't an image or a web address.", 'error');
+      }
     };
     const onPaste = (e: ClipboardEvent) => {
       const data = e.clipboardData;
@@ -50,8 +56,15 @@ export function useGlobalImport(): boolean {
       // Pasting text into a text box stays normal pasting.
       const target = e.target as HTMLElement | null;
       if (target?.closest('input, textarea, [contenteditable]')) return;
+      // A pasted web address goes through the web import (DESIGN.md §6.1 item 3).
       const text = data.getData('text/plain').trim();
-      if (/^https?:\/\//i.test(text)) toast(WEB_LINKS_LATER, 'error');
+      if (/^https?:\/\//i.test(text) && normaliseAddress(text)) {
+        e.preventDefault();
+        importFromAddress(text, 'paste');
+      } else if (/^data:image\//i.test(text)) {
+        e.preventDefault();
+        importFromAddress(text, 'paste');
+      }
     };
     window.addEventListener('dragenter', onEnter);
     window.addEventListener('dragleave', onLeave);

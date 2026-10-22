@@ -2,7 +2,7 @@ import { render } from '@testing-library/react';
 import { App } from '../App';
 import { navigate } from '../hooks/useRoute';
 import { SECTIONS } from '../layout/sections';
-import { helpContent } from './helpContent';
+import { helpContent, type HelpEntry } from './helpContent';
 
 /**
  * DESIGN.md §11: every control must have a help entry. These tests fail if
@@ -18,6 +18,21 @@ describe('help content', () => {
       const sentences = entry.text.split(/[.!?](\s|$)/).filter((s) => s.trim().length > 0);
       expect(sentences.length, `${id} should be 1–2 sentences`).toBeGreaterThanOrEqual(1);
       expect(sentences.length, `${id} should be 1–2 sentences`).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it('every help picture exists in public/', () => {
+    const files = import.meta.glob('../../public/help/*', { eager: true, query: '?url', import: 'default' });
+    const have = new Set(Object.keys(files).map((f) => f.replace('../../public', '')));
+    for (const [id, entry] of Object.entries(helpContent)) {
+      const media = (entry as HelpEntry).media;
+      if (media) expect(have.has(media.src), `${id}: ${media.src}`).toBe(true);
+    }
+  });
+
+  it('every Image control has a before/after picture', () => {
+    for (const [id, entry] of Object.entries(helpContent)) {
+      if (id.startsWith('image.')) expect((entry as HelpEntry).media, id).toBeDefined();
     }
   });
 

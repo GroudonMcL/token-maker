@@ -307,6 +307,93 @@ button:disabled {
   pointer-events: none;
 }
 
+/* Removed parts tinted red while the brush is on (above the token, below the handles) */
+.stage__mask {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.stage[data-tool='brush'],
+.stage[data-tool='brush'][data-dragging] {
+  cursor: none;
+}
+
+.stage[data-tool='eyedropper'] {
+  cursor: crosshair;
+}
+
+/* Brush / eyedropper bar on the canvas */
+.stage__toolbar {
+  position: absolute;
+  left: 50%;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.stage__toolbar .btn {
+  border-radius: var(--radius-pill);
+}
+
+.stage__tool-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.stage__tool-btn[aria-pressed='true'] {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.stage__tool-hint {
+  padding: 0 var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+@media (pointer: coarse) {
+  .stage__tool-btn {
+    min-height: var(--hit);
+  }
+}
+
+.btn[aria-pressed='true']:not(.btn--primary) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* The brush outline that follows the mouse or pen */
+.stage__brush-cursor {
+  position: absolute;
+  z-index: 2;
+  border: 1.5px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.6), inset 0 0 0 1px rgb(0 0 0 / 0.6);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
 .stage:not([data-has-art]) .stage__token {
   border-radius: 50%;
   outline: 2px dashed var(--border-strong);
@@ -826,6 +913,111 @@ button:disabled {
   width: 100%;
 }
 
+.btn--small {
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  font-size: var(--text-sm);
+  justify-self: start;
+}
+
+/* A titled group of controls inside a section */
+.control-group {
+  display: grid;
+  gap: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+.control-group__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.advanced__body > .control-group:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.bg-colour {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.bg-colour__swatch {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+}
+
+.bg-colour__text {
+  display: grid;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.bg-colour__text code {
+  color: var(--text);
+  font-size: var(--text-xs);
+}
+
+.control__error {
+  margin: 0;
+  color: var(--danger);
+  font-size: var(--text-sm);
+}
+
+/* Web address box (Import) */
+.web-address__row {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.web-address__row .text-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.web-address__row .btn {
+  flex: none;
+}
+
+.web-pictures {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.web-pictures__close {
+  justify-self: end;
+}
+
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin {
+    animation: none;
+  }
+}
+
 .tile__blank {
   width: 40px;
   height: 40px;
@@ -1201,6 +1393,10 @@ input[type='range']::-moz-range-thumb {
 
 .image-strip__item[aria-checked='true'] {
   border-color: var(--accent);
+}
+
+.image-strip__item[aria-busy='true'] img {
+  opacity: 0.45;
 }
 
 .image-strip__empty {

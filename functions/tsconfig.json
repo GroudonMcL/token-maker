@@ -9,7 +9,9 @@
     "strict": true,
     "verbatimModuleSyntax": true,
     "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
     "noEmit": true
   },
-  "include": ["."]
+  "include": [".", "../server"],
+  "exclude": ["../server/**/*.test.ts", "../server/devApi.ts"]
 }

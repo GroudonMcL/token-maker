@@ -10,7 +10,8 @@ export function PrivacyPage() {
       </p>
       <p>
         When you paste a web address or a Pinterest link, our server fetches that page or image for you and passes it
-        straight back to your browser. It does not keep a copy.
+        straight back to your browser. It does not keep a copy. Small previews of the pictures found on a page load
+        straight from that site, just as if you had visited it.
       </p>
       <p>
         Your work in progress, saved presets and uploaded fonts or frames are kept in your own browser storage so you

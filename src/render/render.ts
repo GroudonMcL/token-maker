@@ -3,6 +3,7 @@
 // It is a pure function of (document, assets, size): it reads nothing else.
 
 import { computeInsets, perSquareToPx } from '../document/sizing';
+import { processedArt } from '../image/processedArt';
 import type { OuterShadow, TokenDocument } from '../document/types';
 import { parseHex, rgba } from './color';
 import { tracePolygon, type Ctx } from './frameKit';
@@ -20,8 +21,16 @@ export interface RenderSource {
 /** Images referenced by the document, by asset id. */
 export type AssetMap = ReadonlyMap<string, RenderSource>;
 
+export interface RenderOptions {
+  /**
+   * The processed art to draw instead of computing it, e.g. the quick
+   * low-resolution copy the preview uses while a slider is dragged.
+   */
+  processedArt?: RenderSource;
+}
+
 /** Paints `doc` into a `size`×`size` area starting at the context's origin. */
-export function renderToken(ctx: Ctx, doc: TokenDocument, assets: AssetMap, size: number): void {
+export function renderToken(ctx: Ctx, doc: TokenDocument, assets: AssetMap, size: number, options: RenderOptions = {}): void {
   const R = size / 2;
   const sq = doc.size.squares;
   const px = (perSquare: number) => perSquareToPx(perSquare, sq, size);
@@ -53,9 +62,11 @@ export function renderToken(ctx: Ctx, doc: TokenDocument, assets: AssetMap, size
   // 3. Background layer — Phase 4.
   // 4. Effects behind the art — Phase 6.
 
-  // 5. Processed art, clipped to the inner shape. (Adjustments, background
-  // removal and lighting join this step in Phases 3–4.)
+  // 5. Processed art, clipped to the inner shape: the picture after
+  // adjustments, background removal and brush strokes (src/image/), drawn
+  // with the move/zoom/rotate transform. Lighting joins in Phase 4.
   if (art && clip.length) {
+    const shown = options.processedArt ?? processedArt(art, doc.art).source;
     ctx.save();
     tracePolygon(ctx, clip);
     ctx.clip();
@@ -67,7 +78,7 @@ export function renderToken(ctx: Ctx, doc: TokenDocument, assets: AssetMap, size
     ctx.scale(t.flipX ? -s : s, t.flipY ? -s : s);
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(art.image, -art.width / 2, -art.height / 2, art.width, art.height);
+    ctx.drawImage(shown.image, -art.width / 2, -art.height / 2, art.width, art.height);
     ctx.restore();
   }
 

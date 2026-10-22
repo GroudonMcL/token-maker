@@ -83,7 +83,7 @@ interface TokenDocument {
 }
 ```
 
-*(Phase 1: the real type is in `src/document/types.ts`, defaults in `src/document/defaults.ts`. Later-phase layers have placeholder types. `art` holds the asset id plus its transform (zoom, offset, rotation, flipX, flipY, lockFill); `frame` holds the selected preset id, style, colour, thickness, outer/inner spacing, opacity, backing colour and backing opacity; `shadows` holds outer, inner and pop-out settings. Saved documents go through `migrateDocument()` in `src/document/migrate.ts`, which runs version-by-version migrations and then checks every field, falling back to defaults.)*
+*(Phase 1: the real type is in `src/document/types.ts`, defaults in `src/document/defaults.ts`. Later-phase layers have placeholder types. `art` holds the asset id plus its transform (zoom, offset, rotation, flipX, flipY, lockFill); `frame` holds the selected preset id, style, colour, thickness, outer/inner spacing, opacity, backing colour and backing opacity; `shadows` holds outer, inner and pop-out settings. Saved documents go through `migrateDocument()` in `src/document/migrate.ts`, which runs version-by-version migrations and then checks every field, falling back to defaults. Phase 3 (schema version 2) added `art.adjust`, `art.removal` and `art.strokes`.)*
 
 Images themselves are **not** stored inside the document — the document holds asset ids (e.g. `asset:abc123`) that point to images held in memory/IndexedDB. This keeps presets small and shareable.
 
@@ -136,6 +136,8 @@ The same pipeline draws the preview and the export.
 
 Rules:
 
+*(Phase 3: "processed art" is computed in the picture's own pixels, in this order: colour adjustments → background-removal mask → brush strokes on the mask → blur/sharpen → (lighting, Phase 4). The move/zoom/rotate transform is applied when the bitmap is drawn, which gives the same pixels but means dragging the art never recomputes anything. The code is plain pixel maths in `src/image/` (no canvas filters, which Safari lacks), so it runs the same in a Web Worker and in tests. Each stage is cached, so changing Brightness doesn't redo the background flood-fill. While a slider or brush is being dragged, the preview uses a quick 512 px copy; when the drag ends, the Web Worker makes the full-size bitmap (the picture's working size, up to 2048 px), and the export waits for it, so the export always comes from the full-size art.)*
+
 - Pop-out art must be pixel-identical to the inside art where they meet — no seams. That is why both come from one processed bitmap.
 - The pop-out mask is stored in the **art image's own coordinates**, so moving, zooming, rotating or flipping the art moves the mask with it.
 - Nothing is ever drawn outside the square output image. Pop-out parts may cover the border and the outer spacing, but never leave the square, so the token always lines up 1:1 with grid squares in a VTT.
@@ -159,7 +161,9 @@ Ways in (all lead to the same "image loaded" state):
    - If a site blocks fetching, show a friendly message suggesting right-click → "Copy image address", or downloading and uploading.
 5. **Pinterest pin link** — paste a pin URL (including `pin.it` short links). The server follows redirects, reads the pin page's main image (`og:image`, preferring the `/originals/` size) and loads it. (Browsing Pinterest boards with login is a future feature — §15.)
 
-The import file's name (without extension, tidied) becomes the token name; the user can edit it. *(Phase 1: separators become spaces, all-lowercase names get capital letters, and generic names such as "image.png" from a paste keep the current name. Dropped or pasted web links show a "coming in a later update" message until Phase 2.)*
+The import file's name (without extension, tidied) becomes the token name; the user can edit it. *(Phase 1: separators become spaces, all-lowercase names get capital letters, and generic names such as "image.png" from a paste keep the current name. Phase 2: web images are named from the picture's file name (size suffixes like "-1024x768" and meaningless names such as hashes or "IMG_2041" are dropped), else its alt text, else the page or pin title.)*
+
+*(Phase 2: the web-address box is in the Import section. Addresses without `https://` get it added, and `http://` is upgraded. An address that ends like an image file is tried as an image first; if it turns out to be a page, the page route is used. A page with only one picture loads it straight away. Thumbnails in the picture strip load straight from the site (no referrer), falling back to the proxy, and any that fail or turn out smaller than 64 px are hidden. Pasting or dropping a link opens the Import section (the Import tab on phones). When an image is dragged from another tab, its `<img src>` is used rather than the link around it; `data:` images load directly.)*
 
 **Batch mode** (optional switch): import several images at once (multi-select upload, multi-file drop, or several links). One shared style applies to all; each image keeps its own position/zoom/rotation and name. A thumbnail strip switches between them. Export all as a ZIP (§6.10).
 
@@ -173,6 +177,11 @@ The import file's name (without extension, tidied) becomes the token name; the u
   - Style: Vibrance, Grayscale, Sepia, Invert
 - **Background removal (flat colour):** the extension's method — pick the background colour automatically (from the edges) or with an eyedropper; **Intensity** slider (how similar a colour must be to be removed) and **Edge softness** slider.
 - **Erase / restore brush** to fix mistakes: brush size, softness, and a simple mode where the user just drags one slider. Works with touch and pen. The removal result is stored as a mask (not by destroying pixels), so it can be changed later.
+*(Phase 3, as built:*
+- *Slider ranges: -100…100, except Hue (-180…180°) and Sharpness, Blur, Grayscale, Sepia (0…100). Invert is an on/off switch. Brightness, Contrast and Saturation use the extension's formulas. Exposure works in stops (±2), Highlights/Shadows change only bright/dark tones, Vibrance boosts dull colours most. Blur is measured on the picture (100 = 2 % of its longer side), so preview and export match at any resolution. A **Reset adjustments** button clears them.*
+- *Background removal: the colour is the most common colour around the picture's edges (or one picked with the eyedropper, which then switches back to moving the art). Flood-fill from the edges, as in the extension, so same-coloured areas inside the character are kept; Intensity uses the extension's tolerance scale; Edge softness blurs the mask edge (up to about 1 % of the picture). Adjustments and removal settings carry over when a new picture is imported; brush strokes and a picked colour don't.*
+- *Brush: strokes are stored in the document as points in the picture's own 0–1 coordinates (with pen pressure), so they follow the art, redraw at any resolution, autosave, and undo like everything else (one stroke = one step). The simple control is one **Brush size** slider (in screen pixels); Advanced adds Softness, Pen pressure and "Show removed parts in red". While the brush is on, removed parts are tinted red inside the frame's opening (editor only, never exported), the move/scale handles are hidden, two fingers still pan/zoom, and a small bar on the canvas offers Erase/Restore and Done. On phones the bottom sheet lowers while the brush or eyedropper is on and comes back up on Done. Brush settings are remembered in localStorage.)*
+
 - **Transform:** drag to move, wheel/pinch to zoom around the pointer, **on-canvas handles** for scale and rotate (two-finger rotate on touch), flip horizontal/vertical, fit, fill, reset, and the existing "Keep the frame filled" option. *(Phase 1: four corner handles resize the art around its centre and a round handle above it rotates it (hold Shift to snap to 15°). Handles stay on screen even when the art's corners are off the canvas. "Keep the frame filled" is on by default for new tokens. A whole drag, pinch or burst of scrolling is one undo step.)*
 
 ### 6.3 Background
@@ -289,6 +298,8 @@ Security rules (port from the extension's `server/`):
 - Rate-limit per IP (simple, e.g. Cloudflare's built-in rules or a small in-memory limiter).
 - Not an open proxy for arbitrary content: only images and HTML for image discovery.
 
+*(Phase 2: the code lives in `server/`, shared by `functions/api/*` and the Vite dev server. Rules as built: https only on the default port, no user names or passwords in addresses, at most 5 redirects with every hop checked, IP literals in private/reserved ranges and local names (`localhost`, no dot, `.local`, `.internal`, `.lan`, `.home.arpa` …) refused, 10 s for the whole request, 20 MB images and 3 MB HTML, images sniffed by their bytes (PNG, JPEG, GIF, WebP, AVIF, BMP, SVG) and sent with the sniffed type plus `Content-Security-Policy: sandbox` and `nosniff`, nothing cached by shared caches. Requests that browsers mark `Sec-Fetch-Site: cross-site` (other websites) are refused. Rate limit: an in-memory one-minute window per IP of 20 page look-ups and 90 images; it is per Cloudflare location, so a dashboard rate-limiting rule can be added on top. The dev server also looks up every hostname in DNS and refuses private addresses, because a home computer, unlike Cloudflare, can reach a private network. Image discovery skips scripts, styles, comments, SVGs, favicons, sprites and trackers, puts og:image first, and lists at most 60 images. Pinterest: pin pages give a reduced og:image; the full-size `/originals/` copy is found in the page data by the same path (its file type can differ from the preview's), with the og:image as a fallback; board and search links get a message asking for a single pin's link.)*
+
 ---
 
 ## 8. Layout and responsiveness
@@ -376,6 +387,7 @@ Type scale: 12 / 13 / 15 (body) / 18 (section titles) / 22 / 28 px.
 
 - A `?` icon next to every section and non-obvious control.
 - Hover (desktop) or tap (touch) opens a small card: one or two plain sentences + a before/after picture or short looping clip (WebP/MP4, small file size).
+- *(Phase 3: the Image section's before/after pictures are drawn by `npm run help-images` with the real image code, into `public/help/`. A test checks every help picture exists, and that every Image control has one.)*
 - All help content lives in one file (e.g. `src/help/helpContent.ts`) keyed by control id, so it's easy to edit and spot missing entries. A test fails if a control has no help entry.
 
 ---

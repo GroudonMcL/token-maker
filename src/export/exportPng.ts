@@ -3,6 +3,7 @@
 
 import { DEFAULT_PX_PER_SQUARE, outputSize } from '../document/sizing';
 import type { TokenDocument } from '../document/types';
+import { prepareArt } from '../image/artWorker';
 import { render, type AssetMap } from '../render/render';
 
 /** A file name with only safe characters (DESIGN.md §6.11). */
@@ -20,6 +21,7 @@ export function safeFileName(name: string, ext: string): string {
 
 export async function renderPng(doc: TokenDocument, assets: AssetMap, pxPerSquare = DEFAULT_PX_PER_SQUARE): Promise<Blob> {
   const size = outputSize(doc.size.squares, pxPerSquare);
+  await prepareArt(doc, assets); // full-size processed art, usually ready already
   const canvas = render(doc, assets, size);
   if ('convertToBlob' in canvas) return canvas.convertToBlob({ type: 'image/png' });
   return new Promise((resolve, reject) =>
