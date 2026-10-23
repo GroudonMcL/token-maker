@@ -10,7 +10,9 @@ import { TokenSummary } from './TokenSummary';
 
 export type SheetSnap = 'peek' | 'half' | 'full';
 const ORDER: SheetSnap[] = ['peek', 'half', 'full'];
-export const PEEK_HEIGHT = 140; // handle + summary row + tab row
+import { PEEK_HEIGHT, useSheetCover } from './sheetCover';
+
+export { PEEK_HEIGHT };
 
 function snapHeight(snap: SheetSnap, container: number) {
   if (snap === 'peek') return PEEK_HEIGHT;
@@ -49,6 +51,9 @@ export function BottomSheet() {
   }, []);
 
   const height = dragHeight ?? snapHeight(snap, container);
+  // A full-height sheet covers the canvas anyway: keep the token where a half sheet leaves it.
+  useEffect(() => useSheetCover.setState(snapHeight(snap === 'full' ? 'half' : snap, container), true), [snap, container]);
+  useEffect(() => () => useSheetCover.setState(PEEK_HEIGHT, true), []);
 
   const onPointerDown = (e: PointerEvent<HTMLElement>) => {
     if (e.button !== 0) return;

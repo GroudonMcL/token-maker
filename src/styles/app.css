@@ -2227,3 +2227,66 @@ input[type='range']::-moz-range-thumb {
     display: none;
   }
 }
+
+/* ---- Phase 10: touch targets ----
+   On touch screens every control is at least --hit (44 px) to touch
+   (DESIGN.md §8). e2e/phase10.spec.ts checks every tab on a phone. */
+@media (pointer: coarse) {
+  .btn--small,
+  .segmented__btn,
+  .overlay-card__toggle,
+  .topbar__brand {
+    min-height: var(--hit);
+  }
+
+  .segmented__btn,
+  .topbar__brand {
+    min-width: var(--hit);
+    justify-content: center;
+  }
+
+  .segmented__row {
+    flex-wrap: wrap;
+  }
+
+  .slider__number,
+  .swatches__hex {
+    height: var(--hit);
+  }
+
+  .swatch {
+    width: var(--hit);
+    height: var(--hit);
+  }
+
+  /* The toolbar scrolls sideways rather than squeezing its buttons. */
+  .float-toolbar .icon-btn {
+    flex: none;
+  }
+
+  /* The sheet's grab handle reaches up over the canvas edge, so it is easy to catch. */
+  .bottom-sheet__handle {
+    position: relative;
+  }
+
+  .bottom-sheet__handle::before {
+    content: '';
+    position: absolute;
+    inset: -24px 0 0;
+  }
+}
+
+@media (pointer: coarse) and (max-width: 480px) {
+  .float-toolbar {
+    gap: 0;
+    padding: 0 var(--space-1);
+  }
+
+  .float-toolbar__readout {
+    display: none;
+  }
+
+  .float-toolbar__zoom input {
+    width: 64px;
+  }
+}
