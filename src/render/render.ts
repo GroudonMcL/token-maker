@@ -8,7 +8,8 @@ import { hasPopOut, popOutArt } from '../image/popOut';
 import { newCanvas, processedArt } from '../image/processedArt';
 import type { OuterShadow, TokenDocument } from '../document/types';
 import { parseHex, rgba } from './color';
-import { tracePolygon, type Ctx } from './frameKit';
+import { tracePolygon, type Ctx, type FrameGeometry } from './frameKit';
+import type { FrameStyle } from './catalog';
 import { drawBackground } from './background';
 import { drawFrame } from './frames';
 import { drawOverlays } from './overlays';
@@ -40,6 +41,43 @@ export interface RenderOptions {
    * the brush is on, so the art under it can be seen. Editor only.
    */
   frameAlpha?: number;
+}
+
+// Drawn frames, kept so that changing anything else (a slider, the art)
+// doesn't redraw the frame's texture every time (Phase 10). A few recent
+// ones are kept; large ones (exports) are drawn and let go.
+const frameLayers = new Map<string, CanvasImageSource>();
+const MAX_FRAME_LAYERS = 6;
+const MAX_CACHED_SIDE = 2048;
+
+/** The frame drawn on a transparent square layer of `size`, centred. */
+function frameLayer(style: FrameStyle, g: FrameGeometry, size: number): CanvasImageSource {
+  const key = `${style}|${size}|${JSON.stringify(g)}`;
+  const hit = frameLayers.get(key);
+  if (hit) {
+    // Most recently used goes last.
+    frameLayers.delete(key);
+    frameLayers.set(key, hit);
+    return hit;
+  }
+  const cache = size <= MAX_CACHED_SIDE;
+  // Reuse the oldest layer's canvas when it is let go anyway (a Thickness drag
+  // makes a new frame every step), which is much quicker than a new canvas.
+  let layer: ReturnType<typeof newCanvas> | null = null;
+  if (cache && frameLayers.size >= MAX_FRAME_LAYERS) {
+    const oldest = frameLayers.keys().next().value!;
+    const old = frameLayers.get(oldest) as ReturnType<typeof newCanvas>;
+    frameLayers.delete(oldest);
+    if (old.width === size && old.height === size) layer = old;
+  }
+  layer ??= newCanvas(size, size);
+  const lctx = layer.getContext('2d') as Ctx;
+  lctx.setTransform(1, 0, 0, 1, 0, 0);
+  lctx.clearRect(0, 0, size, size);
+  lctx.translate(size / 2, size / 2);
+  drawFrame(lctx, style, g);
+  if (cache) frameLayers.set(key, layer as CanvasImageSource);
+  return layer as CanvasImageSource;
 }
 
 /** Paints `doc` into a `size`×`size` area starting at the context's origin. */
@@ -232,16 +270,15 @@ export function renderToken(ctx: Ctx, doc: TokenDocument, assets: AssetMap, size
     drawImageFrame(fctx, frameImage, R);
     fctx.restore();
   } else if (hasFrame && !imageFrame) {
-    fctx.save();
-    drawFrame(fctx, doc.frame.style, {
+    const geometry: FrameGeometry = {
       shape: doc.shape,
       R,
       outer: insets.frameOuter * R,
       inner: insets.frameInner * R,
       color: doc.frame.color,
       accent: doc.frame.highlightColor ?? undefined,
-    });
-    fctx.restore();
+    };
+    fctx.drawImage(frameLayer(doc.frame.style, geometry, size), -R, -R);
   }
 
   if (layer) {

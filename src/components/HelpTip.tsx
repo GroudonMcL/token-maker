@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from
 import { createPortal } from 'react-dom';
 import { getHelp, type HelpId } from '../help/helpContent';
 import { useMediaQuery } from '../hooks/useMediaQuery';
+import { HelpMedia } from './HelpMedia';
 
 /**
  * The "?" help button (DESIGN.md §11). Hover or keyboard focus opens it on
@@ -17,7 +18,6 @@ export function HelpTip({ id, className }: { id: HelpId; className?: string }) {
   const [pinned, setPinned] = useState(false); // opened by click/tap: stays until dismissed
   const [pos, setPos] = useState<{ top: number; left: number; above: boolean } | null>(null);
   const canHover = useMediaQuery('(hover: hover) and (pointer: fine)');
-  const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
   const closeTimer = useRef<number | undefined>(undefined);
 
   const close = useCallback(() => {
@@ -116,20 +116,7 @@ export function HelpTip({ id, className }: { id: HelpId; className?: string }) {
         >
           <strong className="help-card__title">{entry.title}</strong>
           <span className="help-card__text">{entry.text}</span>
-          {open && media?.kind === 'image' && <img className="help-card__media" src={media.src} alt={media.alt} />}
-          {open && media?.kind === 'video' && (
-            <video
-              className="help-card__media"
-              src={media.src}
-              poster={media.poster}
-              aria-label={media.alt}
-              muted
-              loop
-              playsInline
-              autoPlay={!reducedMotion}
-              controls={reducedMotion}
-            />
-          )}
+          {open && media && <HelpMedia media={media} />}
         </div>,
         document.body,
       )}

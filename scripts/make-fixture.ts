@@ -1,5 +1,5 @@
 // Makes the test pictures used by the end-to-end tests and help images:
-//   e2e/fixtures/goblin-boss.png   a goblin on a sky-and-hill background
+//   e2e/fixtures/goblin-boss.png   a goblin on a sky-and-hill background (also public/sample/goblin.png)
 //   e2e/fixtures/flat-goblin.png   the same goblin on a plain white background
 //   e2e/fixtures/purple-ring.png   a picture frame: a purple ring with a see-through middle
 import { createCanvas, type SKRSContext2D } from '@napi-rs/canvas';
@@ -41,6 +41,8 @@ a.ellipse(300, 820, 420, 220, 0, 0, Math.PI * 2);
 a.fill();
 goblin(a);
 writeFileSync('e2e/fixtures/goblin-boss.png', c.toBuffer('image/png'));
+// The same goblin is the sample picture new visitors can try (Phase 10).
+writeFileSync('public/sample/goblin.png', c.toBuffer('image/png'));
 
 const flat = createCanvas(600, 800);
 const f = flat.getContext('2d');
@@ -65,4 +67,4 @@ for (let i = 0; i < 12; i++) {
   r.fill();
 }
 writeFileSync('e2e/fixtures/purple-ring.png', ring.toBuffer('image/png'));
-console.log('Wrote e2e/fixtures/goblin-boss.png, flat-goblin.png and purple-ring.png');
+console.log('Wrote e2e/fixtures/goblin-boss.png, flat-goblin.png and purple-ring.png, and public/sample/goblin.png');
