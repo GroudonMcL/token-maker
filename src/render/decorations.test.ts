@@ -2,7 +2,7 @@
 // Decorations and picture frames (DESIGN.md §6.9): snapping and mirroring
 // maths, and pixel checks of layers 1, 9 and 11 drawn with @napi-rs/canvas.
 import { createCanvas } from '@napi-rs/canvas';
-import { createDocument, DECORATIONS, newDecoration } from '../document/defaults';
+import { createDocument, DECORATIONS, newDecoration, newPictureDecoration } from '../document/defaults';
 import type { Decoration, ImageFrame, TokenDocument } from '../document/types';
 import { circleHole } from '../image/frameHole';
 import { setCanvasFactory } from '../image/processedArt';
@@ -10,6 +10,7 @@ import { decorationCorners, decorationGeometry, mirrorPlacement, nearestSnap, pl
 import type { Ctx } from './frameKit';
 import { imageClipPolygon } from './geometry';
 import { frameAssetId } from './imageFrames';
+import { pictureAssetId } from './pictureLibrary';
 import { renderToken, type RenderSource } from './render';
 import { shapePolygon } from './shapes';
 
@@ -137,8 +138,20 @@ describe('decoration snapping and mirroring', () => {
   });
 });
 
+/** A picture decoration's picture: a white disc with a dark ring, twice as wide as it is tall. */
+const PICTURE = { type: 'library', id: 'deco-heart' } as const;
+const picture = ((): RenderSource => {
+  const c = make(80, 40);
+  const ctx = c.getContext('2d')!;
+  ctx.fillStyle = '#1a1410';
+  ctx.fillRect(0, 0, 80, 40);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(4, 4, 72, 32);
+  return { image: c, width: 80, height: 40 };
+})();
+
 describe('decorations in the renderer', () => {
-  it.each(DECORATIONS.map((d) => [d.name, d.kind] as const))('%s draws at its snap point, the same every time', (_name, kind) => {
+  it.each(DECORATIONS.filter((d) => d.kind !== 'picture').map((d) => [d.name, d.kind] as const))('%s draws at its snap point, the same every time', (_name, kind) => {
     const doc = plain({ decorations: [{ ...newDecoration(kind, 'd'), place: 'free', x: 0, y: 0, mirror: false, size: 0.6 }] });
     const a = draw(doc);
     const b = draw(doc);
@@ -148,6 +161,22 @@ describe('decorations in the renderer', () => {
     let changed = 0;
     for (let y = 98; y < 158; y += 2) for (let x = 98; x < 158; x += 2) if (a.at(x, y).join() !== empty.at(x, y).join()) changed++;
     expect(changed).toBeGreaterThan(20);
+  });
+
+  it('a picture decoration draws its picture at its own shape, coloured in (dark parts stay dark) or as it is (v8)', () => {
+    const deco = { ...newPictureDecoration(PICTURE, 2, '#ff0000', 'p'), place: 'free' as const, x: 0, y: 0, size: 0.5 };
+    const withPic = (d: Partial<Decoration>) => draw(plain({ decorations: [{ ...deco, ...d }] }), [[pictureAssetId(PICTURE), picture]]);
+    const tinted = withPic({});
+    // 256 px token = 1 square; size 0.5 = a quarter of a square high (64 px), twice as wide.
+    expect(tinted.at(128, 128).slice(0, 3)).toEqual([255, 0, 0]);
+    expect(tinted.at(128 + 55, 128).slice(0, 3)).toEqual([255, 0, 0]);
+    expect(tinted.at(128, 128 + 30)).not.toEqual(tinted.at(128, 128));
+    const own = withPic({ tint: false });
+    expect(own.at(128, 128).slice(0, 3)).toEqual([255, 255, 255]);
+    // Not loaded yet: nothing drawn rather than something wrong.
+    const missing = draw(plain({ decorations: [deco] }));
+    expect(missing.at(128, 128)).toEqual(draw(plain()).at(128, 128));
+    expect(decorationCorners(deco, { x: 0, y: 0, rotation: 0, flip: false, mirrored: false }, 1).map((p) => Math.round(p.x * 100) / 100)).toEqual([-0.5, 0.5, 0.5, -0.5]);
   });
 
   it('mirroring draws a matching copy on the other side; hiding and opacity work', () => {

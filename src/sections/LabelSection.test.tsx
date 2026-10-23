@@ -31,7 +31,7 @@ describe('Label section', () => {
     updateDoc((d) => ({ ...d, label: newLabel() }));
     const { container } = render(<LabelSection />);
     const shapes = within(screen.getByRole('radiogroup', { name: 'Shape' }));
-    expect(shapes.getAllByRole('radio').map((r) => r.textContent)).toEqual(['Banner', 'Plaque', 'Pill', 'Box', 'Ring text']);
+    expect(shapes.getAllByRole('radio').map((r) => r.textContent)).toEqual(['Banner', 'Plaque', 'Pill', 'Box', 'Plain text', 'Ring text']);
     fireEvent.click(shapes.getByRole('radio', { name: 'Ring text' }));
     expect(getDoc().label).toMatchObject({ shape: 'ring', color: RING_TEXT_STYLE.color });
     // No shape behind ring text, so no shape colour; it gets how much of the ring it may cover.

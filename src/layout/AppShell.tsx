@@ -9,6 +9,7 @@ import { watchFrameImages } from '../state/frameLibrary';
 import { watchLabelFonts } from '../fonts/fontLoader';
 import { watchLibraryImages } from '../state/libraryAssets';
 import { watchPictures } from '../state/pictureLibrary';
+import { watchAiRemoval } from '../image/aiRemoval';
 import { preloadSections } from '../sections';
 import { Toasts } from '../ui/Toasts';
 import { AdSlot } from './AdSlot';
@@ -33,6 +34,7 @@ function boot() {
     watchLibraryImages();
     watchFrameImages();
     watchPictures();
+    watchAiRemoval();
     watchLabelFonts();
     preloadSections();
   });

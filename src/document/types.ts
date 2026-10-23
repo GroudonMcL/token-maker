@@ -93,12 +93,11 @@ export interface BackgroundRemoval {
    */
   enclosed: boolean;
   /**
-   * 'colour' removes a flat colour; 'ai' uses the cut-out mask an in-browser
-   * AI model made (v8), kept as an asset.
+   * 'colour' removes a flat colour; 'ai' uses a cut-out mask made in the
+   * browser by an AI model (v8). The mask belongs to the picture, not the
+   * document (src/image/aiRemoval.ts), so it follows each picture in a batch.
    */
   method: 'colour' | 'ai';
-  /** The AI cut-out mask (a greyscale picture the size of the art), or null before it has been made. */
-  aiMask: string | null;
 }
 
 /**

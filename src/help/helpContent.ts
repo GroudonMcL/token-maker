@@ -36,12 +36,12 @@ export const helpContent = {
   },
   'section.image': {
     title: 'Image',
-    text: 'Adjust brightness, contrast and colour, remove a flat background, and fix the edges with the erase/restore brush.',
+    text: 'Adjust brightness, contrast and colour, and fix the edges with the erase/restore brush.',
     media: beforeAfter('section-image', 'the picture gets punchier, warmer colours'),
   },
   'section.background': {
     title: 'Background',
-    text: 'What shows behind your art inside the frame: a colour, a gradient or an image (including a blurred copy of your art).',
+    text: "Remove the picture's own background (by its colour or with AI), then choose what shows behind your art: a colour, a gradient or an image.",
     media: beforeAfter('section-background', 'a forest appears behind the goblin'),
   },
   'section.lighting': {
@@ -56,7 +56,7 @@ export const helpContent = {
   },
   'section.effects': {
     title: 'Effects',
-    text: 'Stack glows, elemental effects, condition looks and atmosphere. Each one can sit behind the art, over it, or on the border.',
+    text: 'Stack glows, elemental effects, condition looks, atmosphere, overlays and pictures. Each one can sit behind the art, over it, or on the border.',
     media: beforeAfter('section-effects', 'fire and embers surround the token'),
   },
   'section.frame': {
@@ -194,8 +194,8 @@ export const helpContent = {
     media: beforeAfter('image-invert', 'every colour swapped for its opposite'),
   },
   'image.removeBg': {
-    title: 'Remove flat background',
-    text: 'Makes a plain background around your character see-through. It works best on pictures with a single-colour background, and the picture itself is never changed.',
+    title: 'Remove background',
+    text: 'Makes the background around your character see-through, by its flat colour or with AI. The picture itself is never changed.',
     media: beforeAfter('image-removeBg', 'the white background becomes see-through'),
   },
   'image.bgColour': {
@@ -207,6 +207,21 @@ export const helpContent = {
     title: 'Intensity',
     text: 'How different a colour can be from the background colour and still be removed. Raise it if bits of background are left; lower it if your character gets eaten away.',
     media: beforeAfter('image-intensity', 'leftover background specks are removed at a higher intensity'),
+  },
+  'image.enclosed': {
+    title: 'Remove enclosed gaps too',
+    text: 'Also removes patches of the background colour that are cut off from the edge, like the gap between an arm and a staff. Turn it off if it eats into a white shield or eyes.',
+    media: beforeAfter('image-enclosed', 'the white gap between the arm and the body is removed too'),
+  },
+  'background.removeMethod': {
+    title: 'How to remove it',
+    text: 'Flat colour removes one plain colour and is instant. AI finds the character on any background, using a model that runs in your browser.',
+    media: beforeAfter('background-removeMethod', 'a busy background is cut away by the AI'),
+  },
+  'background.aiRemove': {
+    title: 'AI cut-out',
+    text: 'An AI model finds your character and hides everything else. It downloads once (about 115 MB) and runs on this device, so your picture is never uploaded.',
+    media: beforeAfter('background-aiRemove', 'the character is cut out from a busy background'),
   },
   'image.softness': {
     title: 'Edge softness',

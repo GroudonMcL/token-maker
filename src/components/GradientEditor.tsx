@@ -2,7 +2,6 @@ import { Plus, X } from 'lucide-react';
 import type { Gradient, GradientStop } from '../document/types';
 import type { HelpId } from '../help/helpContent';
 import { mix } from '../render/color';
-import { gradientCss } from './gradientCss';
 import { Advanced } from './Section';
 import { ColorSwatches } from './ColorSwatches';
 import { SegmentedButtons } from './SegmentedButtons';
@@ -45,7 +44,6 @@ export function GradientEditor({
   };
   return (
     <div className="gradient-editor">
-      <span className="gradient-editor__preview" style={{ background: gradientCss(g) }} aria-hidden="true" />
       <SegmentedButtons
         label="Gradient type"
         helpId={helpIds.type}

@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
+import { useStore } from 'zustand';
 import { ColorSwatches, HelpTip, ImageStrip, SegmentedButtons, Section, Slider, TileGrid, Toggle } from '.';
 import { createHistoryStore } from '../state/history';
 
@@ -52,6 +53,25 @@ describe('Slider', () => {
   it('marks the default value with a notch, and has no "?" button of its own', () => {
     const { container } = render(<Slider label="Hue" helpId="kit.slider" min={0} max={10} value={7} defaultValue={5} onChange={() => {}} />);
     expect(container.querySelector('.slider__notch')).toHaveStyle({ left: 'calc(var(--thumb) / 2 + (100% - var(--thumb)) * 0.5)' });
+    // Its only button is the reset button.
+    expect(screen.getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual(['Reset Hue']);
+  });
+
+  it('has a reset button that puts the default back as one undo step, and is off at the default', async () => {
+    const store = createHistoryStore(7);
+    const Wired = () => {
+      const v = useStore(store, (s) => s.present);
+      return <Slider label="Hue" helpId="kit.slider" min={0} max={10} value={v} defaultValue={5} onChange={(x) => store.getState().set(x, { transient: true })} onCommit={() => store.getState().commit()} />;
+    };
+    render(<Wired />);
+    await userEvent.click(screen.getByRole('button', { name: 'Reset Hue' }));
+    expect(store.getState().present).toBe(5);
+    expect(store.getState().past).toEqual([7]);
+    expect(screen.getByRole('button', { name: 'Reset Hue' })).toBeDisabled();
+  });
+
+  it('has no reset button without a default value', () => {
+    render(<Slider label="Hue" helpId="kit.slider" min={0} max={10} value={7} onChange={() => {}} />);
     expect(screen.queryByRole('button')).toBeNull();
   });
 });

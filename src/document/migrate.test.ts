@@ -64,7 +64,8 @@ describe('migrateDocument', () => {
     expect(doc.art.assetId).toBe('asset:1');
     expect(doc.art.transform.zoom).toBe(2);
     expect(doc.art.adjust).toEqual(createDocument().art.adjust);
-    expect(doc.art.removal).toEqual({ enabled: false, color: null, intensity: 20, softness: 15 });
+    // Old removal only took the background joined to the edge, so enclosed gaps stay (v8).
+    expect(doc.art.removal).toEqual({ enabled: false, color: null, intensity: 20, softness: 15, enclosed: false, method: 'colour' });
     expect(doc.art.strokes).toEqual([]);
   });
 
@@ -75,14 +76,15 @@ describe('migrateDocument', () => {
     const base = createDocument().lighting;
     expect(doc.lighting).toEqual({ ...base, direction: 300, rim: { ...base.rim, softness: 0 } });
     expect(doc.background).toEqual(createDocument().background);
-    expect(doc.foreground).toEqual([]);
+    expect(doc.effects).toEqual([]);
+    expect(doc).not.toHaveProperty('foreground');
   });
 
-  it('checks backgrounds, overlays and lighting', () => {
+  it('checks backgrounds, overlay effects and lighting', () => {
     const doc = migrateDocument({
       schemaVersion: SCHEMA_VERSION,
       background: { kind: 'image', image: { type: 'library', id: 'forest' }, blur: 500, zoom: 0, gradient: { stops: [{ offset: 2, color: 'red' }] } },
-      foreground: [{ kind: 'vignette', blend: 'darken', opacity: 2, id: 'v' }, { kind: 'lasers' }, 'junk'],
+      effects: [{ kind: 'vignette', blend: 'darken', intensity: 200, blur: 9, id: 'v' }, { kind: 'lasers' }, 'junk'],
       lighting: { enabled: true, preset: 'disco', strength: 300, rim: { enabled: true } },
     });
     expect(doc.background.kind).toBe('image');
@@ -90,9 +92,8 @@ describe('migrateDocument', () => {
     expect(doc.background.blur).toBe(100);
     expect(doc.background.zoom).toBe(0.2);
     expect(doc.background.gradient.stops.length).toBeGreaterThanOrEqual(2); // one stop isn't a gradient: defaults used
-    expect(doc.foreground).toHaveLength(2);
-    expect(doc.foreground[0]).toMatchObject({ id: 'v', kind: 'vignette', blend: 'multiply', opacity: 1 });
-    expect(doc.foreground[1]!.kind).toBe('vignette'); // unknown kinds become a vignette rather than vanishing
+    expect(doc.effects).toHaveLength(1); // unknown kinds are dropped
+    expect(doc.effects[0]).toMatchObject({ id: 'v', kind: 'vignette', blend: 'multiply', intensity: 100, blur: 1 });
     expect(doc.lighting).toMatchObject({ enabled: true, preset: null, strength: 100, rim: { enabled: true, strength: 60, width: 30 } });
   });
 
@@ -110,7 +111,7 @@ describe('migrateDocument', () => {
       },
     });
     expect(doc.art.adjust).toMatchObject({ brightness: 100, hue: -180, blur: 0, invert: false, sepia: 40 });
-    expect(doc.art.removal).toEqual({ enabled: true, color: null, intensity: 30, softness: 15 });
+    expect(doc.art.removal).toEqual({ enabled: true, color: null, intensity: 30, softness: 15, enclosed: true, method: 'colour' });
     expect(doc.art.strokes).toEqual([
       { mode: 'restore', size: 0.1, softness: 0.2, points: [0.5, 0.5, 1, 0.6, 0.6, 1] },
       { mode: 'erase', size: 0.05, softness: 0.5, points: [0.1, 0.1, 1] },
@@ -166,11 +167,11 @@ describe('migrateDocument', () => {
         { id: 'b', kind: 'dragonfire' },
         { kind: 'mist', placement: 'sideways' },
         'nope',
-        ...Array.from({ length: 20 }, (_, i) => ({ id: `n${i}`, kind: 'embers' })),
+        ...Array.from({ length: 30 }, (_, i) => ({ id: `n${i}`, kind: 'embers' })),
       ],
     });
     expect(doc.effects).toHaveLength(MAX_EFFECTS);
-    expect(doc.effects[0]).toEqual({ id: 'a', kind: 'frost', placement: 'border', intensity: 100, color: '#bfe8ff', size: 1, spread: 0, seed: 7, visible: false });
+    expect(doc.effects[0]).toEqual({ ...newEffect('frost', 'a'), placement: 'border', intensity: 100, color: '#bfe8ff', size: 1, spread: 0, seed: 7, visible: false });
     expect(doc.effects[1]).toMatchObject({ kind: 'mist', placement: newEffect('mist').placement, visible: true });
     expect(doc.effects[1]!.id).toMatch(/^effect-/);
   });
@@ -260,5 +261,53 @@ describe('migrateDocument', () => {
     expect(bad.outline).toEqual({ width: 0.2, color: '#abcdef' });
     expect(bad.shadow).toEqual({ ...d.shadow, blur: 0.5 });
     expect(migrateDocument({ ...base, label: 'Orc' }).label).toBeNull();
+  });
+
+  it('upgrades a version 7 document: foreground overlays become effects over the art, below the old effects (v8)', () => {
+    const v7 = {
+      ...JSON.parse(JSON.stringify(createDocument('Orc'))),
+      schemaVersion: 7,
+      art: { ...createDocument().art, removal: { enabled: true, color: null, intensity: 30, softness: 10 } },
+      foreground: [
+        { id: 'v', kind: 'vignette', visible: true, opacity: 0.5, blend: 'multiply', color: '#112233', size: 60, softness: 20, angle: 90, scale: 100, seed: 3 },
+        { id: 's', kind: 'shadow', visible: false, opacity: 1, blend: 'normal', color: '#000000', size: 40, softness: 70, angle: 270, scale: 200, seed: 1 },
+        { id: 'm', kind: 'mist', opacity: 0.7 },
+      ],
+      effects: [{ id: 'f', kind: 'fire', placement: 'border', intensity: 90 }],
+    };
+    delete v7.art.removal.enclosed;
+    const doc = migrateDocument(v7);
+    expect(doc).not.toHaveProperty('foreground');
+    expect(doc.effects.map((e) => [e.id, e.kind, e.placement])).toEqual([
+      ['v', 'vignette', 'over'],
+      ['s', 'edgeShadow', 'over'],
+      ['m', 'mist', 'over'],
+      ['f', 'fire', 'border'],
+    ]);
+    expect(doc.effects[0]).toMatchObject({ intensity: 50, blend: 'multiply', color: '#112233', spread: 60, softness: 20, seed: 3, size: 0.3 });
+    expect(doc.effects[1]).toMatchObject({ visible: false, angle: 270, size: 0.6 });
+    expect(doc.effects[3]).toMatchObject({ blur: 0, blend: 'normal' });
+    // Old removal only took the background joined to the edge.
+    expect(doc.art.removal).toMatchObject({ enabled: true, enclosed: false, method: 'colour' });
+  });
+
+  it('keeps picture effects and decorations only with a picture, and checks label anchors (v8)', () => {
+    const base = createDocument('Orc');
+    const doc = migrateDocument(
+      JSON.parse(
+        JSON.stringify({
+          ...base,
+          effects: [{ kind: 'picture', image: { type: 'library', id: 'fx-twinkles' }, layout: 'fill', tint: false }, { kind: 'picture' }, { kind: 'picture', image: { type: 'web', id: 'x' } }],
+          decorations: [{ kind: 'picture', image: { type: 'upload', id: 'abc-1' }, aspect: 2 }, { kind: 'picture', image: null }],
+          label: { ...newLabel(), place: 'free', anchor: 'topLeft', rotation: 30, shape: 'plain' },
+        }),
+      ),
+    );
+    expect(doc.effects).toHaveLength(1);
+    expect(doc.effects[0]).toMatchObject({ kind: 'picture', image: { type: 'library', id: 'fx-twinkles' }, layout: 'fill', tint: false });
+    expect(doc.decorations).toHaveLength(1);
+    expect(doc.decorations[0]).toMatchObject({ kind: 'picture', image: { type: 'upload', id: 'abc-1' }, aspect: 2, tint: false });
+    expect(doc.label).toMatchObject({ anchor: 'topLeft', rotation: 30, shape: 'plain' });
+    expect(migrateDocument({ ...base, label: { ...newLabel(), anchor: 'middle' } }).label!.anchor).toBe('center');
   });
 });

@@ -35,9 +35,7 @@ function ShapeIcon({ shape }: { shape: LabelShape }) {
       {shape === 'pill' && <rect x="5" y="15" width="34" height="14" rx="7" {...common} />}
       {shape === 'box' && <rect x="5" y="15" width="34" height="14" rx="3" {...common} />}
       {shape === 'plain' && (
-        <text x="22" y="28" textAnchor="middle" fontSize="15" fontWeight="700" fill="currentColor" fontFamily="serif">
-          Aa
-        </text>
+        <path d="M11 13 h22 v5 h-8.5 v14 h-5 v-14 h-8.5 z" fill="currentColor" />
       )}
       {shape === 'ring' && (
         <>

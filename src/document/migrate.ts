@@ -437,7 +437,6 @@ export function sanitize(raw: Json): TokenDocument {
         softness: num(removal.softness, d.art.removal.softness, 0, 100),
         enclosed: bool(removal.enclosed, d.art.removal.enclosed),
         method: oneOf(removal.method, ['colour', 'ai'] as const, d.art.removal.method),
-        aiMask: typeof removal.aiMask === 'string' ? removal.aiMask : null,
       },
       strokes: strokes(art.strokes),
       popOut: { enabled: bool(popOut.enabled, d.art.popOut.enabled), strokes: popOutStrokes(popOut.strokes) },

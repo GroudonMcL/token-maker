@@ -11,15 +11,31 @@
 import type { ArtLayer, TokenDocument } from '../document/types';
 import { parseHex } from '../render/color';
 import { adjustColours, hasColourAdjustments, type PixelBuffer } from './adjust';
-import { blurImage, sharpenImage } from './filters';
+import { blurImage, blurMask, sharpenImage } from './filters';
 import { removalMask, type Rgb } from './removal';
 import { applyLighting, artLight, type ArtLight } from './lighting';
 import { applyStrokes } from './strokes';
 
+/** An AI cut-out mask for the picture (v8): 255 = keep, at its own size. `id` changes whenever the mask does. */
+export interface AiMask {
+  id: number;
+  data: Uint8Array;
+  width: number;
+  height: number;
+}
+
 export type ArtEdits = Pick<ArtLayer, 'adjust' | 'removal' | 'strokes'> & {
   /** Lighting (Phase 4), already turned into the picture's own coordinates. */
   light?: ArtLight | null;
+  /** The picture's AI cut-out mask, when AI removal is on and the mask is ready (v8). */
+  aiMask?: AiMask | null;
 };
+
+/** Finds a picture's AI mask by its asset id; set by src/image/aiRemoval.ts (kept out of here so the worker never loads it). */
+let findAiMask: (assetId: string) => AiMask | null = () => null;
+export function setAiMaskLookup(find: (assetId: string) => AiMask | null): void {
+  findAiMask = find;
+}
 
 const lightKeys = new Map<string, ArtLight>();
 const editsByDoc = new WeakMap<TokenDocument, ArtEdits>();
@@ -30,8 +46,11 @@ const editsByDoc = new WeakMap<TokenDocument, ArtEdits>();
  * reused while the light is unchanged, so caches can compare by identity.
  */
 export function artEdits(doc: TokenDocument): ArtEdits {
+  const r = doc.art.removal;
+  const aiMask = r.enabled && r.method === 'ai' && doc.art.assetId ? findAiMask(doc.art.assetId) : null;
   let e = editsByDoc.get(doc);
-  if (e) return e;
+  // The same document gets new edits when its AI mask arrives.
+  if (e && (e.aiMask ?? null) === aiMask) return e;
   let light = artLight(doc.lighting, doc.art.transform);
   if (light) {
     const k = JSON.stringify(light);
@@ -42,7 +61,7 @@ export function artEdits(doc: TokenDocument): ArtEdits {
       lightKeys.set(k, light);
     }
   }
-  e = { adjust: doc.art.adjust, removal: doc.art.removal, strokes: doc.art.strokes, light };
+  e = { adjust: doc.art.adjust, removal: doc.art.removal, strokes: doc.art.strokes, light, aiMask };
   editsByDoc.set(doc, e);
   return e;
 }
@@ -60,14 +79,18 @@ export function isUnedited(e: ArtEdits): boolean {
 
 export const hasMask = (e: ArtEdits) => e.removal.enabled || e.strokes.length > 0;
 
-let lastKey: { adjust: unknown; removal: unknown; strokes: unknown; light: unknown; key: string } | null = null;
+let lastKey: { adjust: unknown; removal: unknown; strokes: unknown; light: unknown; ai: unknown; key: string } | null = null;
+
+/** The removal settings that change the keep-mask, with the AI mask's id when it is used. */
+const removalKey = (e: ArtEdits) => JSON.stringify(e.removal.enabled ? [e.removal, e.removal.method === 'ai' ? (e.aiMask?.id ?? 0) : 0] : 0);
 
 /** A text key for exactly the inputs that change the result (remembered, as strokes can be long). */
 export function editsKey(e: ArtEdits): string {
   const light = e.light ?? null;
-  if (lastKey && lastKey.adjust === e.adjust && lastKey.removal === e.removal && lastKey.strokes === e.strokes && lastKey.light === light) return lastKey.key;
-  const key = JSON.stringify([e.adjust, e.removal.enabled ? e.removal : 0, e.strokes, light]);
-  lastKey = { adjust: e.adjust, removal: e.removal, strokes: e.strokes, light, key };
+  const ai = e.aiMask ?? null;
+  if (lastKey && lastKey.adjust === e.adjust && lastKey.removal === e.removal && lastKey.strokes === e.strokes && lastKey.light === light && lastKey.ai === ai) return lastKey.key;
+  const key = JSON.stringify([e.adjust, removalKey(e), e.strokes, light]);
+  lastKey = { adjust: e.adjust, removal: e.removal, strokes: e.strokes, light, ai, key };
   return key;
 }
 
@@ -94,11 +117,14 @@ const removalColor = (hex: string | null): Rgb | null => {
 function keepMask(src: PixelBuffer, e: ArtEdits, cache: ProcessCache): Uint8Array | null {
   if (!hasMask(e)) return null;
   const { width: w, height: h } = src;
-  const autoKey = JSON.stringify(e.removal.enabled ? e.removal : 0);
+  const autoKey = removalKey(e);
   if (cache.autoKey !== autoKey || !cache.auto) {
-    cache.auto = e.removal.enabled
-      ? removalMask(src, { color: removalColor(e.removal.color), intensity: e.removal.intensity, softness: e.removal.softness })
-      : new Uint8Array(w * h).fill(255);
+    const r = e.removal;
+    cache.auto = !r.enabled
+      ? new Uint8Array(w * h).fill(255)
+      : r.method === 'ai'
+        ? aiKeepMask(e.aiMask ?? null, w, h, r.softness)
+        : removalMask(src, { color: removalColor(r.color), intensity: r.intensity, softness: r.softness, enclosed: r.enclosed });
     cache.autoKey = autoKey;
     cache.maskKey = undefined;
   }
@@ -121,6 +147,34 @@ function keepMask(src: PixelBuffer, e: ArtEdits, cache: ProcessCache): Uint8Arra
   cache.mask = mask;
   cache.maskKey = maskKey;
   return mask;
+}
+
+/**
+ * The AI mask stretched to the picture's working size (nothing is removed
+ * while it's still being made), with the same Edge softness as flat-colour removal.
+ */
+export function aiKeepMask(ai: AiMask | null, w: number, h: number, softness: number): Uint8Array {
+  const out = new Uint8Array(w * h).fill(255);
+  if (!ai || !ai.width || !ai.height) return out;
+  const sx = ai.width / w;
+  const sy = ai.height / h;
+  for (let y = 0; y < h; y++) {
+    const fy = Math.min(ai.height - 1, Math.max(0, (y + 0.5) * sy - 0.5));
+    const y0 = Math.floor(fy);
+    const y1 = Math.min(ai.height - 1, y0 + 1);
+    const ty = fy - y0;
+    for (let x = 0; x < w; x++) {
+      const fx = Math.min(ai.width - 1, Math.max(0, (x + 0.5) * sx - 0.5));
+      const x0 = Math.floor(fx);
+      const x1 = Math.min(ai.width - 1, x0 + 1);
+      const tx = fx - x0;
+      const a = ai.data[y0 * ai.width + x0]! * (1 - tx) + ai.data[y0 * ai.width + x1]! * tx;
+      const b = ai.data[y1 * ai.width + x0]! * (1 - tx) + ai.data[y1 * ai.width + x1]! * tx;
+      out[y * w + x] = Math.round(a * (1 - ty) + b * ty);
+    }
+  }
+  blurMask(out, w, h, (softness / 100) * Math.max(2, 0.006 * Math.max(w, h)));
+  return out;
 }
 
 /** Runs the whole pipeline. `src` is never changed. */

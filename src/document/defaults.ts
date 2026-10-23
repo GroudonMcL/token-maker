@@ -63,7 +63,7 @@ export const DEFAULT_ADJUST: ImageAdjustments = {
   invert: false,
 };
 
-export const DEFAULT_REMOVAL: BackgroundRemoval = { enabled: false, color: null, intensity: 20, softness: 15, enclosed: true, method: 'colour', aiMask: null };
+export const DEFAULT_REMOVAL: BackgroundRemoval = { enabled: false, color: null, intensity: 20, softness: 15, enclosed: true, method: 'colour' };
 
 // The extension's Stamped band: 0.14 thick with 0.1 around it for the shadow.
 const OUTER_SHADOW: OuterShadow = {

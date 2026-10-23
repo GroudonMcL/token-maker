@@ -4,7 +4,7 @@ import { AppShell } from './AppShell';
 import { SECTIONS } from './sections';
 
 describe('AppShell (desktop)', () => {
-  it('shows the panel sections in the DESIGN.md §8 order', () => {
+  it('shows the panel sections in the order the owner asked for', () => {
     render(<AppShell />);
     const panel = screen.getByRole('complementary', { name: 'Token settings' });
     const titles = within(panel)
@@ -16,11 +16,10 @@ describe('AppShell (desktop)', () => {
       'Import',
       'Image',
       'Background',
-      'Foreground',
-      'Lighting & shadows',
-      'Pop-out',
-      'Effects',
       'Frame & shape',
+      'Pop-out',
+      'Lighting & shadows',
+      'Effects',
       'Decorations',
       'Size',
       'Label',

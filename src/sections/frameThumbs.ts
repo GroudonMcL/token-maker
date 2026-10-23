@@ -20,12 +20,12 @@ export function frameThumbnails(shape: ShapeId, px = 96): Map<string, string> {
   const key = `${shape}|${px}`;
   const hit = cache.get(key);
   if (hit) return hit;
-  const art = sampleArt(makeCanvas, 128);
-  const assets = new Map([['asset:sample', art]]);
   const out = new Map<string, string>();
   const canvas = makeCanvas(px, px);
   const ctx = canvas.getContext('2d');
   if (!ctx) return out; // no canvas (tests): tiles show without pictures
+  const art = sampleArt(makeCanvas, 128);
+  const assets = new Map([['asset:sample', art]]);
   for (const p of FRAME_PRESETS) {
     const doc = createDocument();
     doc.shape = shape;

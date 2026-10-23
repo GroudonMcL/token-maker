@@ -16,6 +16,7 @@ import { getAssets } from '../state/assets';
 import { loadFrameImage } from '../state/frameLibrary';
 import { ensureLibraryImages } from '../state/libraryAssets';
 import { ensurePictures } from '../state/pictureLibrary';
+import { ensureAiMask } from '../image/aiRemoval';
 import { render, type AssetMap } from '../render/render';
 import { FORMATS, finalSize, type ExportFormat } from './formats';
 
@@ -30,6 +31,7 @@ export interface ExportOptions {
 
 /** Loads everything the renderer needs at full quality: art, background and frame pictures, the label's font. */
 export async function prepareForExport(doc: TokenDocument, assets: AssetMap): Promise<AssetMap> {
+  await ensureAiMask(doc); // an AI cut-out, made for this picture if it hasn't been yet
   await prepareArt(doc, assets); // full-size processed art, usually ready already
   await ensureLibraryImages(doc); // a built-in background picture, usually loaded already
   if (doc.frame.kind === 'image' && doc.frame.image) await loadFrameImage(doc.frame.image.source).catch((e) => console.warn(e)); // the picture frame

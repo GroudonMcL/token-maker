@@ -1,15 +1,9 @@
-import { Brush, Eraser, Pipette, RotateCcw, Sparkles, Undo2 } from 'lucide-react';
-import { useMemo } from 'react';
-import { useStore } from 'zustand';
+import { Brush, Eraser, RotateCcw, Undo2 } from 'lucide-react';
 import { Advanced, ControlLabel, SegmentedButtons, Slider, Toggle } from '../components';
-import { DEFAULT_ADJUST, DEFAULT_REMOVAL } from '../document/defaults';
-import type { BackgroundRemoval, ImageAdjustments } from '../document/types';
+import { DEFAULT_ADJUST } from '../document/defaults';
+import type { ImageAdjustments } from '../document/types';
 import { BRUSH_MAX, BRUSH_MIN, DEFAULTS as TOOL_DEFAULTS, setBrush, setTool, useTool } from '../editor/tools';
 import type { HelpId } from '../help/helpContent';
-import { DRAFT_SIDE, sourcePixels } from '../image/processedArt';
-import { detectEdgeColor } from '../image/removal';
-import { toHex } from '../render/color';
-import { assetStore } from '../state/assets';
 import { commitDoc, updateDoc, useDoc } from '../state/tokenStore';
 
 type NumberKey = Exclude<keyof ImageAdjustments, 'invert'>;
@@ -66,9 +60,6 @@ const GROUPS: { title: string; items: AdjustDef[] }[] = [
 const setAdjust = (patch: Partial<ImageAdjustments>, transient = false) =>
   updateDoc((d) => ({ ...d, art: { ...d.art, adjust: { ...d.art.adjust, ...patch } } }), { transient });
 
-const setRemoval = (patch: Partial<BackgroundRemoval>, transient = false) =>
-  updateDoc((d) => ({ ...d, art: { ...d.art, removal: { ...d.art.removal, ...patch } } }), { transient });
-
 function AdjustSlider({ def, value }: { def: AdjustDef; value: number }) {
   return (
     <Slider
@@ -85,14 +76,13 @@ function AdjustSlider({ def, value }: { def: AdjustDef; value: number }) {
   );
 }
 
-/** Image section (DESIGN.md §6.2): adjustments, flat background removal and the erase/restore brush. */
+/** Image section (DESIGN.md §6.2): adjustments and the erase/restore brush. Background removal is in the Background section (v8). */
 export function ImageSection() {
   const hasArt = useDoc((d) => d.art.assetId !== null);
-  if (!hasArt) return <p className="control__hint">Add an image first, then adjust it and remove its background here.</p>;
+  if (!hasArt) return <p className="control__hint">Add an image first, then adjust it and tidy it with the brush here.</p>;
   return (
     <>
       <Adjustments />
-      <BackgroundRemovalControls />
       <BrushControls />
     </>
   );
@@ -122,75 +112,6 @@ function Adjustments() {
         Reset adjustments
       </button>
     </>
-  );
-}
-
-function BackgroundRemovalControls() {
-  const removal = useDoc((d) => d.art.removal);
-  const assetId = useDoc((d) => d.art.assetId);
-  const art = useStore(assetStore, (s) => (assetId ? s.assets.get(assetId) : undefined));
-  const tool = useTool((s) => s.tool);
-  const detected = useMemo(() => {
-    if (!art) return null;
-    const [r, g, b] = detectEdgeColor(sourcePixels(art, DRAFT_SIDE));
-    return toHex({ r, g, b });
-  }, [art]);
-  const colour = removal.color ?? detected ?? '#ffffff';
-
-  return (
-    <div className="control-group">
-      <h4 className="control-group__title">Background removal</h4>
-      <Toggle label="Remove flat background" helpId="image.removeBg" checked={removal.enabled} onChange={(v) => setRemoval({ enabled: v })} />
-      {removal.enabled && (
-        <>
-          <div className="control" data-control="bg-colour" data-help-id="image.bgColour">
-            <ControlLabel label="Background colour" helpId="image.bgColour" />
-            <div className="bg-colour">
-              <span className="bg-colour__swatch" style={{ background: colour }} aria-hidden="true" />
-              <span className="bg-colour__text">
-                {removal.color ? 'Picked' : 'Found from the edges'}
-                <code>{colour}</code>
-              </span>
-            </div>
-            <div className="button-row">
-              <button
-                type="button"
-                className="btn"
-                aria-pressed={tool === 'eyedropper'}
-                onClick={() => setTool(tool === 'eyedropper' ? 'move' : 'eyedropper')}
-              >
-                <Pipette size={16} aria-hidden="true" />
-                {tool === 'eyedropper' ? 'Tap the picture…' : 'Pick colour'}
-              </button>
-              <button type="button" className="btn" disabled={!removal.color} onClick={() => setRemoval({ color: null })}>
-                <Sparkles size={16} aria-hidden="true" />
-                Auto
-              </button>
-            </div>
-          </div>
-          <Slider
-            label="Intensity"
-            helpId="image.intensity"
-            defaultValue={DEFAULT_REMOVAL.intensity}
-            min={0}
-            max={100}
-            value={removal.intensity}
-            onChange={(v) => setRemoval({ intensity: v }, true)}
-            onCommit={commitDoc}
-          />
-          <Slider
-            label="Edge softness"
-            helpId="image.softness"
-            defaultValue={DEFAULT_REMOVAL.softness}
-            min={0}
-            max={100}
-            value={removal.softness}
-            onChange={(v) => setRemoval({ softness: v }, true)}
-            onCommit={commitDoc}
-          />
-        </>
-      )}
-    </div>
   );
 }
 

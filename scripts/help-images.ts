@@ -42,6 +42,29 @@ async function crop(c: Crop, noise = 0): Promise<PixelBuffer> {
   return { data: new Uint8ClampedArray(data), width: T, height: T };
 }
 
+/** A figure holding a hoop on a white background: the white inside the hoop is cut off from the edge. */
+function ringFigure(): PixelBuffer {
+  const c = createCanvas(T, T);
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, T, T);
+  ctx.fillStyle = '#5e8a3a';
+  ctx.beginPath();
+  ctx.ellipse(110, 80, 42, 48, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#7a2e2e';
+  ctx.fillRect(70, 120, 80, 120);
+  // An arm bent round to the hip, leaving a closed gap of background.
+  ctx.strokeStyle = '#5e8a3a';
+  ctx.lineWidth = 16;
+  ctx.beginPath();
+  ctx.moveTo(150, 135);
+  ctx.quadraticCurveTo(225, 165, 150, 205);
+  ctx.stroke();
+  const data = ctx.getImageData(0, 0, T, T).data;
+  return { data: new Uint8ClampedArray(data), width: T, height: T };
+}
+
 const edits = (adjust: Partial<ImageAdjustments> = {}, more: Partial<ArtEdits> = {}): ArtEdits => ({
   adjust: { ...DEFAULT_ADJUST, ...adjust },
   removal: { ...DEFAULT_REMOVAL },
@@ -124,7 +147,8 @@ function tokenWith(art: RenderSource, effects: Partial<EffectLayer>[], patch: Pa
 
 function effectPictures(art: RenderSource) {
   const fx = (e: Partial<EffectLayer>[]) => tokenWith(art, e);
-  for (const info of EFFECTS) save(`effect-${info.kind}`, fx([]), fx([{ kind: info.kind }]));
+  // Picture effects need their pictures: help-token-pictures.ts draws that one.
+  for (const info of EFFECTS) if (info.kind !== 'picture') save(`effect-${info.kind}`, fx([]), fx([{ kind: info.kind }]));
   save('effects-add', fx([]), fx([{ kind: 'frost' }, { kind: 'mist' }, { kind: 'bloodied' }]));
   save('effects-placement', fx([{ kind: 'outerGlow', color: '#ffd76a' }]), fx([{ kind: 'outerGlow', color: '#ffd76a', placement: 'behind' }]));
   save('effects-intensity', fx([{ kind: 'fire', intensity: 30 }]), fx([{ kind: 'fire', intensity: 100 }]));
@@ -143,6 +167,7 @@ async function main() {
   const flat = await crop(FLAT);
   const noisy = await crop(FLAT, 14);
   const ear = await crop(EAR);
+  const enclosed = ringFigure();
   const pair = (name: string, src: PixelBuffer, e: ArtEdits) => save(name, half(src), half(run(src, e)));
 
   pair('image-brightness', head, edits({ brightness: 45 }));
@@ -167,6 +192,7 @@ async function main() {
   pair('image-removeBg', flat, edits({}, { removal: removal() }));
   pair('image-bgColour', flat, edits({}, { removal: removal() }));
   save('image-intensity', half(run(noisy, edits({}, { removal: removal({ intensity: 2, softness: 0 }) }))), half(run(noisy, edits({}, { removal: removal({ intensity: 25, softness: 0 }) }))));
+  save('image-enclosed', half(run(enclosed, edits({}, { removal: removal({ enclosed: false, softness: 0 }) }))), half(run(enclosed, edits({}, { removal: removal({ enclosed: true, softness: 0 }) }))));
   save('image-softness', half(run(ear, edits({}, { removal: removal({ softness: 0 }) }))), half(run(ear, edits({}, { removal: removal({ softness: 100 }) }))));
 
   const removed = edits({}, { removal: removal() });
