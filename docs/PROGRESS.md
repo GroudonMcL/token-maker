@@ -106,16 +106,17 @@ A checklist of build phases, following [`BUILD-PROMPTS.md`](BUILD-PROMPTS.md). D
   - [x] Tests: every resolution matches the renderer pixel for pixel, JPG fill and see-through PNG/WebP, format fallback, file naming and clashes, ZIP contents, batch style sharing / per-picture crop / undo across switches / labels / remove, batch autosave, the Export panel; Playwright six goblins → style → nudge crops → rename → ZIP of six named tokens (survives a reload), every format and resolution vs the preview, custom size, file name, and copy to clipboard, on desktop, tablet and phone
   - **Done when:** six goblin images share one style, each with its own crop, downloaded as a ZIP of six named tokens ✔
 
-- [ ] **Phase 10 — Polish, help content and launch**
-  - [ ] Every help tip has clear text and a small before/after image or clip (reduced motion respected)
-  - [ ] Phone pass (nothing cramped or slow, 44 px targets)
-  - [ ] Accessibility pass (keyboard, focus, screen-reader labels, contrast in both themes)
-  - [ ] Performance: fast first load (lazy-loading), smooth sliders on a mid-range phone
-  - [ ] First-time experience with a sample image to try
-  - [ ] Final About page (credits from ASSETS-CREDITS.md) and Privacy page
-  - [ ] Ad slot present but off
-  - [ ] Final README with a "Future features" section from DESIGN.md §15
-  - [ ] All tests pass; a short checklist for the owner to try before sharing
+- [ ] **Phase 10 — Polish, help content and launch** (everything built and tested; ticks when the site is live)
+  - [x] Every help tip has clear text and a before/after picture (all 209, drawn by the real renderer with `npm run help-images`, alt text on each); a clip would wait for a click with reduced motion on
+  - [x] Phone pass: every control at least 44 px to touch, checked in every tab; the token moves above a half-open sheet
+  - [x] Accessibility pass: axe finds nothing in both themes on desktop, tablet and phone (editor with every section open, About, Privacy, UI kit); focus ring at every Tab stop; styling by keyboard alone; contrast test in both themes
+  - [x] Performance: sections and pages lazy-loaded (first-load JS 179 → 162 KB gzipped); frames cached in the renderer; lower-density preview while dragging; smooth-slider test on a 4× slowed phone
+  - [x] First-time experience: welcome card on the empty token with Upload image, **Try a sample** and three steps
+  - [x] Final About page (credits read from ASSETS-CREDITS.md) and Privacy page
+  - [x] Ad slot present but off (`VITE_FEATURE_ADS`, checked by the shell test)
+  - [x] Final README with what the site does, a checklist for the owner and a "Future features" section from DESIGN.md §15
+  - [x] All tests pass (unit, end-to-end on desktop, tablet and phone, typecheck, lint, build)
+  - [ ] **Owner:** merge to `main`, check the Cloudflare Pages deployment, and go through README §6 on the live site
   - **Done when:** all tests pass and the site is live on Cloudflare Pages
 
 ## Later (not phases yet)

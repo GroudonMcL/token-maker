@@ -1,24 +1,58 @@
+import { Link } from '../components/Link';
 import { PageLayout } from './PageLayout';
 
-/** Placeholder Privacy page (DESIGN.md §13). */
+/** Privacy page (DESIGN.md §13). */
 export function PrivacyPage() {
   return (
     <PageLayout title="Privacy">
       <p>
-        Your images are processed in your browser, on your own device. They are not uploaded to our server or stored by
-        us.
+        <strong>In short:</strong> your pictures stay on your device, there are no accounts, no analytics, no cookies
+        and no adverts.
+      </p>
+
+      <h2>Your pictures</h2>
+      <p>
+        Pictures you upload, drop or paste are opened and edited in your browser, on your own device. They are never
+        sent to our server, and the tokens you make are saved straight from your browser.
+      </p>
+
+      <h2>Web addresses and Pinterest links</h2>
+      <p>
+        When you paste a link, our small server (running on Cloudflare) fetches that web page or picture for you, because
+        most sites don’t let one website read another’s pictures directly. It passes the picture or the list of pictures
+        on the page straight back to your browser and keeps no copy. To stop misuse, it counts how many requests come
+        from each internet address for one minute, in memory only, and refuses private or local addresses.
       </p>
       <p>
-        When you paste a web address or a Pinterest link, our server fetches that page or image for you and passes it
-        straight back to your browser. It does not keep a copy. Small previews of the pictures found on a page load
-        straight from that site, just as if you had visited it.
+        The small previews of pictures found on a page load straight from that site, just as if you had visited it, so
+        that site can see your request as usual.
       </p>
+
+      <h2>What is kept in your browser</h2>
+      <p>To save your work, these are kept in your own browser’s storage, on your device only:</p>
+      <ul>
+        <li>the token you are working on (and its pictures), so a refresh doesn’t lose it — <em>New</em> clears it;</li>
+        <li>the presets you save, and the frames and fonts you upload;</li>
+        <li>small settings such as the theme, brush size and export choices.</li>
+      </ul>
+      <p>They never leave your device. Clearing this site’s data in your browser removes them.</p>
+
+      <h2>Hosting</h2>
       <p>
-        Your work in progress, saved presets and uploaded fonts or frames are kept in your own browser storage so you
-        don't lose them. Clearing your browser data removes them.
+        The site is hosted on Cloudflare Pages. Like any web host, Cloudflare handles the requests your browser makes
+        (for example your internet address) to deliver the site and protect it from attacks; see{' '}
+        <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noreferrer">
+          Cloudflare’s privacy policy
+        </a>
+        . Token Maker itself adds no tracking.
       </p>
-      <p>Token Maker uses no analytics and no cookies.</p>
-      <p className="page__note">This page is a placeholder and will be expanded before launch.</p>
+
+      <h2>Changes</h2>
+      <p>
+        If anything here changes — for example if adverts or optional accounts are ever added — this page will say so
+        first, and anything that needs your permission will ask for it. See <Link href="/about">About</Link> for what
+        Token Maker is.
+      </p>
     </PageLayout>
   );
 }

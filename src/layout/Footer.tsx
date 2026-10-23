@@ -9,7 +9,7 @@ export function Footer() {
         <Link href="/privacy">Privacy</Link>
         {import.meta.env.DEV && <Link href="/kit">UI kit</Link>}
       </nav>
-      <p>Images are processed on your device. Nothing is uploaded.</p>
+      <p>Your pictures are processed on your device and never uploaded.</p>
     </footer>
   );
 }

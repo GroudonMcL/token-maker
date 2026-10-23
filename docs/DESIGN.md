@@ -138,6 +138,8 @@ The same pipeline draws the preview and the export.
 
 *(Phase 5: the whole render is clipped to the square, so nothing can land outside it even when drawn into a bigger canvas. The pop-out parts are drawn once per render onto a square layer (the processed art with the pop-out mask applied to its alpha, at the processed bitmap's own pixel size, then drawn with the art's transform). That one layer is used three times: in the outer drop shadow's silhouette (layer 1, which is also cleared under it), for the pop-out shadow (layer 12, clipped to the frame band, between its outer and inner edges, because the drop shadow already covers the space around the token), and as the pop-out art itself (layer 13). Decorations will join the same silhouette in Phase 7 — done: they are drawn onto one layer used for layer 11 and in the silhouette.)*
 
+*(Phase 10: drawn frames (layer 9) are drawn onto a layer of their own and the last six are kept (up to 2048 px), so a slider that doesn't change the frame doesn't redraw its texture; larger ones (exports) are drawn and let go. Frames only paint over themselves, so this gives the same picture.)*
+
 Rules:
 
 *(Phase 3: "processed art" is computed in the picture's own pixels, in this order: colour adjustments → background-removal mask → brush strokes on the mask → blur/sharpen → (lighting, Phase 4). The move/zoom/rotate transform is applied when the bitmap is drawn, which gives the same pixels but means dragging the art never recomputes anything. The code is plain pixel maths in `src/image/` (no canvas filters, which Safari lacks), so it runs the same in a Web Worker and in tests. Each stage is cached, so changing Brightness doesn't redo the background flood-fill. While a slider or brush is being dragged, the preview uses a quick 512 px copy; when the drag ends, the Web Worker makes the full-size bitmap (the picture's working size, up to 2048 px), and the export waits for it, so the export always comes from the full-size art.)*
@@ -168,6 +170,8 @@ Ways in (all lead to the same "image loaded" state):
 The import file's name (without extension, tidied) becomes the token name; the user can edit it. *(Phase 1: separators become spaces, all-lowercase names get capital letters, and generic names such as "image.png" from a paste keep the current name. Phase 2: web images are named from the picture's file name (size suffixes like "-1024x768" and meaningless names such as hashes or "IMG_2041" are dropped), else its alt text, else the page or pin title.)*
 
 *(Phase 2: the web-address box is in the Import section. Addresses without `https://` get it added, and `http://` is upgraded. An address that ends like an image file is tried as an image first; if it turns out to be a page, the page route is used. A page with only one picture loads it straight away. Thumbnails in the picture strip load straight from the site (no referrer), falling back to the proxy, and any that fail or turn out smaller than 64 px are hidden. Pasting or dropping a link opens the Import section (the Import tab on phones). When an image is dragged from another tab, its `<img src>` is used rather than the link around it; `data:` images load directly.)*
+
+*(Phase 10: first-time experience — the empty token shows a small card in its middle with **Upload image**, **Try a sample** and three steps (Add a picture · Style it · Download for your VTT). The sample is the goblin drawn by `scripts/make-fixture.ts` (`public/sample/goblin.png`), imported exactly like an upload and named "Goblin".)*
 
 **Batch mode** (optional switch): import several images at once (multi-select upload, multi-file drop, or several links). One shared style applies to all; each image keeps its own position/zoom/rotation and name. A thumbnail strip switches between them. Export all as a ZIP (§6.11).
 
@@ -353,6 +357,8 @@ Desktop and phone are **equally important**.
 
 **Phone (< 768 px):** canvas fills the top part of the screen; a **bottom sheet** with icon tabs for each section (Import, Image, Background, Foreground, Lighting, Effects, Frame, Decor, Label, Export) that can be dragged up/down; big touch targets (≥ 44 px); pinch to zoom, two-finger rotate; brushes work with finger and pen.
 
+*(Phase 10, phone pass: every control is at least 44 px to touch on touch screens — slider and hex number boxes, swatches, segmented buttons, small buttons, list cards and the logo; segmented rows wrap rather than squeeze; the floating toolbar scrolls sideways rather than shrinking its buttons (on narrow phones its zoom readout is hidden); the sheet's grab handle reaches 24 px up over the canvas. When the bottom sheet is half or fully open the token moves up into the space above a half-open sheet instead of hiding behind it. `e2e/phase10.spec.ts` checks every control in every phone tab.)*
+
 **Tablet:** desktop layout with a narrower panel, or phone layout in portrait. *(Phase 0: from 768 px wide the desktop layout is used with a 290 px panel; below 768 px the phone layout is used.)*
 
 **Phone tabs → sections** (Phase 0): the ten phone tabs hold the thirteen sections like this: Image = Image + Pop-out; Frame = Frame & shape + Size + Presets; every other tab holds the one section of the same name. On phones, the token summary and the Export button sit at the top of the bottom sheet instead of in a separate bottom bar.
@@ -426,12 +432,17 @@ Type scale: 12 / 13 / 15 (body) / 18 (section titles) / 22 / 28 px.
 - Help tips readable by screen readers; don't rely on hover alone (tap/click to open on touch).
 - Respect `prefers-reduced-motion` (help GIFs paused, show a still).
 
+*(Phase 10, as checked: axe (WCAG 2.1 A and AA) finds nothing in the editor with every section and its Advanced parts open, nor on the About, Privacy and UI kit pages, in the dark and light themes, on desktop, tablet and phone; every stop along the Tab order shows a focus ring; a token can be styled with the keyboard alone (sections open with Enter, choices move with the arrow keys, Ctrl+Z undoes). Help pictures are stills with alt text saying what changes; a help clip, if one is ever added, waits for a click when reduced motion is on (`src/components/HelpMedia.tsx`).)*
+
+*(Phase 10, performance: only the Import section comes with the first load; the other sections load lazily in the background once the editor is up, and the About, Privacy and UI kit pages only when visited (first-load JavaScript about 162 KB gzipped). While a slider or the art is dragged the preview canvas is drawn at a pixel density of at most 1.25 and comes back sharp when the drag ends. A test drags sliders on a phone with the CPU slowed four times.)*
+
 ---
 
 ## 11. Help tips ("?")
 
 - A `?` icon next to every **section heading** (and the top-bar items). *(Changed after Phase 1: controls inside a section — Brightness, Contrast, Thickness, the toolbar's zoom slider, Advanced… — no longer get their own `?`; it was too cluttered. Their help shows as a card when the control's name is hovered, or long-pressed on a touch screen, including any before/after picture the entry has (`src/components/LabelTip.tsx`), and every control still needs a help entry.)*
 - Hover (desktop) or tap (touch) opens a small card: one or two plain sentences + a before/after picture or short looping clip (WebP/MP4, small file size).
+- *(Phase 10: every help entry has a before/after picture, named after its id (`frame.thickness` → `public/help/frame-thickness.webp`), with alt text; the ones outside the Image and Effects sections are drawn by `scripts/help-token-pictures.ts` with the real renderer, and the help test fails if any is missing.)*
 - *(Phase 3: the Image section's before/after pictures are drawn by `npm run help-images` with the real image code, into `public/help/`. A test checks every help picture exists, and that every Image control has one. Phase 6: the same script draws a before/after for every effect and Effects control with the real renderer; the picker's effect names open those cards.)*
 - All help content lives in one file (e.g. `src/help/helpContent.ts`) keyed by control id, so it's easy to edit and spot missing entries. A test fails if a control has no help entry.
 
@@ -450,6 +461,8 @@ Type scale: 12 / 13 / 15 (body) / 18 (section titles) / 22 / 28 px.
 - Images are processed in the visitor's browser. The proxy only passes images through; it stores nothing.
 - No analytics or cookies in version 1 (if added later: privacy-friendly, with a notice).
 - Short "Privacy" and "About" pages.
+
+*(Phase 10, as built: the Privacy page says pictures stay on the device; what the web-address proxy does (fetches, passes back, keeps nothing; a one-minute in-memory count per internet address against misuse); that previews load straight from the other site; what is kept in browser storage (the current token, presets, uploaded frames and fonts, small settings) and how to clear it; that Cloudflare hosts the site; and that any change (e.g. adverts) will be announced there first. The About page explains the three steps and shows `ASSETS-CREDITS.md`'s table, read at build time by `src/pages/credits.ts`.)*
 
 ---
 

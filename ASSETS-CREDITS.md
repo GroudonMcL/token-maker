@@ -1,6 +1,6 @@
 # Asset credits
 
-Every font, icon, image and other asset bundled with Token Maker, with its source and licence (DESIGN.md §12).
+Every font, icon, image and other asset bundled with Token Maker, with its source and licence (DESIGN.md §12). The About page shows this table as it is, so keep it a plain table: one row per asset, links written as `[text](https://…)`.
 
 | Asset | Source | Licence |
 |---|---|---|
@@ -30,3 +30,5 @@ Every font, icon, image and other asset bundled with Token Maker, with its sourc
 | Label shapes (banner, plaque, pill, box) | Drawn by code at render time (`src/render/label.ts`) | — |
 | Foreground overlays (foliage, smoke, mist, cobwebs, vignette, edge shadow) | Drawn by code at render time (`src/render/overlays.ts`) | — |
 | Sample art in frame tiles, frame sheet and tests | Drawn by code for the project (`src/render/sampleArt.ts`, `scripts/make-fixture.ts`) | — |
+| "Try a sample" goblin picture (`public/sample/goblin.png`) | Drawn by code for the project (`scripts/make-fixture.ts`) | — |
+| Help-tip before/after pictures (`public/help/`) | Drawn by the site's own renderer (`scripts/help-images.ts`, `scripts/help-token-pictures.ts`) | — |

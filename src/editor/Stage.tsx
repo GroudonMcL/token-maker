@@ -22,6 +22,7 @@ import { setTransform } from './artActions';
 import { draggedLabel } from './labelActions';
 import { extendStroke, pickColour, pointerPressure, startStroke, type StrokeContext } from './brush';
 import { selectDecoration, setBrush, setTool, toolStore, useTool } from './tools';
+import { SampleButton } from './SampleButton';
 import { UploadButton } from './UploadButton';
 
 const PADDING = 40;
@@ -722,15 +723,23 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
         </div>
       )}
       {!art && (
-        <div className="stage__empty" style={{ top: cy + R + 16 }}>
+        <div className="stage__empty" style={{ top: cy, left: cx, maxWidth: Math.max(260, R * 1.5) }}>
           <p className="canvas-area__hint">
             <strong>Drop, paste or upload an image</strong>
             <span>to start your token</span>
           </p>
-          <UploadButton>
-            <ImagePlus size={18} aria-hidden="true" />
-            Upload image
-          </UploadButton>
+          <div className="stage__empty-actions">
+            <UploadButton>
+              <ImagePlus size={18} aria-hidden="true" />
+              Upload image
+            </UploadButton>
+            <SampleButton />
+          </div>
+          <ol className="stage__steps" aria-label="How it works">
+            <li>Add a picture</li>
+            <li>Style it</li>
+            <li>Download for your VTT</li>
+          </ol>
         </div>
       )}
     </div>

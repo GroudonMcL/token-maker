@@ -1,6 +1,8 @@
 # Token Maker
 
-A free website for making tokens for D&D and other tabletop RPGs: import a picture, frame it, style it, and download it ready for a virtual tabletop. Everything runs in the browser.
+A free website for making tokens for D&D and other tabletop RPGs: import a picture, frame it, style it, and download it ready for a virtual tabletop (Owlbear Rodeo, Foundry VTT, Roll20…). Everything runs in the browser, on the visitor's own device: no accounts, no analytics, no cookies.
+
+**What it does:** bring in a picture (upload, drop, paste, a web or Pinterest link, or the sample goblin) → move, crop and adjust it, remove a flat background, let parts pop out over the border → pick a shape and one of 27 drawn frames or a picture frame, add a background, overlays, lighting, shadows, effects, decorations and a name label, or start from a preset → download it as PNG, WebP or JPG at the size your VTT wants, or a whole batch as a ZIP. It works with a mouse, a touch screen or a pen, on a computer or a phone, and every control has a help card with a before/after picture.
 
 - **Design document (read this first):** [`docs/DESIGN.md`](docs/DESIGN.md)
 - **Progress checklist:** [`docs/PROGRESS.md`](docs/PROGRESS.md)
@@ -52,6 +54,8 @@ To see the phone layout on your computer: in Chrome or Edge press `F12`, then cl
 
 ### Using the editor
 
+- **First time:** the empty token has **Upload image** and **Try a sample** buttons in the middle. *Try a sample* loads a goblin picture so you can play with every setting straight away.
+- **Help:** every section has a **?**; hover over any control's name (or press and hold it on a phone) for a card saying what it does, with a before/after picture.
 - **Get a picture in:** click **Upload image**, drag a picture file anywhere onto the page, or copy an image and press `Ctrl+V`.
 - **From the web (Phase 2):** paste a link into **Web address** in the Import section and click **Get**. It can be:
   - a link straight to a picture (it loads at once),
@@ -111,8 +115,8 @@ Useful pages while developing:
 | `npm run make-frames` | Redraws the 8 built-in picture frames (`public/frames/`). They're drawn by code, so nothing needs crediting. |
 | `npm run decoration-sheet -- decor.png` | Draws every decoration and every built-in picture frame on one picture, using the real renderer and hole finder. |
 | `npm run label-sheet -- labels.png` | Draws every label shape, ring text on every token shape, long names and every bundled font on one picture, with the site's own font files. |
-| `npm run help-images` | Redraws the before/after pictures in the Image and Effects help tips (`public/help/`). Run it after changing how an adjustment or effect looks. |
-| `npm run make-fixture` | Redraws the test pictures in `e2e/fixtures/` (the goblins and a purple ring frame). |
+| `npm run help-images` | Redraws the before/after picture in every help tip (`public/help/`), with the real renderer. Run it after changing how something looks. |
+| `npm run make-fixture` | Redraws the test pictures in `e2e/fixtures/` (the goblins and a purple ring frame) and the "Try a sample" goblin (`public/sample/`). |
 | `npm run frame-sheet -- sheet.png` | Draws every frame on one picture so you can check them by eye. Add a shape and size, e.g. `npm run frame-sheet -- sheet.png hexagon 220 2` for Large hexagons. |
 | `npm run effect-sheet -- effects.png` | Draws every effect behind the art, over the art and on the border on one picture. Takes the same shape, size and squares options as the frame sheet. |
 
@@ -177,7 +181,8 @@ server/                The image proxy (DESIGN.md §7): safety rules (safeFetch.
                        finding images in a page (extractImages.ts), Pinterest pins (pinterest.ts),
                        rate limiting, and devApi.ts (runs it inside `npm run dev`).
                        server/fixtures/ holds saved sample pages for the tests.
-public/                Files copied as-is (favicon, _headers for Cloudflare)
+public/                Files copied as-is (favicon, _headers for Cloudflare), built-in backgrounds and frames,
+                       help pictures (help/) and the sample goblin (sample/)
 src/document/          The TokenDocument: types, defaults, migrations, per-square sizing
 src/render/            The renderer: shapes, the 27 frames, crop maths, render(), and the effects
                        (effects.ts places and caches them; effectPainters.ts draws each one),
@@ -191,14 +196,15 @@ src/state/             Undo/redo history, the token store, images in memory, aut
                        picture frames (frameLibrary.ts: built-ins and your uploads in IndexedDB)
 src/import/            Decoding images and naming tokens from file names
 src/editor/            The canvas (Stage), toolbar actions, drop/paste, shortcuts, brush, pop-out brush and eyedropper tools
-src/sections/          Panel sections that are built (Import, Image, Background, Foreground, Lighting & shadows,
-                       Pop-out, Effects, Frame & shape, Decorations, Size, Label, Presets, Export)
+src/sections/          Panel sections (Import, Image, Background, Foreground, Lighting & shadows,
+                       Pop-out, Effects, Frame & shape, Decorations, Size, Label, Presets, Export).
+                       index.tsx loads all but Import lazily, in the background, for a quick first load
 src/export/            Export: formats and sizes (formats.ts), the panel's remembered choices and safe file names
                        (exportSettings.ts), render → encode → download/copy (exportToken.ts), the ZIP Web Worker
                        (zip.worker.ts, zip.ts) and the place for animated GIF export later (animated.ts)
 src/batch/             Batch mode: the pictures and what each keeps for itself (batch.ts), the thumbnail strip
 scripts/               frame-sheet.ts, effect-sheet.ts, decoration-sheet.ts, label-sheet.ts, make-fixture.ts (the test pictures),
-                       help-images.ts, make-backgrounds.ts, make-frames.ts
+                       help-images.ts + help-token-pictures.ts (help pictures), make-backgrounds.ts, make-frames.ts
 src/styles/tokens.css  Design tokens: every colour, font, size, radius and shadow
 src/styles/app.css     The stylesheet for the whole UI
 src/components/        Shared controls (Section, Slider, ColorSwatches, SegmentedButtons,
@@ -206,13 +212,50 @@ src/components/        Shared controls (Section, Slider, ColorSwatches, Segmente
 src/help/helpContent.ts  Text for every "?" help tip
 src/layout/            The editor layout (top bar, canvas, toolbar, side panel,
                        phone bottom sheet, bottom bar, ad slot, footer)
-src/pages/             About, Privacy and the UI kit page
+src/pages/             About (credits read from ASSETS-CREDITS.md by credits.ts), Privacy and the UI kit page
 src/config/features.ts Feature flags
 e2e/                   Playwright end-to-end tests
 ```
 
 ### Adding a new control
 
-1. Add its help text to `src/help/helpContent.ts`.
-2. Use one of the shared components and pass that id as `helpId`.
-3. `npm test` fails if you forget step 1.
+1. Add its help text to `src/help/helpContent.ts`, with `media: beforeAfter('<id with - for .>', '<what changes>')`.
+2. Draw its before/after picture in `scripts/help-token-pictures.ts` (or `help-images.ts` for the Image and Effects sections) and run `npm run help-images`.
+3. Use one of the shared components and pass that id as `helpId`.
+4. `npm test` fails if you forget step 1 or 2.
+
+## 6. Before you share the site: a checklist to try yourself
+
+Do these on the live site (your `*.pages.dev` address), once on your computer and once on your phone. Each takes a minute or two.
+
+1. **First visit:** open the site in a private/incognito window. You should see the empty token with **Upload image** and **Try a sample**. Press **Try a sample** — the goblin appears.
+2. **Your own picture:** upload a picture from your device, then drag it, pinch or use the corner handles to fit it in the frame.
+3. **From the web:** paste a link to a picture (right-click a picture on a website → *Copy image address*) into **Web address** and press **Get**. Try a Pinterest pin link too.
+4. **Style it:** pick a preset (Presets section), change the frame colour, add an effect and a label. Undo (`Ctrl+Z`, or the arrow in the top bar) and redo.
+5. **Help cards:** hover over a few control names (press and hold on a phone) and check the pictures show.
+6. **Download:** press **Export** and open the file. Check it looks like the preview, with see-through corners for PNG. Try **Copy to clipboard** and paste it into your VTT.
+7. **In your VTT:** drop the token onto a map and check it lines up with the grid (try a Large token too).
+8. **Batch:** switch **Batch** on, upload three pictures, style them, then **Export all** — you get a ZIP with one file per token.
+9. **Refresh:** reload the page — your token is still there. **New** clears it.
+10. **Phone:** open the tabs along the bottom, drag the sheet up and down, and make sure nothing is hard to tap.
+11. **Dark and light:** press the theme button (top right) and check both look right.
+12. **About and Privacy:** the links at the bottom of the page work and say what you expect.
+
+If anything looks wrong, take a screenshot and describe what you did — that's all an AI (or a person) needs to fix it.
+
+## 7. Future features
+
+Copied from [DESIGN.md §15](docs/DESIGN.md#15-future-features-not-in-version-1). None of these are built yet; don't start them until you decide to. **(paid?)** marks candidates for a paid version of the tool.
+
+| Feature | Notes |
+|---|---|
+| AI background removal **(paid?)** | Server-side for best quality, or in-browser model (~40–80 MB download). Plugs into the existing mask system. |
+| AI auto pop-out **(paid?)** | Detect the subject and suggest a pop-out mask. |
+| AI relighting **(paid?)** | "Relight"-style relighting of the imported image. |
+| Animated borders and overlays **(paid?)** | Effects already take a time parameter; export GIF / APNG / WebM. |
+| Pinterest board browsing | Requires a registered, approved Pinterest developer app and user login (OAuth). |
+| Send to VTT | Owlbear Rodeo companion extension (or the owner's existing one), Foundry VTT module, per-VTT export presets (ideal sizes, names). |
+| Condition-variant pack | Export a token plus its bloodied/petrified/etc. versions in one ZIP. |
+| Accounts + cloud saving **(paid?)** | Presets and tokens across devices. Presets already carry ids and `schemaVersion` to make this easy. |
+| Premium asset packs **(paid?)** | Extra frames, decorations, backgrounds. |
+| Adverts | Slot already reserved below the editor (§8); switch on with `VITE_FEATURE_ADS=true` (section 4). |
