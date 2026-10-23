@@ -235,3 +235,20 @@ test.describe('performance', () => {
     await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
   });
 });
+
+test.describe('first visit', () => {
+  test('the empty token invites an import, and "Try a sample" loads the goblin', async ({ page }) => {
+    await page.goto('/');
+    const card = page.locator('.stage__empty');
+    await expect(card.getByText('Drop, paste or upload an image')).toBeVisible();
+    await expect(card.getByRole('button', { name: 'Upload image' })).toBeInViewport();
+    await expect(card.getByRole('list', { name: 'How it works' }).getByRole('listitem')).toHaveCount(3);
+    await card.getByRole('button', { name: 'Try a sample' }).click();
+    await expect(page.locator('.stage')).toHaveAttribute('data-has-art', 'true');
+    await expect(card).toHaveCount(0);
+    await expect(page.getByRole('img', { name: 'Token preview: Goblin' })).toBeVisible();
+    // It is an ordinary import: one undo step takes it away again.
+    await page.keyboard.press('Control+z');
+    await expect(page.locator('.stage')).not.toHaveAttribute('data-has-art', 'true');
+  });
+});

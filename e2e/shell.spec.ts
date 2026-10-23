@@ -63,9 +63,10 @@ test.describe('app shell', () => {
 
   test('About and Privacy pages open from the footer', async ({ page }) => {
     await page.goto('/');
-    await page.getByRole('link', { name: 'About' }).click();
+    const footer = page.getByRole('navigation', { name: 'Site' });
+    await footer.getByRole('link', { name: 'About' }).click();
     await expect(page.getByRole('heading', { name: 'About Token Maker' })).toBeVisible();
-    await page.getByRole('link', { name: 'Privacy' }).click();
+    await footer.getByRole('link', { name: 'Privacy' }).click();
     await expect(page.getByRole('heading', { name: 'Privacy' })).toBeVisible();
     await page.goto('/privacy');
     await expect(page.getByRole('heading', { name: 'Privacy' })).toBeVisible();
