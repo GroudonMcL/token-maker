@@ -1,5 +1,5 @@
 import { FilePlus2, Monitor, Moon, Redo2, Sun, Undo2 } from 'lucide-react';
-import { useState } from 'react';
+import { droppedByTurningOff, setBatchMode, useBatch } from '../batch/batch';
 import { startNewToken } from '../editor/newToken';
 import { redo, undo, useCanRedo, useCanUndo } from '../state/tokenStore';
 import { Toggle } from '../components';
@@ -11,9 +11,14 @@ import { BrandMark } from './BrandMark';
 const NEXT_THEME: Record<ThemeChoice, ThemeChoice> = { system: 'dark', dark: 'light', light: 'system' };
 const THEME_ICON = { system: Monitor, dark: Moon, light: Sun };
 
-/** Logo, Batch toggle, Undo/Redo, New (DESIGN.md §8). Batch mode arrives in Phase 9. */
+/** Logo, Batch toggle, Undo/Redo, New (DESIGN.md §8). */
 export function TopBar({ compact }: { compact: boolean }) {
-  const [batch, setBatch] = useState(false);
+  const batch = useBatch((b) => b.on);
+  const setBatch = (on: boolean) => {
+    const dropped = droppedByTurningOff();
+    if (!on && dropped && !window.confirm(`Leave batch mode? Only the token on screen is kept; the other ${dropped} picture${dropped === 1 ? '' : 's'} will be removed.`)) return;
+    setBatchMode(on);
+  };
   const [theme, setTheme] = useTheme();
   const ThemeIcon = THEME_ICON[theme];
   const canUndo = useCanUndo();

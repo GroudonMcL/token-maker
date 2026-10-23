@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
+import { isBatchOn } from '../batch/batch';
 import { isImageFile } from '../import/decode';
 import { addressFromDrop, normaliseAddress } from '../import/webAddress';
-import { importFromAddress } from '../import/webImport';
+import { importFromAddress, importManyAddresses, splitAddresses } from '../import/webImport';
 import { toast } from '../ui/toast';
-import { importWithMessage } from './importWithMessage';
+import { importFiles, importWithMessage } from './importWithMessage';
 
 /**
  * Drag and drop anywhere on the page, and paste (DESIGN.md §6.1).
@@ -34,7 +35,9 @@ export function useGlobalImport(): boolean {
       if (!e.dataTransfer) return;
       e.preventDefault();
       const file = [...e.dataTransfer.files].find((f) => isImageFile(f));
-      if (file) void importWithMessage(file);
+      // Batch mode takes every picture dropped at once (DESIGN.md §6.1).
+      if (file && isBatchOn()) void importFiles([...e.dataTransfer.files]);
+      else if (file) void importWithMessage(file);
       else if (e.dataTransfer.files.length) toast("That isn't an image file. Try PNG, JPG, WebP, GIF, AVIF, BMP or SVG.", 'error');
       else {
         // An image or link dragged from another browser tab (DESIGN.md §6.1 item 2).
@@ -58,7 +61,11 @@ export function useGlobalImport(): boolean {
       if (target?.closest('input, textarea, [contenteditable]')) return;
       // A pasted web address goes through the web import (DESIGN.md §6.1 item 3).
       const text = data.getData('text/plain').trim();
-      if (/^https?:\/\//i.test(text) && normaliseAddress(text)) {
+      const many = isBatchOn() ? splitAddresses(text) : [];
+      if (many.length > 1) {
+        e.preventDefault();
+        void importManyAddresses(many, 'paste');
+      } else if (/^https?:\/\//i.test(text) && normaliseAddress(text)) {
         e.preventDefault();
         importFromAddress(text, 'paste');
       } else if (/^data:image\//i.test(text)) {

@@ -1,4 +1,3 @@
-import { Download } from 'lucide-react';
 import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { Section } from '../components';
 import { selectDecoration, toolStore } from '../editor/tools';
@@ -6,7 +5,7 @@ import { onRevealSection } from './reveal';
 import { PHONE_TABS, sectionById } from './sections';
 import { SectionPlaceholder } from './SectionPlaceholder';
 import { SECTION_CONTENT } from '../sections';
-import { exportCurrentToken } from '../editor/useExport';
+import { ExportButton } from './BottomBar';
 import { TokenSummary } from './TokenSummary';
 
 export type SheetSnap = 'peek' | 'half' | 'full';
@@ -157,15 +156,7 @@ export function BottomSheet() {
         </button>
         <div className="bottom-sheet__summary">
           <TokenSummary />
-          <button
-            type="button"
-            className="btn btn--primary"
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={exportCurrentToken}
-          >
-            <Download size={18} aria-hidden="true" />
-            Export
-          </button>
+          <ExportButton short />
         </div>
       </div>
       <div className="bottom-sheet__tabs" role="tablist" aria-label="Settings">

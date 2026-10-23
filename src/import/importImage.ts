@@ -1,5 +1,6 @@
 // Turns a file (upload, drop or paste) into the token's art (DESIGN.md §6.1).
 
+import { addBatchItem, isBatchOn } from '../batch/batch';
 import { createDocument } from '../document/defaults';
 import { imageClipPolygon, initialTransform } from '../render/geometry';
 import { addAsset, newAssetId } from '../state/assets';
@@ -49,7 +50,7 @@ export async function importImageFile(file: File | Blob, fileName = (file as Fil
   const id = newAssetId();
   addAsset({ id, blob: file, ...decoded });
   const name = tidyName(fileName);
-  updateDoc((doc) => ({
+  const show = () => updateDoc((doc) => ({
     ...doc,
     name: name || (doc.art.assetId ? doc.name : createDocument().name),
     art: {
@@ -62,4 +63,7 @@ export async function importImageFile(file: File | Blob, fileName = (file as Fil
       popOut: { ...doc.art.popOut, strokes: [] },
     },
   }));
+  // In batch mode a picture joins the batch instead of replacing the art (DESIGN.md §6.1).
+  if (isBatchOn()) addBatchItem({ assetId: id, width: decoded.width, height: decoded.height, name }, show);
+  else show();
 }

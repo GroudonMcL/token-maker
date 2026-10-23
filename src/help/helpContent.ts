@@ -532,9 +532,38 @@ export const helpContent = {
   'size.custom': { title: 'Squares', text: 'Any number of squares across, in half-square steps.' },
 
   // ---- Export ----
-  'export.download': {
-    title: 'Download PNG',
-    text: 'Saves the token as a PNG with a transparent background at 256 pixels per grid square. More formats and sizes are coming.',
+  'export.format': {
+    title: 'Format',
+    text: 'PNG keeps the see-through corners and works in every VTT. WebP is see-through too and much smaller; JPG is smallest but fills the corners with a colour.',
+  },
+  'export.fill': { title: 'Fill colour', text: "JPG files can't be see-through, so the corners and any see-through parts are filled with this colour." },
+  'export.resolution': {
+    title: 'Pixels per square',
+    text: 'How many pixels each grid square gets, so a Large token at 256 is 512 × 512 px. 256 suits most VTTs; the longest side is capped at 4096 px.',
+  },
+  'export.customPx': { title: 'Custom pixels per square', text: 'Any size from 32 to 4096 pixels per square. The final picture is never more than 4096 px across.' },
+  'export.fileName': {
+    title: 'File name',
+    text: "Starts as the token's name and only keeps letters, numbers, spaces, dashes and underscores, so it works on every computer. Batch tokens each use their own name.",
+  },
+  'export.copy': {
+    title: 'Copy to clipboard',
+    text: 'Copies the token as a PNG so you can paste it straight into a VTT, chat or document. Some browsers can only download pictures, not copy them.',
+  },
+  'export.all': {
+    title: 'Export all as ZIP',
+    text: 'Makes every token in the batch with the shared style and saves them in one ZIP file, each named after its token.',
+  },
+  'export.advanced': { title: 'Advanced', text: 'Fine-tune the file size of WebP and JPG files.' },
+  'export.quality': {
+    title: 'Quality',
+    text: 'Lower makes a smaller file with a slightly blurrier, blockier picture. 92% is hard to tell apart from the original.',
+  },
+
+  // ---- Batch mode ----
+  'batch.strip': {
+    title: 'Tokens in the batch',
+    text: 'Every picture in the batch, drawn with the shared style; tap one to move, crop, brush or rename just that token. Changes to the style apply to all of them.',
   },
 
   // ---- Canvas ----
@@ -546,7 +575,7 @@ export const helpContent = {
   // ---- Top bar ----
   'topbar.batch': {
     title: 'Batch mode',
-    text: 'Make several tokens at once with one shared style. Each image keeps its own position and name, and you export them all as a ZIP.',
+    text: 'Make several tokens at once with one shared style: upload, drop or link several pictures, and each keeps its own position, brush work and name. Export them all as a ZIP.',
   },
   'topbar.theme': {
     title: 'Theme',

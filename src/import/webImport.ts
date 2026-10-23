@@ -125,7 +125,9 @@ async function importDataUrl(dataUrl: string, source: ImportSource) {
   }
 }
 
-async function run(url: URL, source: ImportSource) {
+type RunResult = 'loaded' | 'choosing' | 'failed' | 'overtaken';
+
+async function run(url: URL, source: ImportSource): Promise<RunResult> {
   const mine = ++generation;
   const address = url.toString();
   const to = target();
@@ -138,14 +140,14 @@ async function run(url: URL, source: ImportSource) {
       try {
         await loadImage(address, '');
         if (current()) webImportStore.setState({ ...IDLE, target: to });
-        return;
+        return 'loaded';
       } catch (err) {
         // Some "image" addresses are really pages (e.g. a gallery page per picture).
         if (!(err instanceof WebImportError && err.code === 'not_image')) throw err;
       }
     }
     const found = await findImages(address);
-    if (!current()) return;
+    if (!current()) return 'overtaken';
     if (found.kind === 'image') {
       await loadImage(found.url, '');
       if (current()) webImportStore.setState({ ...IDLE, target: to });
@@ -158,10 +160,53 @@ async function run(url: URL, source: ImportSource) {
     } else {
       webImportStore.setState({ status: 'choosing', address: found.url, images: found.images, pageTitle: found.title, target: to });
       if (source !== 'box') toast(`Found ${found.images.length} pictures. Pick one in the Import section.`);
+      return 'choosing';
     }
+    return 'loaded';
   } catch (err) {
     if (current()) setError(err, address, source);
+    return 'failed';
   }
+}
+
+/** Splits text into the web addresses in it (one per line or separated by spaces). */
+export function splitAddresses(text: string): string[] {
+  return text
+    .split(/\s+/)
+    .map((t) => t.trim())
+    .filter((t) => t && (isDataImageUrl(t) || normaliseAddress(t)));
+}
+
+/**
+ * Several links at once (batch mode, DESIGN.md §6.1): each picture joins the
+ * batch in turn. A page with several pictures can't be picked from in the
+ * middle of a list, so the last such page stays open to pick from.
+ */
+export async function importManyAddresses(addresses: readonly string[], source: ImportSource = 'box'): Promise<void> {
+  webImportStore.setState({ target: 'art' });
+  let loaded = 0;
+  let failed = 0;
+  let pages = 0;
+  let lastPage: WebImportState | null = null;
+  for (const text of addresses) {
+    const url = normaliseAddress(text);
+    if (!url) {
+      failed++;
+      continue;
+    }
+    const result = await run(url, source);
+    if (result === 'loaded') loaded++;
+    else if (result === 'choosing') {
+      pages++;
+      lastPage = webImportStore.getState();
+    } else failed++;
+  }
+  if (lastPage) webImportStore.setState(lastPage);
+  else if (loaded) webImportStore.setState({ ...IDLE, target: 'art' });
+  const parts = [`Added ${loaded} of ${addresses.length} pictures.`];
+  if (pages) parts.push(`${pages === 1 ? 'One link was a page' : `${pages} links were pages`} with several pictures: pick from ${pages === 1 ? 'it' : 'the last one'} in the Import section, or paste ${pages === 1 ? 'it' : 'the others'} on ${pages === 1 ? 'its' : 'their'} own.`);
+  if (failed) parts.push(`${failed} couldn't be loaded.`);
+  toast(parts.join(' '), failed && !loaded ? 'error' : 'info', 8000);
 }
 
 function nameForPicked(img: FoundImage, pageTitle: string): string {

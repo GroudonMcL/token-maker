@@ -5,6 +5,7 @@ import { outputSize, squaresLabel } from '../document/sizing';
 import { renderToken } from '../render/render';
 import { assetStore } from '../state/assets';
 import { useDoc } from '../state/tokenStore';
+import { useExportSettings } from '../export/exportSettings';
 
 /** Thumbnail, name, size and final pixel size of the current token. */
 export function TokenSummary() {
@@ -28,7 +29,8 @@ export function TokenSummary() {
     return () => clearTimeout(id);
   }, [doc, assets, hasArt]);
 
-  const px = outputSize(doc.size.squares);
+  const pxPerSquare = useExportSettings((s) => s.pxPerSquare);
+  const px = outputSize(doc.size.squares, pxPerSquare);
   const sizeName = SIZE_PRESETS.find((s) => s.id === doc.size.preset)?.name ?? 'Custom';
   return (
     <div className="token-summary">

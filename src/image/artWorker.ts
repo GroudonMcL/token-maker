@@ -9,7 +9,7 @@ import type { TokenDocument } from '../document/types';
 import type { AssetMap, RenderSource } from '../render/render';
 import type { WorkerRequest, WorkerResponse } from './art.worker';
 import { artEdits, editsKey, isUnedited, type ArtEdits } from './process';
-import { fullSide, peekProcessedArt, processedArt, sourcePixels, storeProcessedArt, type ProcessedArt } from './processedArt';
+import { forgetProcessedArt, fullSide, peekProcessedArt, processedArt, sourcePixels, storeProcessedArt, type ProcessedArt } from './processedArt';
 
 /** Goes up whenever a full-size result arrives, so the preview redraws. */
 const versionStore = createStore(() => ({ version: 0 }));
@@ -127,4 +127,17 @@ export async function prepareArt(doc: TokenDocument, assets: AssetMap): Promise<
   const src = doc.art.assetId ? assets.get(doc.art.assetId) : undefined;
   const edits = artEdits(doc);
   if (src && !isUnedited(edits)) await requestFullArt(src, edits, true);
+}
+
+/**
+ * Lets go of a picture's processed art here and in the worker (a batch
+ * export does this for each picture that isn't on screen, so a phone
+ * doesn't keep every full-size picture in memory).
+ */
+export function forgetArt(src: RenderSource): void {
+  forgetProcessedArt(src);
+  const id = pictureIds.get(src.image);
+  if (!id || !sentPictures.has(id) || [running, ...waiting].some((j) => j?.src === src)) return;
+  sentPictures.delete(id);
+  worker?.postMessage({ type: 'forget', pictureId: id } satisfies WorkerRequest);
 }

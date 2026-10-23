@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useBatch } from '../batch/batch';
 import { selectDecoration } from '../editor/tools';
 import { useGlobalImport } from '../editor/useGlobalImport';
 import { useShortcuts } from '../editor/useShortcuts';
@@ -12,6 +13,7 @@ import { AdSlot } from './AdSlot';
 import { BottomBar } from './BottomBar';
 import { BottomSheet } from './BottomSheet';
 import { CanvasArea } from './CanvasArea';
+import { ExportProgress } from './ExportProgress';
 import { Footer } from './Footer';
 import { SidePanel } from './SidePanel';
 import { TopBar } from './TopBar';
@@ -41,6 +43,7 @@ export function AppShell() {
   const wide = useMediaQuery('(min-width: 768px)');
   const [open, setOpenSections] = useState<ReadonlySet<SectionId>>(() => new Set(['import']));
   const dropping = useGlobalImport();
+  const batch = useBatch((b) => b.on);
   useShortcuts();
   useEffect(boot, []);
   useEffect(
@@ -71,10 +74,11 @@ export function AppShell() {
         {wide && <BottomBar />}
         {dropping && (
           <div className="drop-overlay" aria-hidden="true">
-            <p>Drop the image to use it</p>
+            <p>{batch ? 'Drop the pictures to add them to the batch' : 'Drop the image to use it'}</p>
           </div>
         )}
       </div>
+      <ExportProgress />
       <Toasts />
       <AdSlot />
       <Footer />
