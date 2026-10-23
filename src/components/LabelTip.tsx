@@ -2,6 +2,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } f
 import { createPortal } from 'react-dom';
 import { getHelp, type HelpId } from '../help/helpContent';
 import { useMediaQuery } from '../hooks/useMediaQuery';
+import { HelpMedia } from './HelpMedia';
 
 const OPEN_DELAY = 350;
 const LONG_PRESS = 500;
@@ -100,7 +101,7 @@ export function LabelTip({
           >
             <strong className="help-card__title">{entry.title}</strong>
             <span className="help-card__text">{entry.text}</span>
-            {entry.media?.kind === 'image' && <img className="help-card__media" src={entry.media.src} alt={entry.media.alt} />}
+            {entry.media && <HelpMedia media={entry.media} />}
           </div>,
           document.body,
         )}

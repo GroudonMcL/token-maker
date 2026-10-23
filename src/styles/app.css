@@ -1570,6 +1570,7 @@ input[type='range']::-moz-range-thumb {
 .help-card__media {
   display: block;
   width: 100%;
+  height: auto;
   margin-top: var(--space-1);
   border-radius: var(--radius-sm);
 }

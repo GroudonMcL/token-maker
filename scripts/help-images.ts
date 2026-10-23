@@ -1,6 +1,6 @@
-// Draws the before/after pictures for the Image and Effects sections' help
-// tips (DESIGN.md §11) with the real image pipeline and renderer, into
-// public/help/.
+// Draws the before/after pictures for every help tip (DESIGN.md §11) with
+// the real image pipeline and renderer, into public/help/. The Image and
+// Effects pictures are drawn here; the rest by help-token-pictures.ts.
 // Run with: npm run help-images
 import { createCanvas, loadImage, type Canvas } from '@napi-rs/canvas';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -12,6 +12,8 @@ import { renderToken, type RenderSource } from '../src/render/render';
 import type { PixelBuffer } from '../src/image/adjust';
 import { blurImage } from '../src/image/filters';
 import { processPixels, type ArtEdits } from '../src/image/process';
+import { tokenPictures } from './help-token-pictures';
+import { registerBundledFonts } from './nodeFonts';
 
 const T = 240; // each half
 const OUT = 'public/help';
@@ -177,6 +179,9 @@ async function main() {
   save('image-pressure', half(run(flat, { ...removed, strokes: [line('erase', 0.12)] })), half(run(flat, { ...removed, strokes: [line('erase', 0.12, 0, [0.1, 1, 0.1])] })));
   const mask = processPixels(flat, erased).mask;
   save('image-showRemoved', half(run(flat, erased)), half(flat, mask));
+
+  registerBundledFonts();
+  await tokenPictures(save);
 
   console.log(`Wrote the help pictures to ${OUT}/`);
 }

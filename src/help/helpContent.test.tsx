@@ -31,17 +31,16 @@ describe('help content', () => {
     }
   });
 
-  it('every Image control has a before/after picture', () => {
-    for (const [id, entry] of Object.entries(helpContent)) {
-      if (id.startsWith('image.')) expect((entry as HelpEntry).media, id).toBeDefined();
+  it('every help tip has a before/after picture named after its id, with alt text (Phase 10)', () => {
+    for (const [id, entry] of Object.entries(helpContent) as [string, HelpEntry][]) {
+      expect(entry.media, id).toBeDefined();
+      expect(entry.media!.src, id).toBe(`/help/${id.replace('.', '-')}.webp`);
+      expect(entry.media!.alt.length, id).toBeGreaterThan(20);
     }
   });
 
-  it('every effect and every Effects control has a before/after picture', () => {
+  it('every effect has a help entry with a picture', () => {
     for (const e of EFFECTS) expect((helpContent as Record<string, HelpEntry>)[`effect.${e.kind}`]?.media, e.kind).toBeDefined();
-    for (const [id, entry] of Object.entries(helpContent)) {
-      if (id.startsWith('effects.') && id !== 'effects.advanced') expect((entry as HelpEntry).media, id).toBeDefined();
-    }
   });
 
   it('every panel section has a help entry', () => {
