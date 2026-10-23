@@ -236,6 +236,16 @@ test.describe('performance', () => {
   });
 });
 
+test.describe('pages', () => {
+  test('About and Privacy fit the screen without sideways scrolling', async ({ page }) => {
+    for (const path of ['/about', '/privacy']) {
+      await page.goto(path);
+      await page.getByRole('heading', { level: 1 }).waitFor();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth), path).toBeLessThanOrEqual(0);
+    }
+  });
+});
+
 test.describe('first visit', () => {
   test('the empty token invites an import, and "Try a sample" loads the goblin', async ({ page }) => {
     await page.goto('/');

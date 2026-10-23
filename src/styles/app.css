@@ -1592,6 +1592,8 @@ input[type='range']::-moz-range-thumb {
 .page {
   min-height: 100dvh;
   display: grid;
+  /* minmax(0, …): a wide table scrolls inside its box instead of widening the page */
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto 1fr auto;
 }
 
