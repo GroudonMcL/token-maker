@@ -187,3 +187,51 @@ test.describe('keyboard', () => {
     await expect(circle).toHaveAttribute('aria-checked', 'true');
   });
 });
+
+test.describe('performance', () => {
+  // A mid-range phone: the CPU slowed down four times (Chromium only).
+  test('sliders stay smooth on a slowed-down phone', async ({ page, isMobile, browserName }) => {
+    test.skip(!isMobile || browserName !== 'chromium', 'phone, Chromium');
+    test.setTimeout(90_000);
+    await page.goto('/');
+    await loadGoblin(page);
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
+    const results: string[] = [];
+    for (const [tab, name] of [['Image', 'Brightness'], ['Frame', 'Thickness']] as const) {
+      await page.getByRole('tab', { name: tab }).click();
+      const slider = page.getByRole('tabpanel').getByRole('slider', { name, exact: true });
+      await slider.scrollIntoViewIfNeeded();
+      await page.waitForTimeout(800);
+      const box = (await slider.boundingBox())!;
+      await page.evaluate(() => {
+        const w = window as unknown as { __gaps: number[]; __stop: boolean };
+        w.__gaps = [];
+        w.__stop = false;
+        let last = performance.now();
+        const tick = (t: number) => {
+          w.__gaps.push(t - last);
+          last = t;
+          if (!w.__stop) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      });
+      const y = box.y + box.height / 2;
+      await page.mouse.move(box.x + box.width * 0.5, y);
+      await page.mouse.down();
+      for (let i = 0; i <= 30; i++) await page.mouse.move(box.x + box.width * (0.5 + 0.4 * Math.sin(i / 5)), y);
+      await page.mouse.up();
+      const gaps = await page.evaluate(() => {
+        const w = window as unknown as { __gaps: number[]; __stop: boolean };
+        w.__stop = true;
+        return w.__gaps.slice(1);
+      });
+      gaps.sort((a, b) => a - b);
+      const median = gaps[Math.floor(gaps.length / 2)]!;
+      results.push(`${name}: median ${median.toFixed(0)} ms, 90% ${gaps[Math.floor(gaps.length * 0.9)]!.toFixed(0)} ms over ${gaps.length} frames`);
+      expect(median, results.join('; ')).toBeLessThan(50);
+    }
+    console.log(results.join('\n'));
+    await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+  });
+});

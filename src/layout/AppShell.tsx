@@ -8,6 +8,7 @@ import { restore, startAutosave } from '../state/autosave';
 import { watchFrameImages } from '../state/frameLibrary';
 import { watchLabelFonts } from '../fonts/fontLoader';
 import { watchLibraryImages } from '../state/libraryAssets';
+import { preloadSections } from '../sections';
 import { Toasts } from '../ui/Toasts';
 import { AdSlot } from './AdSlot';
 import { BottomBar } from './BottomBar';
@@ -30,6 +31,7 @@ function boot() {
     watchLibraryImages();
     watchFrameImages();
     watchLabelFonts();
+    preloadSections();
   });
 }
 

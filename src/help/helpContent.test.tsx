@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react';
+import { render, waitFor } from '@testing-library/react';
 import { App } from '../App';
 import { EFFECTS } from '../document/defaults';
 import { navigate } from '../hooks/useRoute';
@@ -62,9 +62,17 @@ describe('help content', () => {
     for (const id of used) expect(known.has(id), `missing help entry "${id}"`).toBe(true);
   });
 
-  it.each(['/', '/kit'])('every control on %s has a valid help entry', (path) => {
+  it.each(['/', '/kit'])('every control on %s has a valid help entry', async (path) => {
     navigate(path);
     const { container } = render(<App />);
+    // Pages and most sections load lazily: wait until everything is in.
+    await waitFor(
+      () => {
+        expect(container.querySelector('[data-control]')).not.toBeNull();
+        expect([...container.querySelectorAll('[role="status"]')].some((el) => el.textContent === 'Loading…')).toBe(false);
+      },
+      { timeout: 10_000 },
+    );
     const controls = container.querySelectorAll('[data-control]');
     expect(controls.length).toBeGreaterThan(5);
     controls.forEach((el) => {

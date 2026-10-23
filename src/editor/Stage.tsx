@@ -31,6 +31,12 @@ const HANDLE_MARGIN = 18;
 const VIEW_MAX = 8;
 /** The token canvas never gets bigger than this many pixels across, however far the view is zoomed. */
 const MAX_CANVAS = 4096;
+/**
+ * Pixel density of the token preview while a slider or the art is being
+ * dragged (Phase 10): drawing fewer pixels keeps phones smooth, and the
+ * sharp preview comes back as soon as the drag ends. Exports never use it.
+ */
+const DRAG_DPR = 1.25;
 
 /** How far the view (not the art) is zoomed in, and where the token centre has moved to. */
 interface View {
@@ -177,7 +183,7 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
       const dpr = Math.min(3, window.devicePixelRatio || 1);
       const token = tokenRef.current;
       if (token) {
-        const px = Math.min(MAX_CANVAS, Math.round(R * 2 * dpr));
+        const px = Math.min(MAX_CANVAS, Math.round(R * 2 * (settling ? Math.min(dpr, DRAG_DPR) : dpr)));
         if (token.width !== px) {
           token.width = px;
           token.height = px;
@@ -228,7 +234,7 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
     return () => cancelAnimationFrame(frame);
     // clip and drawArt are derived from doc
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [box, R, cx, cy, doc, assets, art, display, tool, showRemoved, showPopOut, fontVersion]);
+  }, [box, R, cx, cy, doc, assets, art, display, tool, showRemoved, showPopOut, fontVersion, settling]);
 
   const strokeContext = (): StrokeContext | null =>
     art ? { transform: doc.art.transform, width: art.width, height: art.height, clip, R } : null;
