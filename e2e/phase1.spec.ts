@@ -56,7 +56,7 @@ test('import an image and download a 256 px PNG', async ({ page, isMobile }) => 
 
 test('Large tokens export at 512 px with the size shown', async ({ page, isMobile }) => {
   await upload(page);
-  const panel = await openSection(page, !!isMobile, 'Size', 'Frame');
+  const panel = await openSection(page, !!isMobile, 'Size', 'Size');
   await panel.getByRole('radio', { name: 'Large' }).click();
   await expect(page.getByTestId('pixel-size').first()).toHaveText('512 × 512 px');
   const out = await exportPng(page, !!isMobile);

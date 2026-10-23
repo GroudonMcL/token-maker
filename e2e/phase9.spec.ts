@@ -146,7 +146,6 @@ test('every format and resolution matches the preview, with a safe file name', a
   for (const [format, ext] of [
     ['PNG', 'png'],
     ['WebP', 'webp'],
-    ['JPG', 'jpg'],
   ] as const) {
     await panel.getByRole('radio', { name: format, exact: true }).click();
     for (const [label, side] of Object.entries(sizes)) {
@@ -155,15 +154,13 @@ test('every format and resolution matches the preview, with a safe file name', a
       expect(file.name).toBe(`Goblin-Boss.${ext}`);
       const p = await pixels(file.bytes);
       expect([p.width, p.height]).toEqual([side, side]);
-      if (format === 'JPG') {
-        // White fill in the see-through corners (the default fill colour).
-        expect([...p.data.slice(0, 3)].every((v) => v > 240)).toBe(true);
-      } else {
-        expect(p.data[3]).toBe(0);
-        expect(await difference(file.bytes, preview)).toBeLessThan(format === 'PNG' ? 4 : 6);
-      }
+      expect(p.data[3]).toBe(0);
+      expect(await difference(file.bytes, preview)).toBeLessThan(format === 'PNG' ? 4 : 6);
     }
   }
+
+  // JPG was removed: tokens stay see-through.
+  await expect(panel.getByRole('radio', { name: 'JPG', exact: true })).toHaveCount(0);
 
   // A custom size shows the final size, never more than 4096 px.
   await panel.getByRole('radio', { name: 'Custom' }).click();

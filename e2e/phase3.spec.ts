@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 
 // Phase 3: adjustments, flat background removal and the erase/restore brush
 // (DESIGN.md §6.2), on desktop (mouse) and phone (real touch events).
+// Background removal is in the Background section since v8.
 
 const FLAT = 'e2e/fixtures/flat-goblin.png';
 const BACKING = [0x1d, 0x1f, 0x27];
@@ -24,6 +25,21 @@ async function imagePanel(page: Page, isMobile: boolean) {
   const panel = page.getByRole('complementary', { name: 'Token settings' });
   const toggle = panel.getByRole('button', { name: 'Image', exact: true });
   if ((await toggle.getAttribute('aria-expanded')) === 'false') await toggle.click();
+  return panel;
+}
+
+/** Background removal, in the Background section since v8 (phone: its tab). */
+async function removeBackground(page: Page, isMobile: boolean) {
+  let panel;
+  if (isMobile) {
+    await page.getByRole('tab', { name: 'Backgr.' }).click();
+    panel = page.getByRole('tabpanel');
+  } else {
+    panel = page.getByRole('complementary', { name: 'Token settings' });
+    const toggle = panel.getByRole('button', { name: 'Background', exact: true });
+    if ((await toggle.getAttribute('aria-expanded')) === 'false') await toggle.click();
+  }
+  await panel.getByRole('switch', { name: 'Remove background' }).click();
   return panel;
 }
 
@@ -90,14 +106,13 @@ const FACE: [number, number] = [0.5, 0.4];
 
 test('remove a flat background, tidy it with the brush, tune it, and the export matches the preview', async ({ page, isMobile }) => {
   await upload(page);
-  const panel = await imagePanel(page, !!isMobile);
-
   const [bgBefore] = await exportPixels(page, !!isMobile, [BG]);
   expect(near(bgBefore!, [0xfb, 0xfb, 0xf8])).toBe(true); // the white background
 
   // Remove the background: the backing colour shows instead of white.
-  await panel.getByRole('switch', { name: 'Remove flat background' }).click();
-  await expect(panel.getByText('Found from the edges')).toBeVisible();
+  const bgPanel = await removeBackground(page, !!isMobile);
+  await expect(bgPanel.getByText('Found from the edges')).toBeVisible();
+  const panel = await imagePanel(page, !!isMobile);
   const [bgAfter, faceBefore] = await exportPixels(page, !!isMobile, [BG, FACE]);
   expect(near(bgAfter!, BACKING)).toBe(true);
   expect(near(faceBefore!, BACKING)).toBe(false);
@@ -131,8 +146,8 @@ test('remove a flat background, tidy it with the brush, tune it, and the export 
 
 test('restore brings back part of the removed background', async ({ page, isMobile }) => {
   await upload(page);
+  await removeBackground(page, !!isMobile);
   const panel = await imagePanel(page, !!isMobile);
-  await panel.getByRole('switch', { name: 'Remove flat background' }).click();
   await panel.getByRole('button', { name: 'Use the brush' }).click();
   await page.getByRole('toolbar', { name: 'Brush' }).getByRole('button', { name: 'Restore' }).click();
   await stroke(page, !!isMobile, BG[1]);
@@ -143,8 +158,7 @@ test('restore brings back part of the removed background', async ({ page, isMobi
 test('the eyedropper picks the background colour from the picture', async ({ page, isMobile }) => {
   test.skip(!!isMobile, 'covered by the desktop and tablet runs');
   await upload(page);
-  const panel = await imagePanel(page, false);
-  await panel.getByRole('switch', { name: 'Remove flat background' }).click();
+  const panel = await removeBackground(page, false);
   await panel.getByRole('button', { name: 'Pick colour' }).click();
   const box = (await page.getByTestId('token-canvas').boundingBox())!;
   await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.65); // the red body

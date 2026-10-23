@@ -11,7 +11,7 @@ const RING = 'e2e/fixtures/purple-ring.png';
 type Rgba = number[];
 
 /** Phone tab for each section. */
-const TABS: Record<string, string> = { 'Frame & shape': 'Frame', Presets: 'Frame', Decorations: 'Decor' };
+const TABS: Record<string, string> = { 'Frame & shape': 'Frame', Presets: 'Presets', Decorations: 'Decor' };
 
 async function section(page: Page, isMobile: boolean, name: string) {
   if (isMobile) {

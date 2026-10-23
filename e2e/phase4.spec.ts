@@ -3,6 +3,7 @@ import { createCanvas, loadImage } from '@napi-rs/canvas';
 import { readFileSync } from 'node:fs';
 
 // Phase 4: background, foreground overlays and lighting (DESIGN.md §6.3–6.5).
+// Since v8 background removal is in Background and the overlays are effects.
 // Done when: a character on a blurred forest background with a vignette and
 // torchlight from below, and the export matches the preview.
 
@@ -10,7 +11,7 @@ const FLAT = 'e2e/fixtures/flat-goblin.png';
 type Rgb = number[];
 
 /** Phone tab for each section. */
-const TABS: Record<string, string> = { Image: 'Image', Background: 'Backgr.', Foreground: 'Foregr.', 'Lighting & shadows': 'Lighting' };
+const TABS: Record<string, string> = { Image: 'Image', Background: 'Backgr.', Effects: 'Effects', 'Lighting & shadows': 'Lighting' };
 
 /** Opens a section (phone: its tab in the bottom sheet) and returns where its controls are. */
 async function section(page: Page, isMobile: boolean, name: string) {
@@ -75,11 +76,10 @@ const EDGE: [number, number] = [0.5, 0.14];
 test('a character on a blurred forest with a vignette and torchlight from below; the export matches the preview', async ({ page, isMobile }) => {
   const m = !!isMobile;
   // Cut the character out of its flat background.
-  let panel = await section(page, m, 'Image');
-  await panel.getByRole('switch', { name: /Remove flat background/ }).click();
+  let panel = await section(page, m, 'Background');
+  await panel.getByRole('switch', { name: 'Remove background' }).click();
 
   // A blurred forest behind it.
-  panel = await section(page, m, 'Background');
   await panel.getByRole('radio', { name: 'Picture' }).click();
   await panel.getByRole('radio', { name: 'Forest' }).click();
   await setNumber(panel, 'Blur', '50');
@@ -89,10 +89,10 @@ test('a character on a blurred forest with a vignette and torchlight from below;
   expect(lum(forest!)).toBeGreaterThan(30);
 
   // A vignette.
-  panel = await section(page, m, 'Foreground');
+  panel = await section(page, m, 'Effects');
   const [edgeBefore] = await previewPixels(page, [EDGE]);
-  await panel.getByRole('button', { name: 'Vignette' }).click();
-  await expect(panel.getByRole('listitem')).toHaveCount(1);
+  await panel.getByRole('button', { name: /^Vignette$/ }).click();
+  await expect(panel.getByRole('list', { name: 'Effects, top first' }).getByRole('listitem')).toHaveCount(1);
   const [edgeAfter] = await previewPixels(page, [EDGE]);
   expect(lum(edgeAfter!)).toBeLessThan(lum(edgeBefore!) - 10);
 
@@ -116,19 +116,19 @@ test('a character on a blurred forest with a vignette and torchlight from below;
 
 test('overlays can be reordered, hidden and removed; presets stay editable', async ({ page, isMobile }) => {
   const m = !!isMobile;
-  let panel = await section(page, m, 'Foreground');
-  await panel.getByRole('button', { name: 'Mist' }).click();
-  await panel.getByRole('button', { name: 'Smoke' }).click();
-  const names = () => panel.locator('.overlay-card__toggle').allTextContents();
-  expect(await names()).toEqual(['Smoke', 'Mist']); // newest on top
-  await panel.getByRole('button', { name: 'Move Smoke down' }).click();
-  expect(await names()).toEqual(['Mist', 'Smoke']);
-  await panel.getByRole('button', { name: 'Hide Mist' }).click();
-  await expect(panel.getByRole('button', { name: 'Show Mist' })).toBeVisible();
-  await panel.getByRole('button', { name: 'Remove Mist' }).click();
-  expect(await names()).toEqual(['Smoke']);
+  let panel = await section(page, m, 'Effects');
+  await panel.getByRole('button', { name: /^Cobwebs$/ }).click();
+  await panel.getByRole('button', { name: /^Vignette$/ }).click();
+  const names = () => panel.locator('.overlay-card').evaluateAll((items) => items.map((i) => i.getAttribute('data-effect')));
+  expect(await names()).toEqual(['vignette', 'cobwebs']); // newest on top
+  await panel.getByRole('button', { name: 'Move Vignette down' }).click();
+  expect(await names()).toEqual(['cobwebs', 'vignette']);
+  await panel.getByRole('button', { name: 'Hide Cobwebs' }).click();
+  await expect(panel.getByRole('button', { name: 'Show Cobwebs' })).toBeVisible();
+  await panel.getByRole('button', { name: 'Remove Cobwebs' }).click();
+  expect(await names()).toEqual(['vignette']);
   await page.getByRole('button', { name: 'Undo' }).first().click();
-  expect(await names()).toEqual(['Mist', 'Smoke']);
+  expect(await names()).toEqual(['cobwebs', 'vignette']);
 
   panel = await section(page, m, 'Lighting & shadows');
   await panel.getByRole('button', { name: /Moonlight/ }).click();
