@@ -14,7 +14,7 @@ import type { AiRequest, AiResponse } from './ai.worker';
 import { setAiMaskLookup, type AiMask } from './process';
 import { newCanvas } from './processedArt';
 
-/** The model looks at pictures this size; bigger ones are shrunk first (the mask is scaled back up). */
+/** Bigger pictures are shrunk to this before going to the model (which looks at 512 × 512); the mask is scaled back up. */
 const AI_SIDE = 1024;
 
 export type AiStatus =

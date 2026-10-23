@@ -90,7 +90,7 @@ export function nameFromTitle(title: string): string {
 const SUGGESTION = 'Try right-clicking the picture and choosing “Copy image address”, or save the picture and upload it.';
 
 /** What to tell the user when a web import fails. */
-export function friendlyError(code: ApiErrorCode | 'offline' | 'unknown', message?: string): string {
+export function friendlyError(code: ApiErrorCode | 'offline' | 'no_server' | 'unknown', message?: string): string {
   switch (code) {
     case 'bad_url':
       return "That doesn't look like a web address. It should start with https://.";
@@ -122,6 +122,8 @@ export function friendlyError(code: ApiErrorCode | 'offline' | 'unknown', messag
       return 'Web imports only work on the Token Maker site itself.';
     case 'offline':
       return "Couldn't reach the Token Maker server. Check your internet connection and try again.";
+    case 'no_server':
+      return "This copy of Token Maker isn't running its image server, so web links can't be fetched. Save the picture and upload it instead.";
     default:
       return `Something went wrong fetching that address. ${SUGGESTION}`;
   }

@@ -220,7 +220,7 @@ export const helpContent = {
   },
   'background.aiRemove': {
     title: 'AI cut-out',
-    text: 'An AI model finds your character and hides everything else. It downloads once (about 115 MB) and runs on this device, so your picture is never uploaded.',
+    text: 'An AI model finds your character and hides everything else. It downloads once (about 100 MB) and runs on this device, so your picture is never uploaded.',
     media: beforeAfter('background-aiRemove', 'the character is cut out from a busy background'),
   },
   'image.softness': {

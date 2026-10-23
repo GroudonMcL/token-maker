@@ -1,13 +1,15 @@
 // Web Worker: AI background removal, all in the browser (owner request after
-// Phase 10). The model (BiRefNet-lite, MIT licence, about 115 MB) downloads
-// from Hugging Face the first time and is then kept in the browser's cache.
+// Phase 10). The model is BiRefNet-lite (MIT licence) re-exported at 512 ×
+// 512: the usual 1024 × 1024 export needs about 8 GB and runs out of memory
+// in a browser. It downloads from Hugging Face the first time (about 100 MB)
+// and is then kept in the browser's cache.
 // The picture itself never leaves the device. transformers.js is only loaded
 // here, so the editor's own code stays small.
 
 import { env, pipeline, RawImage } from '@huggingface/transformers';
 import type { PixelBuffer } from './adjust';
 
-const AI_MODEL = 'onnx-community/BiRefNet_lite-ONNX';
+const AI_MODEL = 'studioludens/birefnet-lite-512';
 
 export type AiRequest = { type: 'run'; id: number; pixels: PixelBuffer };
 

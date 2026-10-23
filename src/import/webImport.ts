@@ -39,7 +39,7 @@ export const webImportStore = createStore<WebImportState>(() => IDLE);
 export const useWebImport = <T>(select: (s: WebImportState) => T) => useStore(webImportStore, select);
 
 export class WebImportError extends Error {
-  constructor(readonly code: ApiErrorCode | 'offline' | 'unknown', serverMessage?: string) {
+  constructor(readonly code: ApiErrorCode | 'offline' | 'no_server' | 'unknown', serverMessage?: string) {
     super(friendlyError(code, serverMessage));
   }
 }
@@ -49,7 +49,15 @@ let generation = 0;
 
 export const proxiedImageUrl = (url: string) => `/api/fetch-image?url=${encodeURIComponent(url)}`;
 
+/**
+ * True when /api/* answered with a web page: the site is served without its
+ * image server (e.g. deployed as a plain static site or a Worker without
+ * worker/index.ts), so every address falls through to the editor's own page.
+ */
+const isHtml = (res: Response) => /^\s*text\/html/i.test(res.headers.get('content-type') ?? '');
+
 async function apiError(res: Response): Promise<WebImportError> {
+  if (isHtml(res)) return new WebImportError('no_server');
   try {
     const body = (await res.json()) as ApiErrorBody;
     if (body?.error?.code) return new WebImportError(body.error.code, body.error.message);
@@ -70,15 +78,20 @@ async function apiFetch(path: string): Promise<Response> {
 /** Downloads an image through the proxy and makes it the token's art. */
 async function loadImage(url: string, name: string): Promise<void> {
   const res = await apiFetch(proxiedImageUrl(url));
-  if (!res.ok) throw await apiError(res);
+  if (!res.ok || isHtml(res)) throw await apiError(res);
   const blob = await res.blob();
   await importTo(target(), blob, name || nameFromImageUrl(url));
 }
 
 async function findImages(url: string): Promise<PageImagesResult> {
   const res = await apiFetch(`/api/page-images?url=${encodeURIComponent(url)}`);
-  if (!res.ok) throw await apiError(res);
-  return (await res.json()) as PageImagesResult;
+  if (!res.ok || isHtml(res)) throw await apiError(res);
+  try {
+    return (await res.json()) as PageImagesResult;
+  } catch {
+    // Not our JSON: something other than the image server answered.
+    throw new WebImportError('no_server');
+  }
 }
 
 /** Tries each candidate in turn (a pin's original, then its preview). */

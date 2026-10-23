@@ -17,7 +17,7 @@ const PLACEMENTS: { value: EffectPlacement; label: string }[] = [
   { value: 'border', label: 'On border' },
 ];
 
-export const BLENDS: { value: BlendMode; label: string }[] = [
+const BLENDS: { value: BlendMode; label: string }[] = [
   { value: 'normal', label: 'Normal' },
   { value: 'multiply', label: 'Multiply (darken)' },
   { value: 'screen', label: 'Screen (lighten)' },

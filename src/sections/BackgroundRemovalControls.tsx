@@ -124,7 +124,7 @@ function AiCutOut({ assetId, art }: { assetId: string; art: RenderSource | undef
       ) : ready ? (
         <p className="control__hint">Done. Tidy any edges with the erase/restore brush in the Image section.</p>
       ) : (
-        <p className="control__hint">Works on any background. The first time, a 115 MB AI model downloads; your picture never leaves this device.</p>
+        <p className="control__hint">Works on any background. The first time, a 100 MB AI model downloads; your picture never leaves this device.</p>
       )}
       {status?.state !== 'working' && (
         <button type="button" className="btn btn--small" disabled={!art} onClick={again}>

@@ -2,7 +2,8 @@ import { DEFAULT_ADJUST, DEFAULT_REMOVAL } from '../document/defaults';
 import type { ImageAdjustments, MaskStroke } from '../document/types';
 import { adjustColours, type PixelBuffer } from './adjust';
 import { blurImage } from './filters';
-import { editsKey, isUnedited, processPixels, type ArtEdits } from './process';
+import { createDocument } from '../document/defaults';
+import { aiKeepMask, artEdits, editsKey, isUnedited, processPixels, setAiMaskLookup, type AiMask, type ArtEdits } from './process';
 import { detectEdgeColor, removalMask } from './removal';
 import { applyStrokes } from './strokes';
 
@@ -201,6 +202,67 @@ describe('flat background removal', () => {
     expect(mask).not.toBeNull();
     expect(px(pixels, 2, 2)).toEqual([252, 252, 250, 0]);
     expect(px(pixels, 30, 15)).toEqual([60, 140, 50, 255]);
+  });
+});
+
+describe('enclosed gaps (v8)', () => {
+  // White background; a green ring whose white middle (r < 12) is cut off from the edge; a 1 px white speck.
+  const ring = make(60, 60, (x, y) => {
+    const r = Math.hypot(x - 30, y - 30);
+    if (x === 30 && y === 49) return [255, 255, 255, 255];
+    return r < 12 || r > 22 ? [255, 255, 255, 255] : [40, 140, 60, 255];
+  });
+  const opts = { color: null, intensity: 20, softness: 0 };
+
+  it('off: only the background joined to the edge goes', () => {
+    const m = removalMask(ring, { ...opts, enclosed: false });
+    expect(m[2 * 60 + 2]).toBe(0);
+    expect(m[30 * 60 + 30]).toBe(255);
+  });
+
+  it('on: the enclosed gap goes too, but specks smaller than a little patch stay', () => {
+    const m = removalMask(ring, { ...opts, enclosed: true });
+    expect(m[2 * 60 + 2]).toBe(0);
+    expect(m[30 * 60 + 30]).toBe(0);
+    expect(m[49 * 60 + 30]).toBe(255);
+    expect(m[30 * 60 + 47]).toBe(255); // the ring itself
+  });
+});
+
+describe('AI cut-out (v8)', () => {
+  // A 2 × 2 mask: keep the left column, remove the right.
+  const mask: AiMask = { id: 7, width: 2, height: 2, data: Uint8Array.from([255, 0, 255, 0]) };
+
+  it('is stretched to the picture, with nothing removed until it is ready', () => {
+    const out = aiKeepMask(mask, 8, 8, 0);
+    expect(out[0]).toBe(255);
+    expect(out[7]).toBe(0);
+    expect(out[4 * 8 + 3]! > out[4 * 8 + 4]!).toBe(true); // a smooth step between
+    expect([...aiKeepMask(null, 4, 4, 0)].every((v) => v === 255)).toBe(true);
+  });
+
+  it("is the picture's own: the document's art finds its mask by asset id, and a new mask makes new edits", () => {
+    const doc = createDocument();
+    doc.art.assetId = 'asset:a';
+    doc.art.removal = { ...doc.art.removal, enabled: true, method: 'ai' };
+    let current: AiMask | null = null;
+    setAiMaskLookup((id) => (id === 'asset:a' ? current : null));
+    const before = artEdits(doc);
+    expect(before.aiMask).toBeNull();
+    current = mask;
+    const after = artEdits(doc);
+    expect(after.aiMask).toBe(mask);
+    expect(editsKey(after)).not.toBe(editsKey(before));
+    // Flat-colour removal ignores the AI mask.
+    expect(artEdits({ ...doc, art: { ...doc.art, removal: { ...doc.art.removal, method: 'colour' } } }).aiMask).toBeNull();
+    setAiMaskLookup(() => null);
+  });
+
+  it('removes what the mask says through the whole pipeline', () => {
+    const pic = make(8, 8, () => [200, 100, 50, 255]);
+    const { pixels } = processPixels(pic, edits({ removal: { ...DEFAULT_REMOVAL, enabled: true, method: 'ai', softness: 0 }, aiMask: mask }));
+    expect(px(pixels, 0, 0)[3]).toBe(255);
+    expect(px(pixels, 7, 0)[3]).toBe(0);
   });
 });
 

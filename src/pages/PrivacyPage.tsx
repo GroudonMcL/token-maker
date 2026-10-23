@@ -16,6 +16,16 @@ export function PrivacyPage() {
         sent to our server, and the tokens you make are saved straight from your browser.
       </p>
 
+      <h2>AI background removal</h2>
+      <p>
+        If you choose AI background removal, your browser downloads the AI model once (about 100 MB) from{' '}
+        <a href="https://huggingface.co/studioludens/birefnet-lite-512" target="_blank" rel="noreferrer">
+          Hugging Face
+        </a>{' '}
+        and the program that runs it from the jsDelivr CDN. Those sites see the download request as usual. The model then
+        runs on your device: your picture is never uploaded anywhere.
+      </p>
+
       <h2>Web addresses and Pinterest links</h2>
       <p>
         When you paste a link, our small server (running on Cloudflare) fetches that web page or picture for you, because
@@ -32,8 +42,9 @@ export function PrivacyPage() {
       <p>To save your work, these are kept in your own browser’s storage, on your device only:</p>
       <ul>
         <li>the token you are working on (and its pictures), so a refresh doesn’t lose it — <em>New</em> clears it;</li>
-        <li>the presets you save, and the frames and fonts you upload;</li>
-        <li>small settings such as the theme, brush size and export choices.</li>
+        <li>the presets you save, and the frames, fonts and effect or decoration pictures you upload;</li>
+        <li>the AI cut-outs made for your pictures, and the AI model itself (in the browser’s cache);</li>
+        <li>small settings such as the theme, menu style, panel width, brush size and export choices.</li>
       </ul>
       <p>They never leave your device. Clearing this site’s data in your browser removes them.</p>
 
