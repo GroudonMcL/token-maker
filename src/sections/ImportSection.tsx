@@ -3,13 +3,15 @@ import { useId, useState } from 'react';
 import { ControlLabel, ImageStrip } from '../components';
 import { UploadButton } from '../editor/UploadButton';
 import { MIN_IMAGE_SIDE } from '../../server/extractImages.ts';
-import { clearWebImport, importFromAddress, pickWebImage, proxiedImageUrl, useWebImport } from '../import/webImport';
+import { isBatchOn, useBatch } from '../batch/batch';
+import { clearWebImport, importFromAddress, importManyAddresses, pickWebImage, proxiedImageUrl, splitAddresses, useWebImport } from '../import/webImport';
 import type { ImportTarget } from '../import/importImage';
 import { commitDoc, updateDoc, useDoc } from '../state/tokenStore';
 
 /** Import section: upload, drop, paste, web addresses and Pinterest links (DESIGN.md §6.1). */
 export function ImportSection() {
   const name = useDoc((d) => d.name);
+  const batchOn = useBatch((b) => b.on);
   const id = useId();
   const [editing, setEditing] = useState<string | null>(null);
   return (
@@ -17,9 +19,13 @@ export function ImportSection() {
       <div className="control" data-control="upload" data-help-id="import.upload">
         <UploadButton className="btn btn--wide">
           <Upload size={18} aria-hidden="true" />
-          Upload image
+          {batchOn ? 'Upload images' : 'Upload image'}
         </UploadButton>
-        <p className="control__hint">Or drag an image anywhere onto the page, or paste it with Ctrl+V.</p>
+        <p className="control__hint">
+          {batchOn
+            ? 'Choose or drop several pictures at once. Each one joins the batch with the shared style.'
+            : 'Or drag an image anywhere onto the page, or paste it with Ctrl+V.'}
+        </p>
       </div>
       <WebAddress />
       <div className="control" data-control="name" data-help-id="import.name">
@@ -50,8 +56,10 @@ export function ImportSection() {
  * page. The Background section has its own box, which sends pictures to the
  * background instead; each box only shows what it asked for.
  */
-export function WebAddress({ target = 'art', hint = 'Paste a link to a picture, a web page, or a Pinterest pin.' }: { target?: ImportTarget; hint?: string }) {
+export function WebAddress({ target = 'art', hint: plainHint = 'Paste a link to a picture, a web page, or a Pinterest pin.' }: { target?: ImportTarget; hint?: string }) {
   const id = useId();
+  const batchOn = useBatch((b) => b.on) && target === 'art';
+  const hint = batchOn ? 'Paste one or more links to pictures, pages or Pinterest pins, separated by spaces.' : plainHint;
   const [text, setText] = useState('');
   const mine = useWebImport((s) => s.target === target);
   const status = useWebImport((s) => (mine ? s.status : 'idle'));
@@ -70,7 +78,11 @@ export function WebAddress({ target = 'art', hint = 'Paste a link to a picture, 
         data-help-id="import.web"
         onSubmit={(e) => {
           e.preventDefault();
-          if (text.trim()) importFromAddress(text, 'box', target);
+          if (!text.trim()) return;
+          // Batch mode takes several links at once (DESIGN.md §6.1).
+          const many = target === 'art' && isBatchOn() ? splitAddresses(text) : [];
+          if (many.length > 1) void importManyAddresses(many);
+          else importFromAddress(text, 'box', target);
         }}
       >
         <ControlLabel htmlFor={id} label="Web address" helpId="import.web" />
@@ -87,6 +99,15 @@ export function WebAddress({ target = 'art', hint = 'Paste a link to a picture, 
             placeholder="Image, page or Pinterest link"
             value={text}
             onChange={(e) => setText(e.target.value)}
+            onPaste={(e) => {
+              // Text boxes drop line breaks, which would glue several pasted links together.
+              const pasted = e.clipboardData.getData('text/plain');
+              if (!/\n/.test(pasted.trim())) return;
+              e.preventDefault();
+              const el = e.currentTarget;
+              const joined = pasted.trim().split(/\s+/).join(' ');
+              setText(el.value.slice(0, el.selectionStart ?? el.value.length) + joined + el.value.slice(el.selectionEnd ?? el.value.length));
+            }}
           />
           <button type="submit" className="btn" disabled={!text.trim() || lookingUp}>
             {lookingUp ? <LoaderCircle size={18} className="spin" aria-hidden="true" /> : <Link2 size={18} aria-hidden="true" />}

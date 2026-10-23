@@ -1,4 +1,4 @@
-import { safeFileName } from '../export/exportPng';
+import { safeFileName } from '../export/exportSettings';
 import { tidyName } from './importImage';
 
 describe('token names from file names', () => {

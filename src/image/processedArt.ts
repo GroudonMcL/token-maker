@@ -118,3 +118,8 @@ export function storeProcessedArt(src: RenderSource, edits: ArtEdits, pixels: Pi
   e.result = { key: editsKey(edits), art };
   return art;
 }
+
+/** Drops everything cached for a picture; it is worked out again if needed. */
+export function forgetProcessedArt(src: RenderSource): void {
+  pictures.delete(src.image);
+}

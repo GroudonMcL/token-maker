@@ -98,13 +98,13 @@ A checklist of build phases, following [`BUILD-PROMPTS.md`](BUILD-PROMPTS.md). D
   - [x] Tests: export uses the chosen font (pixel test against other fonts and a fallback), curved text follows every token shape and a picture frame, bent banners, shrink-to-fit (no text pixels off the shape), per-square size, snapping and dragging, migration v6 → v7, presets keep style not words and carry uploaded fonts, the panel; Playwright banner in Pirata One → another font → ring text → long name → reload, drag to snap, and font upload, on desktop, tablet and phone
   - **Done when:** a ribbon label in a fantasy font, or the name curved round the ring, and the export matches ✔
 
-- [ ] **Phase 9 — Export and batch mode**
-  - [ ] Export panel: PNG / WebP / JPG (fill colour), pixels per square (128, 256, 400, 512, custom) with final size and 4096 px cap, safe file name, Download, Copy to clipboard with fallback
-  - [ ] Batch mode: multi-image import, shared style, per-image transform/masks/name, thumbnail strip, "Export all" ZIP
-  - [ ] Big exports and ZIPs work on phones (Web Worker, progress bar)
-  - [ ] A clear place in the code for future GIF export
-  - [ ] Tests: formats and resolutions match the preview, file naming, ZIP contents, Playwright batch flow on desktop and phone
-  - **Done when:** six goblin images share one style, each with its own crop, downloaded as a ZIP of six named tokens
+- [x] **Phase 9 — Export and batch mode**
+  - [x] Export panel: PNG / WebP / JPG (fill colour), pixels per square (128, 256, 400, 512, custom) with final size and 4096 px cap, safe editable file name, Download, Copy to clipboard with fallback message; Advanced quality for WebP/JPG; choices remembered (not part of the look)
+  - [x] Batch mode: Batch switch, multi-file upload/drop, several links, shared style, per-image transform/masks/name/label words, thumbnail strip (add, switch, remove), undo kept across switches, autosaved, "Export all" ZIP of named tokens
+  - [x] Big exports and ZIPs work on phones (art and ZIP in Web Workers, one token at a time, canvases released, progress bar with Stop)
+  - [x] A clear place in the code for future GIF export (`src/export/animated.ts`)
+  - [x] Tests: every resolution matches the renderer pixel for pixel, JPG fill and see-through PNG/WebP, format fallback, file naming and clashes, ZIP contents, batch style sharing / per-picture crop / undo across switches / labels / remove, batch autosave, the Export panel; Playwright six goblins → style → nudge crops → rename → ZIP of six named tokens (survives a reload), every format and resolution vs the preview, custom size, file name, and copy to clipboard, on desktop, tablet and phone
+  - **Done when:** six goblin images share one style, each with its own crop, downloaded as a ZIP of six named tokens ✔
 
 - [ ] **Phase 10 — Polish, help content and launch**
   - [ ] Every help tip has clear text and a small before/after image or clip (reduced motion respected)
