@@ -1,5 +1,5 @@
 // Presets (DESIGN.md §6.9): a token's look — shape, frame, background,
-// overlays, lighting, effects, decorations, shadows and label style — saved
+// lighting, effects (overlays included), decorations, shadows and label style — saved
 // to reuse or share. A preset never holds the user's art (nor a background
 // picture of their own). Shared presets travel as a `.tokenpreset.json` file
 // or as a text code that can be copied and pasted.
@@ -19,7 +19,7 @@ export const PRESET_FILE_EXT = '.tokenpreset.json';
 export const CODE_PREFIX = 'TKP';
 
 /** The parts of a token a preset carries. */
-export const LOOK_KEYS = ['shape', 'background', 'foreground', 'lighting', 'effects', 'frame', 'decorations', 'shadows', 'label'] as const;
+export const LOOK_KEYS = ['shape', 'background', 'lighting', 'effects', 'frame', 'decorations', 'shadows', 'label'] as const;
 export type PresetLook = Pick<TokenDocument, (typeof LOOK_KEYS)[number]>;
 
 export interface TokenPreset {

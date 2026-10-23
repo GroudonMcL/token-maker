@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useBatch } from '../batch/batch';
 import { selectDecoration } from '../editor/tools';
 import { useGlobalImport } from '../editor/useGlobalImport';
@@ -8,6 +8,7 @@ import { restore, startAutosave } from '../state/autosave';
 import { watchFrameImages } from '../state/frameLibrary';
 import { watchLabelFonts } from '../fonts/fontLoader';
 import { watchLibraryImages } from '../state/libraryAssets';
+import { watchPictures } from '../state/pictureLibrary';
 import { preloadSections } from '../sections';
 import { Toasts } from '../ui/Toasts';
 import { AdSlot } from './AdSlot';
@@ -16,6 +17,7 @@ import { BottomSheet } from './BottomSheet';
 import { CanvasArea } from './CanvasArea';
 import { ExportProgress } from './ExportProgress';
 import { Footer } from './Footer';
+import { PanelResizer, readPanelWidth } from './PanelResizer';
 import { SidePanel } from './SidePanel';
 import { TopBar } from './TopBar';
 import { onRevealSection } from './reveal';
@@ -30,6 +32,7 @@ function boot() {
     startAutosave();
     watchLibraryImages();
     watchFrameImages();
+    watchPictures();
     watchLabelFonts();
     preloadSections();
   });
@@ -46,6 +49,8 @@ export function AppShell() {
   const [open, setOpenSections] = useState<ReadonlySet<SectionId>>(() => new Set(['import']));
   const dropping = useGlobalImport();
   const batch = useBatch((b) => b.on);
+  const [panelWidth, setPanelWidth] = useState<number | null>(readPanelWidth);
+  const bodyRef = useRef<HTMLDivElement>(null);
   useShortcuts();
   useEffect(boot, []);
   useEffect(
@@ -69,8 +74,13 @@ export function AppShell() {
     <>
       <div className={`editor ${wide ? 'editor--wide' : 'editor--phone'}`}>
         <TopBar compact={!wide} />
-        <div className="editor__body">
+        <div
+          ref={bodyRef}
+          className="editor__body"
+          style={wide && panelWidth !== null ? ({ '--panel-w': `min(${panelWidth}px, 60vw)`, '--panel-w-narrow': `min(${panelWidth}px, 60vw)` } as CSSProperties) : undefined}
+        >
           <CanvasArea phone={!wide} />
+          {wide && <PanelResizer width={panelWidth} onChange={setPanelWidth} panel={() => bodyRef.current?.querySelector('.side-panel') ?? null} />}
           {wide ? <SidePanel openSections={open} setOpen={setOpen} /> : <BottomSheet />}
         </div>
         {wide && <BottomBar />}

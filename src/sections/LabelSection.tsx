@@ -2,8 +2,8 @@ import { AlignCenter, AlignLeft, AlignRight, Bold, Italic, Trash2, Upload } from
 import { useEffect, useId, useRef, useState } from 'react';
 import { Advanced, ColorSwatches, ControlLabel, SegmentedButtons, Slider, TileGrid, Toggle } from '../components';
 import { LABEL_SHAPES, newLabel } from '../document/defaults';
-import type { LabelSettings, LabelShape } from '../document/types';
-import { setLabelOn, setLabelPlace, setLabelShape, updateLabel } from '../editor/labelActions';
+import type { LabelAnchor, LabelSettings, LabelShape } from '../document/types';
+import { setLabelAnchor, setLabelOn, setLabelPlace, setLabelShape, updateLabel } from '../editor/labelActions';
 import { FONTS, fontFamily, fontInfo, isUploadedFont, UPLOAD_PREFIX } from '../fonts/catalog';
 import { FONT_ACCEPT, fontNameFromFile, loadPickerFonts, refreshUploadedFonts, removeUploadedFont, saveUploadedFont, useUploadedFonts } from '../fonts/fontLoader';
 import { useRovingRadio } from '../components/useRovingRadio';
@@ -34,6 +34,11 @@ function ShapeIcon({ shape }: { shape: LabelShape }) {
       {shape === 'plaque' && <path d="M10 14 h24 a4 4 0 0 0 4 4 v8 a4 4 0 0 0 -4 4 h-24 a4 4 0 0 0 -4 -4 v-8 a4 4 0 0 0 4 -4 z" {...common} />}
       {shape === 'pill' && <rect x="5" y="15" width="34" height="14" rx="7" {...common} />}
       {shape === 'box' && <rect x="5" y="15" width="34" height="14" rx="3" {...common} />}
+      {shape === 'plain' && (
+        <text x="22" y="28" textAnchor="middle" fontSize="15" fontWeight="700" fill="currentColor" fontFamily="serif">
+          Aa
+        </text>
+      )}
       {shape === 'ring' && (
         <>
           <circle cx="22" cy="22" r="15" fill="none" stroke="currentColor" strokeOpacity={0.35} strokeWidth={5} />
@@ -46,7 +51,7 @@ function ShapeIcon({ shape }: { shape: LabelShape }) {
 
 /**
  * Label section (DESIGN.md §6.10): a banner, plaque, pill or box with the
- * token's name, or the name curved round the ring. Drag it on the canvas;
+ * token's name, plain text (v8), or the name curved round the ring. Drag it on the canvas;
  * it snaps to the top or bottom of the frame.
  */
 export function LabelSection() {
@@ -164,6 +169,18 @@ export function LabelSection() {
             onChange={(v) => set({ y: v / 100 }, true)}
             onCommit={commitDoc}
           />
+          <AnchorPicker value={l.anchor} />
+          <Slider
+            label="Rotation"
+            helpId="label.rotation"
+            unit="°"
+            min={-180}
+            max={180}
+            value={Math.round(l.rotation)}
+            defaultValue={0}
+            onChange={(rotation) => set({ rotation }, true)}
+            onCommit={commitDoc}
+          />
         </>
       )}
       <p className="control__hint">Drag the label on the canvas to move it; it snaps to the top or bottom (hold Alt to place it freely).</p>
@@ -216,6 +233,8 @@ export function LabelSection() {
               ]}
             />
           )}
+          {l.shape !== 'plain' && (
+            <>
           <ColorSwatches label="Shape colour" helpId="label.fill" value={l.fill} swatches={FILL_SWATCHES} onChange={(fill) => set({ fill }, true)} onCommit={commitDoc} />
           <Slider
             label="Shape opacity"
@@ -249,6 +268,8 @@ export function LabelSection() {
               onChange={(color) => set({ outline: { ...l.outline, color } }, true)}
               onCommit={commitDoc}
             />
+          )}
+            </>
           )}
         </>
       )}
@@ -329,6 +350,36 @@ export function LabelSection() {
 }
 
 /** The label's words. Left empty, the label shows the token's name (and follows it when the name changes). */
+const ANCHORS: { value: LabelAnchor; label: string }[] = [
+  { value: 'topLeft', label: 'Top left' },
+  { value: 'top', label: 'Top' },
+  { value: 'topRight', label: 'Top right' },
+  { value: 'left', label: 'Left' },
+  { value: 'center', label: 'Middle' },
+  { value: 'right', label: 'Right' },
+  { value: 'bottomLeft', label: 'Bottom left' },
+  { value: 'bottom', label: 'Bottom' },
+  { value: 'bottomRight', label: 'Bottom right' },
+];
+
+/** Nine buttons laid out like the label: which of its points sits at its position and is turned round. */
+function AnchorPicker({ value }: { value: LabelAnchor }) {
+  const labelId = useId();
+  return (
+    <div className="control" data-control="label-anchor" data-help-id="label.anchor">
+      <ControlLabel id={labelId} label="Anchor point" helpId="label.anchor" />
+      <div className="snap-grid" role="radiogroup" aria-labelledby={labelId}>
+        {ANCHORS.map((a) => (
+          <button key={a.value} type="button" role="radio" aria-checked={value === a.value} className="snap-grid__btn" data-anchor={a.value} title={a.label} onClick={() => setLabelAnchor(a.value)}>
+            <span className="snap-grid__dot" aria-hidden="true" />
+            <span className="visually-hidden">{a.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function LabelTextInput({ text, name }: { text: string | null; name: string }) {
   const id = useId();
   const [editing, setEditing] = useState<string | null>(null);

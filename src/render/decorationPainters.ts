@@ -520,4 +520,6 @@ export const DECORATION_PAINTERS: Record<DecorationKind, Painter> = {
   bow,
   holySymbol,
   lute,
+  // Picture decorations are drawn from their picture (decorations.ts), not by code.
+  picture: () => {},
 };

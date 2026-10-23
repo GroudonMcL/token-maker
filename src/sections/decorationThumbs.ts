@@ -17,6 +17,7 @@ export function decorationThumbnails(px = 88): Map<string, string> {
   const ctx = canvas.getContext('2d') as Ctx | null;
   if (!ctx) return out; // no canvas (tests): tiles show without pictures
   for (const info of DECORATIONS) {
+    if (info.kind === 'picture') continue; // pictures show themselves in the picker
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, px, px);
     // Fit the picture's box (aspect × 100 by 100) into the tile with a little room.

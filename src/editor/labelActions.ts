@@ -2,7 +2,7 @@
 // dragging the label on the canvas.
 
 import { newLabel, RING_TEXT_STYLE } from '../document/defaults';
-import type { LabelSettings, LabelShape, TokenDocument } from '../document/types';
+import type { LabelAnchor, LabelSettings, LabelShape, TokenDocument } from '../document/types';
 import { labelPlacement, labelSnapPoint, LABEL_SNAP, RING_SNAP } from '../render/label';
 import type { Point } from '../render/shapes';
 import { getDoc, updateDoc } from '../state/tokenStore';
@@ -33,23 +33,38 @@ export function setLabelPlace(place: LabelSettings['place']): void {
   if (!l || l.place === place) return;
   if (place !== 'free') return updateLabel(withPlace(l, place));
   if (l.shape === 'ring') return updateLabel({ place, angle: l.place === 'top' ? 270 : 90 });
-  const at = labelPlacement(doc)?.centre ?? { x: l.x, y: l.y };
+  const at = labelPlacement(doc)?.anchor ?? { x: l.x, y: l.y };
   updateLabel({ place, x: at.x, y: at.y });
 }
+
+/** A new anchor point for a free label, keeping the label exactly where it is on the token. */
+export function setLabelAnchor(anchor: LabelAnchor): void {
+  const doc = getDoc();
+  const l = doc.label;
+  if (!l || l.anchor === anchor) return;
+  const before = labelPlacement(doc)?.centre;
+  const after = labelPlacement({ ...doc, label: { ...l, anchor } })?.centre;
+  const dx = before && after ? before.x - after.x : 0;
+  const dy = before && after ? before.y - after.y : 0;
+  updateLabel({ anchor, x: l.x + dx, y: l.y + dy });
+}
+
+/** Labels with no shape behind the words: their text needs the light, outlined style. */
+const shapeless = (shape: LabelShape) => shape === 'ring' || shape === 'plain';
 
 const SHAPE_TEXT = { color: newLabel().color, textOutline: newLabel().textOutline, shadow: newLabel().shadow };
 
 /**
- * A new shape. Ring text has no shape behind it, so dark text meant for a
- * banner switches to the light, outlined ring style (and back), unless its
- * colour was changed by hand.
+ * A new shape. Ring and plain text have no shape behind them, so dark text
+ * meant for a banner switches to the light, outlined ring style (and back),
+ * unless its colour was changed by hand.
  */
 export function setLabelShape(shape: LabelShape): void {
   updateLabel((l) => {
     if (l.shape === shape) return l;
     let next: LabelSettings = { ...l, shape };
-    if (shape === 'ring' && l.color === SHAPE_TEXT.color) next = { ...next, ...RING_TEXT_STYLE };
-    else if (l.shape === 'ring' && shape !== 'ring' && l.color === RING_TEXT_STYLE.color) next = { ...next, ...SHAPE_TEXT };
+    if (shapeless(shape) && !shapeless(l.shape) && l.color === SHAPE_TEXT.color) next = { ...next, ...RING_TEXT_STYLE };
+    else if (shapeless(l.shape) && !shapeless(shape) && l.color === RING_TEXT_STYLE.color) next = { ...next, ...SHAPE_TEXT };
     if (shape === 'ring' && l.place === 'free') next.angle = angleOf({ x: l.x, y: l.y });
     return next;
   });

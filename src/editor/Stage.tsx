@@ -289,7 +289,7 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
       if (label && doc.label && pointInPolygon(toUnits(e.clientX, e.clientY), label.outline)) {
         if (selectedId) selectDecoration(null);
         revealSection('label');
-        gesture.current = { kind: 'label', start: doc.label, from: label.centre, x: e.clientX, y: e.clientY };
+        gesture.current = { kind: 'label', start: doc.label, from: label.anchor, x: e.clientX, y: e.clientY };
         setMovingLabel(true);
         return;
       }

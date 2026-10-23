@@ -3,6 +3,7 @@ import { Section } from '../components';
 import { selectDecoration, toolStore } from '../editor/tools';
 import { onRevealSection } from './reveal';
 import { PHONE_TABS, sectionById } from './sections';
+import { MenuStyleSwitch } from './MenuStyleSwitch';
 import { SectionPlaceholder } from './SectionPlaceholder';
 import { SECTION_CONTENT } from '../sections';
 import { ExportButton } from './BottomBar';
@@ -182,6 +183,7 @@ export function BottomSheet() {
         ))}
       </div>
       <div className="bottom-sheet__content" id={panelId} role="tabpanel" aria-label={active.label} hidden={snap === 'peek' && dragHeight === null}>
+        {active.id === 'import' && <MenuStyleSwitch />}
         {active.sections.map((sid) => {
           const s = sectionById(sid);
           const Content = SECTION_CONTENT[sid];

@@ -3,7 +3,7 @@
 //
 // Keeping phones smooth: the heavy pixel work (the full-size processed art)
 // is done by the art Web Worker before rendering, the browser encodes the
-// PNG/WebP/JPG off the main thread, and a batch ZIP is packed in its own Web
+// PNG/WebP off the main thread, and a batch ZIP is packed in its own Web
 // Worker (`zip.worker.ts`). The render itself is one token at a time, with a
 // pause between tokens so the page and its progress bar can update, and each
 // finished canvas is emptied straight away so a phone never holds more than
@@ -15,18 +15,16 @@ import { ensureLabelFont } from '../fonts/fontLoader';
 import { getAssets } from '../state/assets';
 import { loadFrameImage } from '../state/frameLibrary';
 import { ensureLibraryImages } from '../state/libraryAssets';
-import { createCanvas, render, type AssetMap } from '../render/render';
+import { ensurePictures } from '../state/pictureLibrary';
+import { render, type AssetMap } from '../render/render';
 import { FORMATS, finalSize, type ExportFormat } from './formats';
 
 type AnyCanvas = HTMLCanvasElement | OffscreenCanvas;
-type Ctx2d = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
 export interface ExportOptions {
   format: ExportFormat;
   pxPerSquare: number;
-  /** Behind a JPG. */
-  fill: string;
-  /** 1…100 (WebP, JPG). */
+  /** 1…100 (WebP). */
   quality: number;
 }
 
@@ -35,32 +33,22 @@ export async function prepareForExport(doc: TokenDocument, assets: AssetMap): Pr
   await prepareArt(doc, assets); // full-size processed art, usually ready already
   await ensureLibraryImages(doc); // a built-in background picture, usually loaded already
   if (doc.frame.kind === 'image' && doc.frame.image) await loadFrameImage(doc.frame.image.source).catch((e) => console.warn(e)); // the picture frame
+  await ensurePictures(doc); // picture effects and decorations
   await ensureLabelFont(doc); // the label's font, so it is never drawn with a fallback
   // The store may have gained the background or frame picture since `assets` was read.
   return new Map([...getAssets(), ...assets]);
 }
 
-/**
- * Draws the token for export: the renderer's own picture at the chosen
- * size, laid on the fill colour for formats that can't be see-through.
- */
-export function renderForExport(doc: TokenDocument, assets: AssetMap, opts: Pick<ExportOptions, 'format' | 'pxPerSquare' | 'fill'>): AnyCanvas {
+/** Draws the token for export: the renderer's own picture at the chosen size. Every format keeps it see-through. */
+export function renderForExport(doc: TokenDocument, assets: AssetMap, opts: Pick<ExportOptions, 'pxPerSquare'>): AnyCanvas {
   const { side } = finalSize(doc.size.squares, opts.pxPerSquare);
-  const token = render(doc, assets, side);
-  if (FORMATS[opts.format].transparent) return token;
-  const flat = createCanvas(side);
-  const ctx = flat.getContext('2d') as Ctx2d;
-  ctx.fillStyle = opts.fill;
-  ctx.fillRect(0, 0, side, side);
-  ctx.drawImage(token as CanvasImageSource, 0, 0);
-  releaseCanvas(token);
-  return flat;
+  return render(doc, assets, side);
 }
 
 /** Thrown when the browser can't write the chosen format (Safari and WebP). */
 export class FormatUnsupportedError extends Error {
   constructor(readonly format: ExportFormat) {
-    super(`This browser can't save ${FORMATS[format].label} files. Choose PNG or JPG instead.`);
+    super(`This browser can't save ${FORMATS[format].label} files. Choose PNG instead.`);
   }
 }
 

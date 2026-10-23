@@ -5,7 +5,7 @@
 
 import { MAX_OUTPUT_SIDE, outputSize } from '../document/sizing';
 
-export type ExportFormat = 'png' | 'webp' | 'jpg';
+export type ExportFormat = 'png' | 'webp';
 
 export interface FormatInfo {
   id: ExportFormat;
@@ -13,16 +13,13 @@ export interface FormatInfo {
   label: string;
   mime: string;
   ext: string;
-  /** False for JPG: see-through parts are filled with a colour. */
-  transparent: boolean;
-  /** WebP and JPG take a quality setting; PNG is always lossless. */
+  /** WebP takes a quality setting; PNG is always lossless. JPG was removed (owner request after Phase 10): tokens need to be see-through. */
   lossy: boolean;
 }
 
 export const FORMATS: Record<ExportFormat, FormatInfo> = {
-  png: { id: 'png', label: 'PNG', mime: 'image/png', ext: 'png', transparent: true, lossy: false },
-  webp: { id: 'webp', label: 'WebP', mime: 'image/webp', ext: 'webp', transparent: true, lossy: true },
-  jpg: { id: 'jpg', label: 'JPG', mime: 'image/jpeg', ext: 'jpg', transparent: false, lossy: true },
+  png: { id: 'png', label: 'PNG', mime: 'image/png', ext: 'png', lossy: false },
+  webp: { id: 'webp', label: 'WebP', mime: 'image/webp', ext: 'webp', lossy: true },
 };
 
 export const FORMAT_IDS = Object.keys(FORMATS) as ExportFormat[];

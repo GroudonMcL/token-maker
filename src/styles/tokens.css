@@ -78,36 +78,7 @@
   :root { --hit: 44px; }
 }
 
-/* ---- Colours: light theme ---- */
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme='dark']) {
-    color-scheme: light;
-    --bg-top: #dbe3ef;
-    --bg: #efe9df;
-    --bg-gradient: linear-gradient(180deg, #dbe3ef 0%, #e8e6e4 32%, #efe9df 70%);
-    --surface: #f8f4ee;
-    --surface-raised: #ffffff;
-    --surface-sunken: #e3dbcd;
-    --border: #d3c8b6;
-    --border-strong: #b3a58e;
-    --text: #2a221a;
-    --text-muted: #5f5242;
-    --text-faint: #7d6f5c;
-    --accent: #8f5d12;
-    --accent-hover: #7a4f0e;
-    --accent-soft: rgba(143, 93, 18, 0.14);
-    --on-accent: #fffaf2;
-    --focus: #8f5d12;
-    --danger: #a8402f;
-    --success: #3d7a3b;
-    --overlay: rgba(40, 32, 22, 0.35);
-    --checker-a: #e7e0d4;
-    --checker-b: #f4efe7;
-    --shadow-sm: 0 1px 2px rgba(60, 44, 20, 0.15);
-    --shadow-md: 0 4px 14px rgba(60, 44, 20, 0.14);
-    --shadow-lg: 0 14px 40px rgba(60, 44, 20, 0.22);
-  }
-}
+/* ---- Colours: light theme (dark is the default, whatever the system says) ---- */
 :root[data-theme='light'] {
   color-scheme: light;
   --bg-top: #dbe3ef;

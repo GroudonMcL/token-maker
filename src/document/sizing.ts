@@ -69,5 +69,6 @@ export function computeInsets(doc: Pick<TokenDocument, 'frame' | 'size'>): Inset
 /** "½ square", "1 square", "2 × 2 squares". */
 export function squaresLabel(squares: number): string {
   if (squares === 0.5) return '½ square';
+  if (squares < 1) return `${squares} of a square`;
   return squares === 1 ? '1 square' : `${squares} × ${squares} squares`;
 }

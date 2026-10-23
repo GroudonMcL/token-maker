@@ -44,11 +44,6 @@ export const helpContent = {
     text: 'What shows behind your art inside the frame: a colour, a gradient or an image (including a blurred copy of your art).',
     media: beforeAfter('section-background', 'a forest appears behind the goblin'),
   },
-  'section.foreground': {
-    title: 'Foreground',
-    text: 'Layers drawn over your art but inside the frame, like a vignette, mist or foliage.',
-    media: beforeAfter('section-foreground', 'mist and a vignette are drawn over the goblin'),
-  },
   'section.lighting': {
     title: 'Lighting & shadows',
     text: 'Light your art from one direction and set the shadows the token casts. Shadows follow the light unless you unlink them.',
@@ -91,7 +86,7 @@ export const helpContent = {
   },
   'section.export': {
     title: 'Export',
-    text: 'Download the token as PNG, WebP or JPG at the size your virtual tabletop needs, or copy it to the clipboard.',
+    text: 'Download the token as PNG or WebP at the size your virtual tabletop needs, or copy it to the clipboard.',
     media: beforeAfter('section-export', 'the finished token sits on a map grid'),
   },
 
@@ -281,25 +276,6 @@ export const helpContent = {
   'background.move': { title: 'Move the background', text: 'Turn this on, then drag on the canvas to slide the background picture. Reset puts it back in the middle.', media: beforeAfter('background-move', 'the forest slides to one side') },
   'background.opacity': { title: 'Opacity', text: 'How solid the background is. Below 100% the backing colour shows through.', media: beforeAfter('background-opacity', 'the forest fades so the red backing shows through') },
 
-  // ---- Foreground (Phase 4) ----
-  'foreground.add': {
-    title: 'Add an overlay',
-    text: 'Overlays are drawn over your art, inside the frame. Stack as many as you like; the top of the list is drawn last.',
-    media: beforeAfter('foreground-add', 'foliage and a vignette are added over the art'),
-  },
-  'foreground.color': { title: 'Colour', text: "The overlay's colour.", media: beforeAfter('foreground-color', 'white mist turns purple') },
-  'foreground.angle': { title: 'Side', text: 'Which side or corner of the token the overlay sits on.', media: beforeAfter('foreground-angle', 'foliage moves from the bottom to the top-left corner') },
-  'foreground.size': { title: 'Reach', text: 'How far in from the edge it reaches, or how much of it there is.', media: beforeAfter('foreground-size', 'the vignette reaches further in') },
-  'foreground.softness': { title: 'Softness', text: 'How gently the overlay fades out.', media: beforeAfter('foreground-softness', 'a hard-edged shadow becomes a soft fade') },
-  'foreground.scale': { title: 'Scale', text: 'The size of the leaves, smoke puffs, mist banks or webs.', media: beforeAfter('foreground-scale', 'small leaves become big leaves') },
-  'foreground.opacity': { title: 'Opacity', text: 'How strong the overlay is.', media: beforeAfter('foreground-opacity', 'faint smoke becomes thick smoke') },
-  'foreground.blend': {
-    title: 'Blend mode',
-    text: 'How the overlay mixes with the art: Multiply darkens, Screen lightens, Overlay and Soft light add contrast and colour.',
-    media: beforeAfter('foreground-blend', 'a gradient that hides the goblin is blended in so the goblin shows through'),
-  },
-  'foreground.shuffle': { title: 'Shuffle', text: 'Rearranges the leaves, smoke or webs at random. Each layout is kept, so the token always looks the same.', media: beforeAfter('foreground-shuffle', 'the cobwebs are rearranged') },
-
   // ---- Lighting (Phase 4) ----
   'lighting.presets': {
     title: 'Lighting presets',
@@ -383,7 +359,7 @@ export const helpContent = {
     text: 'How strong the effect is.',
     media: beforeAfter('effects-intensity', 'fire at low and full intensity'),
   },
-  'effects.advanced': { title: 'More effect settings', text: 'Colour, size, spread and Shuffle for this effect.', media: beforeAfter('effects-advanced', 'orange fire turns into bigger blue flames all round') },
+  'effects.advanced': { title: 'More effect settings', text: 'Size, spread, softness, blend mode and Shuffle for this effect.', media: beforeAfter('effects-advanced', 'orange fire turns into bigger blue flames all round') },
   'effects.color': {
     title: 'Colour',
     text: 'The colour of the effect, like arcane blue or radiant gold.',
@@ -398,6 +374,21 @@ export const helpContent = {
     title: 'Spread',
     text: 'How much of the token it covers: flames and mist creep further round from the bottom, and glows stay solid for longer before they fade.',
     media: beforeAfter('effects-spread', 'fire only at the bottom, then all the way round'),
+  },
+  'effects.blur': { title: 'Blur', text: 'Softens the whole effect, as a share of one grid square, so sharp flames or sparks become a soft haze.', media: beforeAfter('effects-blur', 'sharp lightning becomes a soft blur') },
+  'effects.blend': {
+    title: 'Blend mode',
+    text: 'How the effect mixes with what is under it: Normal keeps its own look, Multiply darkens, Screen lightens, Overlay and Soft light add contrast and colour.',
+    media: beforeAfter('effects-blend', 'a gradient that hides the goblin is blended in so the goblin shows through'),
+  },
+  'effects.angle': { title: 'Side', text: 'Which side or corner of the token the overlay sits on.', media: beforeAfter('effects-angle', 'foliage moves from the bottom to the top-left corner') },
+  'effects.softness': { title: 'Softness', text: 'How gently the overlay fades out.', media: beforeAfter('effects-softness', 'a hard-edged shadow becomes a soft fade') },
+  'effects.layout': { title: 'Layout', text: 'Scatter sprinkles copies of the picture round the token; Fill stretches one copy over the whole area, like a texture.', media: beforeAfter('effects-layout', 'scattered smoke puffs become one picture filling the token') },
+  'effects.tint': { title: 'Colour it in', text: "Colours the picture with the effect's colour. Turn it off to keep a picture's own colours.", media: beforeAfter('effects-tint', 'white twinkles turn gold') },
+  'effects.upload': {
+    title: 'Use your own picture',
+    text: 'Add any picture, like a texture or a transparent PNG, as an effect. It is kept in this browser for next time.',
+    media: beforeAfter('effects-upload', 'a picture of your own is added over the token'),
   },
   'effects.shuffle': {
     title: 'Shuffle',
@@ -427,6 +418,12 @@ export const helpContent = {
   'effect.embers': { title: 'Embers', text: 'Glowing sparks drifting upwards.', media: beforeAfter('effect-embers', 'embers') },
   'effect.sparkles': { title: 'Sparkles', text: 'Twinkling glints of light.', media: beforeAfter('effect-sparkles', 'sparkles') },
   'effect.smoke': { title: 'Smoke', text: 'Billowing smoke rising from the bottom.', media: beforeAfter('effect-smoke', 'smoke') },
+  'effect.vignette': { title: 'Vignette', text: 'Darkens the edge of the art so the eye goes to the middle.', media: beforeAfter('effect-vignette', 'a vignette') },
+  'effect.gradient': { title: 'Gradient', text: 'A wash of colour across the art, blended in so the art shows through.', media: beforeAfter('effect-gradient', 'a warm gradient wash') },
+  'effect.edgeShadow': { title: 'Edge shadow', text: 'A shadow creeping in from one side of the art.', media: beforeAfter('effect-edgeShadow', 'an edge shadow from the bottom') },
+  'effect.foliage': { title: 'Foliage', text: 'Leafy stems growing in from one side.', media: beforeAfter('effect-foliage', 'foliage') },
+  'effect.cobwebs': { title: 'Cobwebs', text: 'A web spun in one corner.', media: beforeAfter('effect-cobwebs', 'cobwebs') },
+  'effect.picture': { title: 'Picture effects', text: 'Free sprites (smoke, flames, sparks, claw marks and more) scattered round the token in any colour.', media: beforeAfter('effect-picture', 'smoke puffs and twinkles') },
 
   // ---- Frame & shape ----
   // ---- Decorations (DESIGN.md §6.9) ----
@@ -435,6 +432,12 @@ export const helpContent = {
     text: 'Pick a gem, horn, wing or other decoration. It snaps onto the frame; drag it on the canvas to move it, and use its handles to resize and turn it.',
     media: beforeAfter('decorations-add', 'a gem is added to the top of the frame'),
   },
+  'decorations.picture': {
+    title: 'Pictures',
+    text: 'Flat icons, like a heart or a potion, in any colour, or a picture of your own (kept in this browser for next time).',
+    media: beforeAfter('decorations-picture', 'a red heart icon is added to the frame'),
+  },
+  'decorations.tint': { title: 'Colour it in', text: "Colours the picture with the decoration's colour. Turn it off to keep a picture's own colours.", media: beforeAfter('decorations-tint', 'a white icon turns gold') },
   'decorations.place': {
     title: 'Position',
     text: 'Snap it to the top, bottom, sides or corners of the frame, where it turns to face outwards, or choose Free to put it anywhere.',
@@ -448,10 +451,10 @@ export const helpContent = {
   'decorations.flip': { title: 'Flip', text: 'Flips it left to right.', media: beforeAfter('decorations-flip', 'the sword flips left to right') },
 
   // ---- Label (DESIGN.md §6.10) ----
-  'label.add': { title: 'Label', text: "Adds the token's name on a banner, which you can change to a plaque, pill, box or text curved round the ring. Switch it off to remove the label.", media: beforeAfter('label-add', 'a banner with the token\'s name is added') },
+  'label.add': { title: 'Label', text: "Adds the token's name on a banner, which you can change to a plaque, pill, box, plain text or text curved round the ring. Switch it off to remove the label.", media: beforeAfter('label-add', 'a banner with the token\'s name is added') },
   'label.shape': {
     title: 'Shape',
-    text: 'A banner, plaque, pill or box behind the text, or Ring text, which curves the words round the frame with no shape behind them.',
+    text: 'A banner, plaque, pill or box behind the text, Plain text with no shape, or Ring text, which curves the words round the frame.',
     media: beforeAfter('label-shape', 'a banner becomes a plaque'),
   },
   'label.text': { title: 'Text', text: "The words on the label. Leave it empty to show the token's name, which then follows any change to the name.", media: beforeAfter('label-text', 'the label\'s words change to Grik') },
@@ -477,6 +480,8 @@ export const helpContent = {
   'label.angle': { title: 'Round the ring', text: 'Where the middle of the ring text sits: 90° is the bottom, 270° the top.', media: beforeAfter('label-angle', 'ring text moves from the bottom to the top of the ring') },
   'label.x': { title: 'Sideways', text: "Moves the label left or right, as a share of the token's half-width.", media: beforeAfter('label-x', 'the label moves to the right') },
   'label.y': { title: 'Up or down', text: "Moves the label up or down, as a share of the token's half-height.", media: beforeAfter('label-y', 'the label moves up') },
+  'label.anchor': { title: 'Anchor point', text: 'Which point of the label sits at its position: a corner, an edge or the middle. The label turns round this point.', media: beforeAfter('label-anchor', 'the label is pinned by its left end') },
+  'label.rotation': { title: 'Rotation', text: 'Turns a free label round its anchor point.', media: beforeAfter('label-rotation', 'the label is turned at an angle') },
   'label.arc': { title: 'Most of the ring it covers', text: 'How far round the ring the words may reach. Longer names shrink to fit inside it when Shrink long names is on.', media: beforeAfter('label-arc', 'a long name squeezed into a short arc spreads round the ring') },
   'label.width': { title: 'Width', text: 'How wide the shape is, as a share of one grid square.', media: beforeAfter('label-width', 'a narrow banner becomes wide') },
   'label.curve': { title: 'Bend', text: 'Bends the banner so it hugs the ring. Positive bends the ends up (for the bottom), negative bends them down (for the top).', media: beforeAfter('label-curve', 'a straight banner bends') },
@@ -585,10 +590,9 @@ export const helpContent = {
   // ---- Export ----
   'export.format': {
     title: 'Format',
-    text: 'PNG keeps the see-through corners and works in every VTT. WebP is see-through too and much smaller; JPG is smallest but fills the corners with a colour.',
-    media: beforeAfter('export-format', 'a JPG with white corners becomes a PNG with see-through corners'),
+    text: 'PNG is lossless and works in every VTT. WebP is see-through too, and a much smaller file.',
+    media: beforeAfter('export-format', 'a large PNG file becomes a much smaller WebP that looks the same'),
   },
-  'export.fill': { title: 'Fill colour', text: "JPG files can't be see-through, so the corners and any see-through parts are filled with this colour.", media: beforeAfter('export-fill', 'the JPG\'s white corners become blue') },
   'export.resolution': {
     title: 'Pixels per square',
     text: 'How many pixels each grid square gets, so a Large token at 256 is 512 × 512 px. 256 suits most VTTs; the longest side is capped at 4096 px.',
@@ -610,7 +614,7 @@ export const helpContent = {
     text: 'Makes every token in the batch with the shared style and saves them in one ZIP file, each named after its token.',
     media: beforeAfter('export-all', 'one token becomes four, each with its own name'),
   },
-  'export.advanced': { title: 'Advanced', text: 'Fine-tune the file size of WebP and JPG files.', media: beforeAfter('export-advanced', 'lower quality makes a smaller, blotchier picture') },
+  'export.advanced': { title: 'Advanced', text: 'Fine-tune the file size of WebP files.', media: beforeAfter('export-advanced', 'lower quality makes a smaller, blotchier picture') },
   'export.quality': {
     title: 'Quality',
     text: 'Lower makes a smaller file with a slightly blurrier, blockier picture. 92% is hard to tell apart from the original.',
@@ -637,9 +641,14 @@ export const helpContent = {
     text: 'Make several tokens at once with one shared style: upload, drop or link several pictures, and each keeps its own position, brush work and name. Export them all as a ZIP.',
     media: beforeAfter('topbar-batch', 'one token becomes four that share one style'),
   },
+  'panel.menuStyle': {
+    title: 'Menu style',
+    text: 'Simple hides the extra settings, Advanced keeps them in closed Advanced drop-downs, and Expert shows them all the time.',
+    media: beforeAfter('panel-menuStyle', 'the Advanced drop-downs open up'),
+  },
   'topbar.theme': {
     title: 'Theme',
-    text: 'Switch between the dark and light look. "System" follows your device setting.',
+    text: 'Switch between the dark look (the default) and the light look.',
     media: beforeAfter('topbar-theme', 'the dark look becomes the light look'),
   },
 

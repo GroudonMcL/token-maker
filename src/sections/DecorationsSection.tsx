@@ -1,9 +1,12 @@
-import { ArrowDown, ArrowUp, ChevronDown, Eye, EyeOff, Trash2 } from 'lucide-react';
-import { useEffect, useId, useState } from 'react';
+import { ArrowDown, ArrowUp, ChevronDown, Eye, EyeOff, Trash2, Upload } from 'lucide-react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { ColorSwatches, ControlLabel, Slider, Toggle } from '../components';
 import { DECORATION_GROUPS, DECORATIONS, decorationInfo, MAX_DECORATIONS, newDecoration } from '../document/defaults';
 import type { Decoration, DecorationKind, SnapPoint } from '../document/types';
+import { addPictureDecoration, uploadPictureDecoration } from '../editor/pictureActions';
 import { selectDecoration, useTool } from '../editor/tools';
+import { DECORATION_PICTURES, decorationPicture, pictureUrl } from '../render/pictureLibrary';
+import { refreshUploadedPictures, useUploadedPictures } from '../state/pictureLibrary';
 import { decorationGeometry, placements } from '../render/decorations';
 import { commitDoc, getDoc, updateDoc, useDoc } from '../state/tokenStore';
 import { decorationThumbnails } from './decorationThumbs';
@@ -38,6 +41,12 @@ export function DecorationsSection() {
   const decorations = useDoc((d) => d.decorations);
   const selected = useTool((s) => s.selectedDecoration);
   const [thumbs, setThumbs] = useState<Map<string, string> | null>(null);
+  const { pictures: uploads, loaded } = useUploadedPictures();
+  const fileInput = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!loaded) void refreshUploadedPictures();
+  }, [loaded]);
 
   useEffect(() => {
     // Drawn after the panel appears, so opening it stays snappy.
@@ -69,15 +78,56 @@ export function DecorationsSection() {
             <div key={group} className="tile-grid__group" role="group" aria-label={group}>
               <div className="tile-grid__group-name">{group}</div>
               <div className="tile-grid__tiles">
-                {DECORATIONS.filter((x) => x.group === group).map((x) => (
-                  <button key={x.kind} type="button" className="tile" data-decoration={x.kind} disabled={full} onClick={() => add(x.kind)}>
-                    <span className="tile__preview" aria-hidden="true">
-                      {thumbs?.get(x.kind) ? <img src={thumbs.get(x.kind)} alt="" width={44} height={44} /> : <span className="tile__blank" />}
-                    </span>
-                    <span className="tile__label">{x.name}</span>
-                  </button>
-                ))}
+                {group === 'Pictures' ? (
+                  <>
+                    {DECORATION_PICTURES.map((p) => (
+                      <button key={p.id} type="button" className="tile" data-decoration-picture={p.id} disabled={full} onClick={() => void addPictureDecoration({ type: 'library', id: p.id })}>
+                        <span className="tile__preview tile__preview--dark" aria-hidden="true">
+                          <img src={pictureUrl(p.id)} alt="" width={44} height={44} loading="lazy" />
+                        </span>
+                        <span className="tile__label">{p.name}</span>
+                      </button>
+                    ))}
+                    {uploads.map((p) => (
+                      <button key={p.id} type="button" className="tile" disabled={full} onClick={() => void addPictureDecoration({ type: 'upload', id: p.id })}>
+                        <span className="tile__preview tile__preview--dark" aria-hidden="true">
+                          <img src={p.url} alt="" width={44} height={44} />
+                        </span>
+                        <span className="tile__label">{p.name}</span>
+                      </button>
+                    ))}
+                  </>
+                ) : (
+                  DECORATIONS.filter((x) => x.group === group).map((x) => (
+                    <button key={x.kind} type="button" className="tile" data-decoration={x.kind} disabled={full} onClick={() => add(x.kind)}>
+                      <span className="tile__preview" aria-hidden="true">
+                        {thumbs?.get(x.kind) ? <img src={thumbs.get(x.kind)} alt="" width={44} height={44} /> : <span className="tile__blank" />}
+                      </span>
+                      <span className="tile__label">{x.name}</span>
+                    </button>
+                  ))
+                )}
               </div>
+              {group === 'Pictures' && (
+                <div className="control control--row" data-control="decoration-upload" data-help-id="decorations.picture">
+                  <button type="button" className="btn btn--small" disabled={full} onClick={() => fileInput.current?.click()}>
+                    <Upload size={14} aria-hidden="true" />
+                    Use your own picture
+                  </button>
+                  <input
+                    ref={fileInput}
+                    type="file"
+                    accept="image/png,image/webp,image/jpeg,image/gif,image/avif,image/svg+xml"
+                    hidden
+                    data-testid="decoration-file-input"
+                    onChange={(ev) => {
+                      const file = ev.target.files?.[0];
+                      ev.target.value = '';
+                      if (file) void uploadPictureDecoration(file);
+                    }}
+                  />
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -90,6 +140,7 @@ export function DecorationsSection() {
             <DecorationCard
               key={d.id}
               d={d}
+              name={decorationName(d, uploads)}
               open={selected === d.id}
               onToggle={() => selectDecoration(selected === d.id ? null : d.id)}
               canUp={i < decorations.length - 1}
@@ -105,8 +156,15 @@ export function DecorationsSection() {
   );
 }
 
+/** A decoration's name: its kind's, or its picture's. */
+function decorationName(d: Decoration, uploads: { id: string; name: string }[]): string {
+  if (d.kind !== 'picture' || !d.image) return decorationInfo(d.kind).name;
+  return d.image.type === 'library' ? (decorationPicture(d.image.id)?.name ?? 'Picture') : (uploads.find((u) => u.id === d.image!.id)?.name ?? 'Your picture');
+}
+
 function DecorationCard({
   d,
+  name,
   open,
   onToggle,
   canUp,
@@ -115,6 +173,7 @@ function DecorationCard({
   onDown,
 }: {
   d: Decoration;
+  name: string;
   open: boolean;
   onToggle: () => void;
   canUp: boolean;
@@ -124,7 +183,8 @@ function DecorationCard({
 }) {
   const bodyId = useId();
   const info = decorationInfo(d.kind);
-  const name = info.name;
+  const lib = d.kind === 'picture' && d.image?.type === 'library' ? decorationPicture(d.image.id) : undefined;
+  const swatches = lib?.swatches ?? info.swatches;
   return (
     <li className="overlay-card" data-open={open} data-hidden={!d.visible || undefined} data-decoration={d.kind}>
       <div className="overlay-card__head">
@@ -181,7 +241,10 @@ function DecorationCard({
           onChange={(rotation) => update(d.id, { rotation }, true)}
           onCommit={commitDoc}
         />
-        <ColorSwatches label="Tint" helpId="decorations.color" value={d.color} swatches={info.swatches} onChange={(color) => update(d.id, { color }, true)} onCommit={commitDoc} />
+        {d.kind === 'picture' && <Toggle label="Colour it in" helpId="decorations.tint" checked={d.tint} onChange={(tint) => update(d.id, { tint })} />}
+        {(d.kind !== 'picture' || d.tint) && (
+          <ColorSwatches label="Tint" helpId="decorations.color" value={d.color} swatches={swatches} onChange={(color) => update(d.id, { color }, true)} onCommit={commitDoc} />
+        )}
         <Slider
           label="Opacity"
           helpId="decorations.opacity"

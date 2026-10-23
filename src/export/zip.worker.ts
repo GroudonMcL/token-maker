@@ -1,5 +1,5 @@
 // Web Worker: packs a batch of exported tokens into one ZIP, so a phone's
-// page doesn't freeze while it is made. PNG, WebP and JPG are already
+// page doesn't freeze while it is made. PNG and WebP are already
 // compressed, so the files are stored as they are (fast, and no bigger).
 
 import { zipSync, type Zippable } from 'fflate';

@@ -1,6 +1,7 @@
 import { useId, useState, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
 import type { HelpId } from '../help/helpContent';
+import { useMenuStyle } from '../state/menuStyle';
 import { HelpTip } from './HelpTip';
 
 /**
@@ -63,9 +64,23 @@ export function Section({
   );
 }
 
+/**
+ * The "Advanced" drop-down. The menu style decides how it shows: hidden
+ * entirely (Simple), a closed drop-down (Advanced) or always open with no
+ * drop-down (Expert).
+ */
 export function Advanced({ helpId = 'kit.advanced', children }: { helpId?: HelpId; children: ReactNode }) {
+  const style = useMenuStyle();
   const [open, setOpen] = useState(false);
   const bodyId = useId();
+  if (style === 'simple') return null;
+  if (style === 'expert') {
+    return (
+      <div className="advanced advanced--expert" data-control="advanced" data-help-id={helpId}>
+        {children}
+      </div>
+    );
+  }
   return (
     <div className="advanced" data-open={open} data-control="advanced" data-help-id={helpId}>
       <div className="advanced__header">
