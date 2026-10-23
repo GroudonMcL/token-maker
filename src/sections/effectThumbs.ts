@@ -27,6 +27,7 @@ export function effectThumbnails(token: Pick<TokenDocument, 'shape' | 'frame'>, 
   if (!ctx) return out; // no canvas (tests): tiles show without pictures
   const assets = new Map([['asset:sample', cutOutArt(makeCanvas, 128)]]);
   for (const info of EFFECTS) {
+    if (info.kind === 'picture') continue; // pictures show themselves in the picker
     const doc = createDocument();
     doc.shape = token.shape;
     doc.frame = { ...token.frame };

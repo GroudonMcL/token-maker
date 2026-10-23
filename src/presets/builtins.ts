@@ -3,7 +3,7 @@
 // them for looks made in the editor, copy each one's preset code from the
 // Presets section and turn the codes into changes here.
 
-import { createDocument, LIGHT_PRESETS, newDecoration, newEffect, newOverlay } from '../document/defaults';
+import { createDocument, LIGHT_PRESETS, newDecoration, newEffect } from '../document/defaults';
 import type { Decoration, DecorationKind, EffectKind, EffectLayer, LightPresetId, TokenDocument } from '../document/types';
 import { framePresetById } from '../render/catalog';
 import { createPreset, type TokenPreset } from './preset';
@@ -29,8 +29,7 @@ export const BUILT_IN_PRESETS: readonly TokenPreset[] = [
   preset('boss', 'Boss', (d) => {
     frame(d, 'gilded', { thickness: 0.18 });
     light(d, 'firelight');
-    d.effects = [effect('outerGlow', { color: '#ff3b1a', intensity: 85, size: 0.2 }), effect('embers', { intensity: 70 })];
-    d.foreground = [newOverlay('vignette', 'vignette')];
+    d.effects = [effect('vignette'), effect('outerGlow', { color: '#ff3b1a', intensity: 85, size: 0.2 }), effect('embers', { intensity: 70 })];
     d.decorations = [deco('crown')];
     d.shadows.outer = { ...d.shadows.outer, distance: 0.05, blur: 0.14, opacity: 0.9 };
   }),

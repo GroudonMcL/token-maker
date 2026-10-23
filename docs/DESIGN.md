@@ -208,7 +208,7 @@ The background is affected by its own position/zoom, independent of the art.
 
 *(Phase 4, as built: `background` in the document keeps every kind's settings (colour, gradient, picture), so switching kinds never loses work, plus an opacity for all kinds. Gradients have a type (linear/radial), an angle and 2–16 stops, each with position, colour and opacity; the same editor is used by the Gradient overlay. A picture is `{type: 'library', id}`, `{type: 'asset', assetId}` (the user's own, autosaved like the art) or `{type: 'art'}` (the art's original picture, defaulting to 130% zoom and some blur). It covers the frame's opening at zoom 100%; zoom (50–400%) and offset move it, using a "Move on the canvas" tool. Blur 100 = 5% of the picture's longer side, worked on a 640 px copy and cached. The built-in library is 10 pictures drawn by code (`scripts/make-backgrounds.ts` → `public/backgrounds/*.webp`, loaded when first used and never autosaved). Your own background picture can come from upload or a pasted link (the Phase 2 web importer, with a target); drag-and-drop and Ctrl+V on the page still always set the art.)*
 
-### 6.4 Foreground overlays
+### 6.4 Foreground overlays (merged into Effects after Phase 10, document v8)
 
 Stackable list, drawn over the art and inside the frame:
 
@@ -363,7 +363,7 @@ Desktop and phone are **equally important**.
 
 **Phone tabs → sections** (Phase 0): the ten phone tabs hold the thirteen sections like this: Image = Image + Pop-out; Frame = Frame & shape + Size + Presets; every other tab holds the one section of the same name. On phones, the token summary and the Export button sit at the top of the bottom sheet instead of in a separate bottom bar.
 
-**Panel sections** (in this order): Import · Image (adjust, background removal, brush) · Background · Foreground · Lighting & shadows · Pop-out · Effects · Frame & shape · Decorations · Size · Label · Presets · Export.
+**Panel sections** (in this order, changed after Phase 10 at the owner's request): Import · Image (adjust, brush) · Background (background removal, then what's behind the art) · Frame & shape · Pop-out · Lighting & shadows · Effects (including the overlays that were the Foreground section) · Decorations · Size · Label · Presets · Export. A Simple / Advanced / Expert menu-style switch above Import hides, folds or shows the Advanced settings.
 
 **One section open at a time:** opening a section closes the others, to cut clutter and scrolling (in the side panel, and between the sections that share a phone tab). Import is open to begin with.
 

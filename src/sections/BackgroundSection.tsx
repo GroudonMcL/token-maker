@@ -9,6 +9,7 @@ import { BACKGROUND_LIBRARY, libraryThumbUrl } from '../render/backgroundLibrary
 import { loadLibraryImage } from '../state/libraryAssets';
 import { commitDoc, updateDoc, useDoc } from '../state/tokenStore';
 import { toast } from '../ui/toast';
+import { BackgroundRemovalControls } from './BackgroundRemovalControls';
 import { WebAddress } from './ImportSection';
 
 const COLOR_SWATCHES = ['#1d1f27', '#3a4a5c', '#2b3a22', '#4a2f22', '#5b2d7a', '#7a2e2e', '#c9b48a', '#e8e0d0', '#ffffff', '#000000'];
@@ -18,7 +19,7 @@ type Source = 'library' | 'asset' | 'art';
 const setBackground = (patch: Partial<BackgroundLayer>, transient = false) =>
   updateDoc((d) => ({ ...d, background: { ...d.background, ...patch } }), { transient });
 
-/** Background section (DESIGN.md §6.3): colour, gradient or picture, behind the art inside the frame. */
+/** Background section (DESIGN.md §6.3): removing the art's own background (v8), then a colour, gradient or picture behind the art inside the frame. */
 export function BackgroundSection() {
   const bg = useDoc((d) => d.background);
   const hasArt = useDoc((d) => d.art.assetId !== null);
@@ -34,6 +35,7 @@ export function BackgroundSection() {
 
   return (
     <>
+      <BackgroundRemovalControls />
       <SegmentedButtons
         label="Background"
         helpId="background.kind"

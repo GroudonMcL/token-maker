@@ -8,7 +8,6 @@ import { ImportSection } from './ImportSection';
 const loaders = {
   image: () => import('./ImageSection').then((m) => ({ default: m.ImageSection })),
   background: () => import('./BackgroundSection').then((m) => ({ default: m.BackgroundSection })),
-  foreground: () => import('./ForegroundSection').then((m) => ({ default: m.ForegroundSection })),
   lighting: () => import('./LightingSection').then((m) => ({ default: m.LightingSection })),
   popout: () => import('./PopOutSection').then((m) => ({ default: m.PopOutSection })),
   effects: () => import('./EffectsSection').then((m) => ({ default: m.EffectsSection })),

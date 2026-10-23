@@ -7,9 +7,14 @@
 // twinkle, lightning re-strikes), so animation can be added later without
 // rewriting these.
 
-import type { EffectKind } from '../document/types';
+import { OVERLAY_BASE_SIZE } from '../document/defaults';
+import type { EffectKind, EffectLayer } from '../document/types';
+import { newCanvas } from '../image/processedArt';
 import { mix, rgba, shade } from './color';
 import type { EdgePoint, EffectScene } from './effects';
+import { paintOverlay, type OverlayKind, type OverlayParams } from './overlays';
+import { effectPicture } from './pictureLibrary';
+import type { RenderSource } from './render';
 import { tracePolygon, type Ctx } from './frameKit';
 import { shapePolygon, type Point } from './shapes';
 
@@ -1153,6 +1158,109 @@ const smoke: Painter = (s) => {
   ];
 };
 
+// ---- Overlays (the Foreground section until v8) ----
+
+/** An overlay effect's settings in the overlay painters' terms: Spread is how far it reaches, Size its scale. */
+export function overlayParams(fx: EffectLayer, kind: OverlayKind): OverlayParams {
+  return {
+    kind,
+    color: fx.color,
+    size: fx.spread,
+    softness: fx.softness,
+    angle: fx.angle,
+    scale: Math.min(400, Math.max(25, (fx.size / OVERLAY_BASE_SIZE) * 100)),
+    seed: fx.seed,
+    gradient: fx.gradient,
+  };
+}
+
+const overlay =
+  (kind: OverlayKind): Painter =>
+  (s) => [{ paint: (ctx) => paintOverlay(ctx, overlayParams(s.fx, kind), s.box), clip: 'area' }];
+
+// ---- Pictures (v8) ----
+
+const tinted = new WeakMap<object, Map<string, CanvasImageSource>>();
+
+/** The picture coloured with `color` (multiplied, so dark outlines stay dark), cached. */
+function tintedPicture(pic: RenderSource, color: string): CanvasImageSource {
+  let byColor = tinted.get(pic.image as object);
+  if (!byColor) tinted.set(pic.image as object, (byColor = new Map()));
+  const hit = byColor.get(color);
+  if (hit) return hit;
+  const c = newCanvas(pic.width, pic.height);
+  const ctx = c.getContext('2d') as Ctx;
+  ctx.drawImage(pic.image, 0, 0);
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, pic.width, pic.height);
+  ctx.globalCompositeOperation = 'destination-in';
+  ctx.drawImage(pic.image, 0, 0);
+  if (byColor.size > 8) byColor.clear();
+  byColor.set(color, c as CanvasImageSource);
+  return c as CanvasImageSource;
+}
+
+/**
+ * A picture effect: one copy filling the area, or copies scattered round it
+ * (Spread sets how many; 0 = one in the middle). Built-in sprites say how
+ * their copies turn: any way, upright, or pointing out of the edge.
+ */
+const picture: Painter = (s) => {
+  const pic = s.picture;
+  if (!pic) return [];
+  const { fx, box } = s;
+  const image = fx.tint ? tintedPicture(pic, fx.color) : pic.image;
+  const aspect = pic.width / Math.max(1, pic.height);
+  const orient = (fx.image?.type === 'library' && effectPicture(fx.image.id)?.orient) || 'upright';
+  return [
+    {
+      clip: 'area',
+      paint: (ctx) => {
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        const cx = (box.minX + box.maxX) / 2;
+        const cy = (box.minY + box.maxY) / 2;
+        if (fx.layout === 'fill') {
+          // Covers the area, like a background picture.
+          const bw = box.maxX - box.minX;
+          const bh = box.maxY - box.minY;
+          const k = Math.max(bw / pic.width, bh / pic.height);
+          ctx.drawImage(image, cx - (pic.width * k) / 2, cy - (pic.height * k) / 2, pic.width * k, pic.height * k);
+          return;
+        }
+        const h = Math.max(2, fx.size * s.area.unit * 2);
+        const draw = (x: number, y: number, size: number, turn: number, alpha: number) => {
+          ctx.save();
+          ctx.globalAlpha = alpha;
+          ctx.translate(x, y);
+          ctx.rotate(turn);
+          ctx.drawImage(image, (-size * aspect) / 2, -size / 2, size * aspect, size);
+          ctx.restore();
+        };
+        const count = Math.round((s.spread * 100) / 4);
+        if (count === 0) {
+          draw(cx, cy, h, 0, 1);
+          return;
+        }
+        const random = s.random(31);
+        for (let i = 0; i < count; i++) {
+          const size = h * (0.65 + random() * 0.7);
+          const alpha = 0.7 + random() * 0.3;
+          if (orient === 'outward') {
+            // Along the edge, pointing away from it (out of the token on the border, in from the edge inside).
+            const p = s.at((i + random() * 0.6) / count);
+            draw(p.x + p.nx * size * 0.3, p.y + p.ny * size * 0.3, size, Math.atan2(p.ny, p.nx) + Math.PI / 2, alpha);
+          } else {
+            const p = s.scatter(random);
+            draw(p.x, p.y, size, orient === 'random' ? random() * Math.PI * 2 : 0, alpha);
+          }
+        }
+      },
+    },
+  ];
+};
+
 export const PAINTERS: Record<EffectKind, Painter> = {
   innerGlow,
   outerGlow,
@@ -1173,4 +1281,10 @@ export const PAINTERS: Record<EffectKind, Painter> = {
   embers,
   sparkles,
   smoke,
+  vignette: overlay('vignette'),
+  gradient: overlay('gradient'),
+  edgeShadow: overlay('shadow'),
+  foliage: overlay('foliage'),
+  cobwebs: overlay('cobwebs'),
+  picture,
 };

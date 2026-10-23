@@ -17,7 +17,8 @@ import {
   newDecoration,
   newEffect,
   newLabel,
-  newOverlay,
+  newPictureDecoration,
+  OVERLAY_BASE_SIZE,
   SIZE_PRESETS,
 } from './defaults';
 import {
@@ -38,9 +39,9 @@ import {
   type LightingSettings,
   type LightPresetId,
   type MaskStroke,
-  type OverlayKind,
+  type PictureSource,
   type PopOutStroke,
-  type OverlayLayer,
+  type LabelAnchor,
   type TokenDocument,
 } from './types';
 
@@ -71,7 +72,53 @@ export const MIGRATIONS: Record<number, (doc: Json) => Json> = {
   },
   // v6 → v7 (Phase 8): the label. Nothing could add one before, so any old placeholder is dropped.
   6: (doc) => ({ ...doc, label: null }),
+  // v7 → v8 (owner feedback after Phase 10): the Foreground section joined Effects. Each
+  // overlay becomes an effect over the art, drawn below the effects that were already over
+  // it (overlays came first). New effect, removal, decoration and label fields start at
+  // their defaults (filled in by sanitize). Old flat-colour removal only took the
+  // background joined to the edge, so it keeps doing that.
+  7: (doc) => {
+    const art = obj(doc.art);
+    const { foreground, ...rest } = doc;
+    return {
+      ...rest,
+      art: { ...art, removal: { enclosed: false, ...obj(art.removal) } },
+      effects: [...arr(foreground).map(overlayToEffect), ...arr(doc.effects)],
+    };
+  },
 };
+
+/** The effect kind each old foreground overlay became (v8). */
+const OVERLAY_EFFECT: Record<string, EffectKind> = {
+  gradient: 'gradient',
+  vignette: 'vignette',
+  shadow: 'edgeShadow',
+  foliage: 'foliage',
+  cobwebs: 'cobwebs',
+  mist: 'mist',
+  smoke: 'smoke',
+};
+
+/** An old foreground overlay as an effect over the art (v8). */
+function overlayToEffect(o: Json, index: number): Json {
+  const kind = OVERLAY_EFFECT[o.kind as string] ?? 'vignette';
+  return {
+    id: str(o.id, `overlay-${index}`),
+    kind,
+    visible: o.visible,
+    placement: 'over',
+    intensity: typeof o.opacity === 'number' ? o.opacity * 100 : undefined,
+    blend: o.blend,
+    color: o.color,
+    // Overlay "size" (how far it reaches) is the effect's Spread; the old Scale is its Size.
+    spread: o.size,
+    size: typeof o.scale === 'number' ? (o.scale / 100) * OVERLAY_BASE_SIZE : undefined,
+    softness: o.softness,
+    angle: o.angle,
+    seed: o.seed,
+    gradient: o.gradient,
+  };
+}
 
 export class DocumentVersionError extends Error {}
 
@@ -107,9 +154,7 @@ const hex = (v: unknown, fallback: string) => (typeof v === 'string' && /^#[0-9a
 const obj = (v: unknown): Json => (isObject(v) ? v : {});
 const arr = (v: unknown) => (Array.isArray(v) ? v.filter(isObject) : []);
 
-const MAX_OVERLAYS = 12;
 const BLENDS: readonly BlendMode[] = ['normal', 'multiply', 'screen', 'overlay', 'soft-light'];
-const OVERLAY_KINDS: readonly OverlayKind[] = ['gradient', 'vignette', 'foliage', 'smoke', 'mist', 'cobwebs', 'shadow'];
 const PRESET_IDS = new Set<string>(LIGHT_PRESETS.map((p) => p.id));
 const oneOf = <T extends string>(v: unknown, options: readonly T[], fallback: T): T => (options.includes(v as T) ? (v as T) : fallback);
 
@@ -148,31 +193,33 @@ function background(raw: Json, d: BackgroundLayer): BackgroundLayer {
   };
 }
 
-function overlay(raw: Json, index: number): OverlayLayer {
-  const d = newOverlay(oneOf(raw.kind, OVERLAY_KINDS, 'vignette'), str(raw.id, `overlay-${index}`));
-  return {
-    ...d,
-    visible: bool(raw.visible, d.visible),
-    opacity: num(raw.opacity, d.opacity, 0, 1),
-    blend: oneOf(raw.blend, BLENDS, d.blend),
-    color: hex(raw.color, d.color),
-    size: num(raw.size, d.size, 0, 100),
-    softness: num(raw.softness, d.softness, 0, 100),
-    angle: num(raw.angle, d.angle, -360, 360),
-    scale: num(raw.scale, d.scale, 50, 200),
-    seed: Math.round(num(raw.seed, d.seed, 0, 1e6)),
-    gradient: gradient(obj(raw.gradient), d.gradient),
-  };
-}
-
 const EFFECT_KINDS: readonly EffectKind[] = EFFECTS.map((e) => e.kind);
 const PLACEMENTS: readonly EffectPlacement[] = ['behind', 'over', 'border'];
+
+/** A picture's source: a built-in or uploaded picture id (letters, digits and dashes). */
+export function pictureSource(raw: unknown): PictureSource | null {
+  const src = obj(raw);
+  const id = typeof src.id === 'string' && /^[a-zA-Z0-9-]{1,80}$/.test(src.id) ? src.id : '';
+  if (!id || (src.type !== 'library' && src.type !== 'upload')) return null;
+  return { type: src.type, id };
+}
 
 function effect(raw: Json, index: number): EffectLayer | null {
   if (!EFFECT_KINDS.includes(raw.kind as EffectKind)) return null;
   const d = newEffect(raw.kind as EffectKind, str(raw.id, `effect-${index}`));
+  const image = pictureSource(raw.image);
+  // A picture effect without its picture has nothing to draw.
+  if (d.kind === 'picture' && !image) return null;
   return {
     ...d,
+    blend: oneOf(raw.blend, BLENDS, d.blend),
+    blur: num(raw.blur, d.blur, 0, 1),
+    angle: num(raw.angle, d.angle, -360, 360),
+    softness: num(raw.softness, d.softness, 0, 100),
+    gradient: gradient(obj(raw.gradient), d.gradient),
+    image,
+    layout: oneOf(raw.layout, ['scatter', 'fill'] as const, d.layout),
+    tint: bool(raw.tint, d.tint),
     visible: bool(raw.visible, d.visible),
     placement: oneOf(raw.placement, PLACEMENTS, d.placement),
     intensity: num(raw.intensity, d.intensity, 0, 100),
@@ -207,9 +254,13 @@ const SNAP_POINTS: readonly (SnapPoint | 'free')[] = ['top', 'topRight', 'right'
 
 function decoration(raw: Json, index: number): Decoration | null {
   if (!DECORATION_KINDS.includes(raw.kind as DecorationKind)) return null;
-  const d = newDecoration(raw.kind as DecorationKind, str(raw.id, `decoration-${index}`));
+  const id = str(raw.id, `decoration-${index}`);
+  const image = pictureSource(raw.image);
+  if (raw.kind === 'picture' && !image) return null;
+  const d = image && raw.kind === 'picture' ? newPictureDecoration(image, num(raw.aspect, 1, 0.05, 20), undefined, id) : newDecoration(raw.kind as DecorationKind, id);
   return {
     ...d,
+    tint: bool(raw.tint, d.tint),
     visible: bool(raw.visible, d.visible),
     place: oneOf(raw.place, SNAP_POINTS, d.place),
     x: num(raw.x, d.x, -1.5, 1.5),
@@ -223,7 +274,8 @@ function decoration(raw: Json, index: number): Decoration | null {
   };
 }
 
-const LABEL_SHAPES = ['banner', 'plaque', 'pill', 'box', 'ring'] as const;
+const LABEL_SHAPES = ['banner', 'plaque', 'pill', 'box', 'plain', 'ring'] as const;
+const LABEL_ANCHORS: readonly LabelAnchor[] = ['topLeft', 'top', 'topRight', 'left', 'center', 'right', 'bottomLeft', 'bottom', 'bottomRight'];
 /** Fonts are a built-in id or "upload:<id>": letters, digits and dashes only. */
 const FONT_ID = /^(upload:)?[a-zA-Z0-9-]{1,80}$/;
 
@@ -239,6 +291,8 @@ export function label(raw: unknown): LabelSettings | null {
     place: oneOf(raw.place, ['top', 'bottom', 'free'] as const, d.place),
     x: num(raw.x, d.x, -1, 1),
     y: num(raw.y, d.y, -1, 1),
+    anchor: oneOf(raw.anchor, LABEL_ANCHORS, d.anchor),
+    rotation: num(raw.rotation, d.rotation, -360, 360),
     angle: num(raw.angle, d.angle, -360, 360),
     arc: num(raw.arc, d.arc, 20, 360),
     width: num(raw.width, d.width, 0.1, 8),
@@ -381,12 +435,13 @@ export function sanitize(raw: Json): TokenDocument {
         color: removalColor || null,
         intensity: num(removal.intensity, d.art.removal.intensity, 0, 100),
         softness: num(removal.softness, d.art.removal.softness, 0, 100),
+        enclosed: bool(removal.enclosed, d.art.removal.enclosed),
+        method: oneOf(removal.method, ['colour', 'ai'] as const, d.art.removal.method),
       },
       strokes: strokes(art.strokes),
       popOut: { enabled: bool(popOut.enabled, d.art.popOut.enabled), strokes: popOutStrokes(popOut.strokes) },
     },
     background: background(obj(raw.background), d.background),
-    foreground: arr(raw.foreground).slice(0, MAX_OVERLAYS).map((o, i) => overlay(o, i)),
     lighting: lighting(obj(raw.lighting), d.lighting),
     effects: arr(raw.effects)
       .map((e, i) => effect(e, i))

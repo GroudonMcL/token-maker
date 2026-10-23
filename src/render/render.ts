@@ -12,7 +12,6 @@ import { tracePolygon, type Ctx, type FrameGeometry } from './frameKit';
 import type { FrameStyle } from './catalog';
 import { drawBackground } from './background';
 import { drawFrame } from './frames';
-import { drawOverlays } from './overlays';
 import { drawEffects, needsSubject, type EffectArea, type Subject } from './effects';
 import { baseScale, imageClipPolygon } from './geometry';
 import { drawDecorations } from './decorations';
@@ -166,7 +165,7 @@ export function renderToken(ctx: Ctx, doc: TokenDocument, assets: AssetMap, size
     decor = newCanvas(size, size);
     const dctx = decor.getContext('2d') as Ctx;
     dctx.translate(R, R);
-    drawDecorations(dctx, doc, R);
+    drawDecorations(dctx, doc, R, assets);
   }
 
   /** Fills the token's whole outline: the shape (or the picture frame), plus pop-out parts and decorations. */
@@ -201,7 +200,7 @@ export function renderToken(ctx: Ctx, doc: TokenDocument, assets: AssetMap, size
   // 3. Background (src/render/background.ts), lit like the art when lighting asks for it.
   drawBackground(ctx, doc, assets, clip, R);
   // 4. Effects behind the art (src/render/effects.ts).
-  if (doc.effects.length) drawEffects(ctx, doc.effects, 'behind', area, size, subject);
+  if (doc.effects.length) drawEffects(ctx, doc.effects, 'behind', area, size, subject, 0, assets);
 
   // 5. Processed art, clipped to the inner shape: the picture after
   // adjustments, background removal and brush strokes (src/image/), drawn
@@ -215,10 +214,8 @@ export function renderToken(ctx: Ctx, doc: TokenDocument, assets: AssetMap, size
     ctx.restore();
   }
 
-  // 6. Foreground overlays (src/render/overlays.ts).
-  if (doc.foreground.length) drawOverlays(ctx, doc.foreground, clip, size);
-  // 7. Effects over the art.
-  if (doc.effects.length) drawEffects(ctx, doc.effects, 'over', area, size, subject);
+  // 6–7. Effects over the art, including the overlays that were once the Foreground section (v8).
+  if (doc.effects.length) drawEffects(ctx, doc.effects, 'over', area, size, subject, 0, assets);
 
   // 8–9 go on their own layer when the frame is to be see-through, so its
   // overlapping strokes fade evenly (editor only, never in exports).
@@ -289,7 +286,7 @@ export function renderToken(ctx: Ctx, doc: TokenDocument, assets: AssetMap, size
   }
 
   // 10. Effects on the border.
-  if (doc.effects.length) drawEffects(ctx, doc.effects, 'border', area, size);
+  if (doc.effects.length) drawEffects(ctx, doc.effects, 'border', area, size, null, 0, assets);
   // 11. Decorations (src/render/decorations.ts).
   if (decor) ctx.drawImage(decor as CanvasImageSource, -R, -R);
 

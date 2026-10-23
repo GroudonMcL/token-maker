@@ -12,6 +12,8 @@ import { nudgedHole } from '../image/frameHole';
 import { newCanvas } from '../image/processedArt';
 import { DECORATION_PAINTERS } from './decorationPainters';
 import type { Ctx } from './frameKit';
+import { pictureAssetId } from './pictureLibrary';
+import type { AssetMap, RenderSource } from './render';
 import { shapePolygon, type Point } from './shapes';
 
 /** Degrees round the token for each snap point (0 = right, 90 = bottom). */
@@ -134,13 +136,14 @@ function normalise(deg: number): number {
 }
 
 /** Height and width of a decoration, in token units. */
-export function decorationSize(d: Pick<Decoration, 'kind' | 'size'>, squares: number): { w: number; h: number } {
+export function decorationSize(d: Pick<Decoration, 'kind' | 'size'> & Partial<Pick<Decoration, 'aspect'>>, squares: number): { w: number; h: number } {
   const h = d.size / squares;
-  return { w: h * decorationInfo(d.kind).aspect, h };
+  // A picture's own shape (v8); code-drawn ones have theirs in the catalogue.
+  return { w: h * (d.kind === 'picture' && d.aspect ? d.aspect : decorationInfo(d.kind).aspect), h };
 }
 
 /** The four corners of a placed decoration's picture, in token units (for picking it on the canvas and its handles). */
-export function decorationCorners(d: Pick<Decoration, 'kind' | 'size'>, p: Placement, squares: number): Point[] {
+export function decorationCorners(d: Pick<Decoration, 'kind' | 'size'> & Partial<Pick<Decoration, 'aspect'>>, p: Placement, squares: number): Point[] {
   const { w, h } = decorationSize(d, squares);
   const { anchor } = decorationInfo(d.kind);
   const a = (p.rotation * Math.PI) / 180;
@@ -186,11 +189,36 @@ function bitmap(d: Pick<Decoration, 'kind' | 'color'>, heightPx: number): { imag
   return { image, w, h, pad };
 }
 
+const tinted = new WeakMap<object, Map<string, CanvasImageSource>>();
+
+/** A picture decoration's picture, coloured with `color` when it is tinted (multiplied, so its dark outline stays dark), cached. */
+function pictureBitmap(pic: RenderSource, color: string, tint: boolean): { image: CanvasImageSource; w: number; h: number; pad: number } {
+  if (!tint) return { image: pic.image, w: pic.width, h: pic.height, pad: 0 };
+  let byColor = tinted.get(pic.image as object);
+  if (!byColor) tinted.set(pic.image as object, (byColor = new Map()));
+  let image = byColor.get(color);
+  if (!image) {
+    const c = newCanvas(pic.width, pic.height);
+    const ctx = c.getContext('2d') as Ctx;
+    ctx.drawImage(pic.image, 0, 0);
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.fillStyle = color;
+    ctx.fillRect(0, 0, pic.width, pic.height);
+    ctx.globalCompositeOperation = 'destination-in';
+    ctx.drawImage(pic.image, 0, 0);
+    image = c as CanvasImageSource;
+    if (byColor.size > 8) byColor.clear();
+    byColor.set(color, image);
+  }
+  return { image, w: pic.width, h: pic.height, pad: 0 };
+}
+
 /**
  * Draws every visible decoration (bottom of the list first). The context's
- * origin is the token centre and `R` its half-size in pixels.
+ * origin is the token centre and `R` its half-size in pixels. Picture
+ * decorations (v8) come from `assets`; one still loading is skipped.
  */
-export function drawDecorations(ctx: Ctx, doc: Pick<TokenDocument, 'decorations' | 'shape' | 'frame' | 'size'>, R: number): void {
+export function drawDecorations(ctx: Ctx, doc: Pick<TokenDocument, 'decorations' | 'shape' | 'frame' | 'size'>, R: number, assets: AssetMap = new Map()): void {
   const geo = decorationGeometry(doc);
   for (const d of doc.decorations) {
     if (!d.visible || d.opacity <= 0) continue;
@@ -198,7 +226,9 @@ export function drawDecorations(ctx: Ctx, doc: Pick<TokenDocument, 'decorations'
     const { h } = decorationSize(d, geo.squares);
     const hPx = h * R;
     if (hPx < 1) continue;
-    const bmp = bitmap(d, hPx);
+    const pic = d.kind === 'picture' && d.image ? assets.get(pictureAssetId(d.image)) : undefined;
+    if (d.kind === 'picture' && !pic) continue;
+    const bmp = pic ? pictureBitmap(pic, d.color, d.tint) : bitmap(d, hPx);
     const scale = hPx / bmp.h;
     for (const p of placements(d, geo)) {
       ctx.save();

@@ -31,8 +31,8 @@ export const useExportProgress = <T>(select: (s: ExportProgress) => T) => useSto
 export const cancelExport = () => exportProgress.setState({ cancelled: true });
 
 function options(): ExportOptions {
-  const { format, pxPerSquare, fill, quality } = getExportSettings();
-  return { format, pxPerSquare, fill, quality };
+  const { format, pxPerSquare, quality } = getExportSettings();
+  return { format, pxPerSquare, quality };
 }
 
 const NO_ART = 'Add an image first: upload, drop or paste one.';

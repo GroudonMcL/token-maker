@@ -12,6 +12,6 @@
     "allowImportingTsExtensions": true,
     "noEmit": true
   },
-  "include": [".", "../server"],
+  "include": [".", "../server", "../worker"],
   "exclude": ["../server/**/*.test.ts", "../server/devApi.ts"]
 }

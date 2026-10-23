@@ -1,15 +1,14 @@
-import { FilePlus2, Monitor, Moon, Redo2, Sun, Undo2 } from 'lucide-react';
+import { FilePlus2, Moon, Redo2, Sun, Undo2 } from 'lucide-react';
 import { droppedByTurningOff, setBatchMode, useBatch } from '../batch/batch';
 import { startNewToken } from '../editor/newToken';
 import { redo, undo, useCanRedo, useCanUndo } from '../state/tokenStore';
 import { Toggle } from '../components';
-import { HelpTip } from '../components/HelpTip';
 import { Link } from '../components/Link';
 import { useTheme, type ThemeChoice } from '../hooks/useTheme';
 import { BrandMark } from './BrandMark';
 
-const NEXT_THEME: Record<ThemeChoice, ThemeChoice> = { system: 'dark', dark: 'light', light: 'system' };
-const THEME_ICON = { system: Monitor, dark: Moon, light: Sun };
+const NEXT_THEME: Record<ThemeChoice, ThemeChoice> = { dark: 'light', light: 'dark' };
+const THEME_ICON = { dark: Moon, light: Sun };
 
 /** Logo, Batch toggle, Undo/Redo, New (DESIGN.md §8). */
 export function TopBar({ compact }: { compact: boolean }) {
@@ -54,7 +53,6 @@ export function TopBar({ compact }: { compact: boolean }) {
         >
           <ThemeIcon size={18} />
         </button>
-        {!compact && <HelpTip id="topbar.theme" />}
       </div>
     </header>
   );

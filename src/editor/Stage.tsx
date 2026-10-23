@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as Rea
 import { useStore } from 'zustand';
 import type { ArtTransform, Decoration, LabelSettings, MaskStroke, PopOutStroke, TokenDocument } from '../document/types';
 import { HelpTip } from '../components/HelpTip';
+import { aiStore } from '../image/aiRemoval';
 import { requestFullArt, useProcessedVersion } from '../image/artWorker';
 import { maskOverlay, popOutOverlay } from '../image/maskOverlay';
 import { popOutMask } from '../image/popOut';
@@ -90,6 +91,8 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
   // Processed art: the full-size result when ready, else a quick copy (DESIGN.md §5).
   const settling = useStore(docHistory, (s) => s.pendingBase !== null);
   const version = useProcessedVersion();
+  // An AI cut-out mask arriving changes the art's edits without changing the document.
+  useStore(aiStore, (s) => s.masks);
   const edits = artEdits(doc);
   const display = art ? (peekProcessedArt(art, edits) ?? processedArt(art, edits, DRAFT_SIDE)) : null;
   const needsFull = !!art && !peekProcessedArt(art, edits);
@@ -289,7 +292,7 @@ export function Stage({ reserveTop = 64, reserveBottom = 0 }: { reserveTop?: num
       if (label && doc.label && pointInPolygon(toUnits(e.clientX, e.clientY), label.outline)) {
         if (selectedId) selectDecoration(null);
         revealSection('label');
-        gesture.current = { kind: 'label', start: doc.label, from: label.centre, x: e.clientX, y: e.clientY };
+        gesture.current = { kind: 'label', start: doc.label, from: label.anchor, x: e.clientX, y: e.clientY };
         setMovingLabel(true);
         return;
       }

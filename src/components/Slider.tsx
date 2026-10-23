@@ -1,3 +1,4 @@
+import { RotateCcw } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';
 import type { HelpId } from '../help/helpContent';
 import { ControlLabel } from './ControlLabel';
@@ -8,7 +9,8 @@ import { ControlLabel } from './ControlLabel';
  * `onChange` fires continuously while dragging; `onCommit` fires once when a
  * drag, key press or typed entry finishes. Wire `onChange` to a transient
  * store update and `onCommit` to the store's commit so a whole drag is one
- * undo step (DESIGN.md §4.3).
+ * undo step (DESIGN.md §4.3). With a `defaultValue`, a small button left
+ * of the value box puts it back to that (owner request after Phase 10).
  */
 export function Slider({
   label,
@@ -76,6 +78,14 @@ export function Slider({
     onCommit?.(v);
   };
 
+  const reset = () => {
+    if (defaultValue === undefined) return;
+    const v = clamp(defaultValue);
+    setDraft(null);
+    if (v !== value) onChange(v);
+    onCommit?.(v);
+  };
+
   const pct = ((value - min) / (max - min)) * 100;
   const defaultPct = defaultValue === undefined ? null : ((Math.min(max, Math.max(min, defaultValue)) - min) / (max - min)) * 100;
 
@@ -87,6 +97,18 @@ export function Slider({
         helpId={helpId}
         aside={
           <span className="slider__value">
+            {defaultValue !== undefined && (
+              <button
+                type="button"
+                className="slider__reset"
+                aria-label={`Reset ${label}`}
+                title={`Reset to ${clamp(defaultValue)}${unit && !unit.includes(' ') ? unit : ''}`}
+                disabled={disabled || clamp(defaultValue) === value}
+                onClick={reset}
+              >
+                <RotateCcw size={13} aria-hidden="true" />
+              </button>
+            )}
             <input
               className="slider__number"
               type="text"

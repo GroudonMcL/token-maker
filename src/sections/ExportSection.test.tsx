@@ -13,15 +13,14 @@ beforeEach(() => {
 });
 
 describe('Export section', () => {
-  it('JPG asks for a fill colour; PNG and WebP do not', () => {
+  it('offers PNG and WebP only (no JPG), and remembers the choice', () => {
     render(<ExportSection />);
-    expect(screen.queryByText('Fill colour')).toBeNull();
-    fireEvent.click(screen.getByRole('radio', { name: 'JPG' }));
-    expect(getExportSettings().format).toBe('jpg');
-    expect(screen.getByText('Fill colour')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Download JPG/ })).toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: 'JPG' })).toBeNull();
+    fireEvent.click(screen.getByRole('radio', { name: 'WebP' }));
+    expect(getExportSettings().format).toBe('webp');
+    expect(screen.getByRole('button', { name: /Download WebP/ })).toBeInTheDocument();
     // The choice is remembered for next time.
-    expect(JSON.parse(localStorage.getItem('tm.export')!)).toMatchObject({ format: 'jpg' });
+    expect(JSON.parse(localStorage.getItem('tm.export')!)).toMatchObject({ format: 'webp' });
   });
 
   it('shows the final size for the creature and the cap', () => {

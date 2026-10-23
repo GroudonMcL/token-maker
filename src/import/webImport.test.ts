@@ -132,4 +132,20 @@ describe('importing from a web address', () => {
     expect(imported).not.toHaveBeenCalled();
     expect(webImportStore.getState().target).toBe('background');
   });
+
+  it.each([
+    ['a Pinterest pin', 'https://uk.pinterest.com/pin/666392076130436411/'],
+    ['a Pinterest image address', 'https://i.pinimg.com/1200x/ff/8d/8c/ff8d8cd84ec26e904d0e6c003d5e87e7.jpg'],
+  ])('says the image server is missing when /api answers with the editor page (%s)', async (_name, address) => {
+    // A static or Workers deploy without the image server: every /api/* address gets index.html.
+    const page = '<!doctype html><html><body><div id="root"></div></body></html>';
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(page, { headers: { 'Content-Type': 'text/html; charset=utf-8' } })));
+    importFromAddress(address);
+    await settle();
+    expect(imported).not.toHaveBeenCalled();
+    expect(webImportStore.getState()).toMatchObject({ status: 'error' });
+    expect(webImportStore.getState().error).toMatch(/isn't running its image server/);
+    expect(webImportStore.getState().error).not.toMatch(/Unexpected token|isn't an image/);
+  });
 });
+

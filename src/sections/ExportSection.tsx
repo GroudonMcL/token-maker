@@ -1,6 +1,6 @@
 import { ClipboardCopy, Download, FolderArchive } from 'lucide-react';
 import { useId, useState } from 'react';
-import { Advanced, ColorSwatches, ControlLabel, SegmentedButtons, Slider } from '../components';
+import { Advanced, ControlLabel, SegmentedButtons, Slider } from '../components';
 import { useBatch } from '../batch/batch';
 import { DEFAULT_PX_PER_SQUARE } from '../document/sizing';
 import { copyCurrentToken, exportAllTokens, exportCurrentToken, useExportProgress } from '../editor/useExport';
@@ -9,7 +9,6 @@ import { baseNameFor, clampPx, DEFAULT_EXPORT, safeBaseName, setExportSettings, 
 import { FORMAT_IDS, FORMATS, MAX_CUSTOM_PX, MIN_CUSTOM_PX, PX_PRESETS, finalSize, type ExportFormat } from '../export/formats';
 import { useDoc } from '../state/tokenStore';
 
-const FILL_SWATCHES = ['#ffffff', '#000000', '#211d18', '#efe9df', '#0f1a2e', '#2f4a2a'];
 type PxChoice = `${(typeof PX_PRESETS)[number]}` | 'custom';
 
 /** Export section (DESIGN.md §6.11): format, resolution, file name, download, copy and the batch ZIP. */
@@ -42,17 +41,7 @@ export function ExportSection() {
       <p className="control__hint">
         {s.format === 'png' && 'Lossless, with a see-through background. Works in every VTT.'}
         {s.format === 'webp' && 'See-through like PNG, but a much smaller file.'}
-        {s.format === 'jpg' && "Small, but JPG can't be see-through: the corners are filled with a colour."}
       </p>
-      {s.format === 'jpg' && (
-        <ColorSwatches
-          label="Fill colour"
-          helpId="export.fill"
-          value={s.fill}
-          swatches={FILL_SWATCHES}
-          onChange={(fill) => setExportSettings({ fill })}
-        />
-      )}
 
       <SegmentedButtons
         label="Pixels per square"

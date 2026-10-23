@@ -10,7 +10,7 @@ const FLAT = 'e2e/fixtures/flat-goblin.png';
 type Rgb = number[];
 
 /** Phone tab for each section. */
-const TABS: Record<string, string> = { Image: 'Image', 'Pop-out': 'Image', 'Lighting & shadows': 'Lighting' };
+const TABS: Record<string, string> = { Background: 'Backgr.', 'Pop-out': 'Pop-out', 'Lighting & shadows': 'Lighting' };
 
 async function section(page: Page, isMobile: boolean, name: string) {
   if (isMobile) {
@@ -90,8 +90,8 @@ const INSIDE: [number, number] = [0.5, 0.75];
 
 test('paint part of the art over the frame; it moves with the art, and the export matches the preview', async ({ page, isMobile }) => {
   const m = !!isMobile;
-  let panel = await section(page, m, 'Image');
-  await panel.getByRole('switch', { name: 'Remove flat background' }).click();
+  let panel = await section(page, m, 'Background');
+  await panel.getByRole('switch', { name: 'Remove background' }).click();
 
   const [frameBefore] = await exportPixels(page, m, [ON_FRAME]);
   expect(near(frameBefore!, RED, 40)).toBe(false); // the frame covers the body there

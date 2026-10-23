@@ -80,8 +80,9 @@ test('stack a frost border, mist over the art and a bloodied look, reorder them 
   const before = await exportPixels(page, m, POINTS);
   const panel = await effectsPanel(page, m);
 
-  // The picker shows a live thumbnail for every effect.
-  await expect(panel.locator('.tile[data-effect] img')).toHaveCount(19);
+  // The picker shows a live thumbnail for every drawn effect (and picture effects show their pictures).
+  await expect(panel.locator('.tile[data-effect] img')).toHaveCount(24);
+  await expect(panel.locator('.tile[data-effect-picture] img')).toHaveCount(12);
 
   await panel.getByRole('button', { name: /^Frost$/ }).click();
   await panel.getByRole('button', { name: /^Mist$/ }).click();

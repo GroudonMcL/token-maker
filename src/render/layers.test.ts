@@ -1,9 +1,10 @@
 // @vitest-environment node
-// Pixel tests for Phase 4: every background type, every overlay, every blend
-// mode, and the light's direction on the background.
+// Pixel tests for Phase 4: every background type, every overlay effect (the
+// Foreground section until v8), every blend mode, and the light's direction
+// on the background.
 import { createCanvas } from '@napi-rs/canvas';
-import { createDocument, DEFAULT_LIGHTING, newOverlay } from '../document/defaults';
-import type { BackgroundLayer, BlendMode, OverlayKind, OverlayLayer, TokenDocument } from '../document/types';
+import { createDocument, DEFAULT_LIGHTING, newEffect } from '../document/defaults';
+import type { BackgroundLayer, BlendMode, EffectKind, EffectLayer, TokenDocument } from '../document/types';
 import { setCanvasFactory } from '../image/processedArt';
 import type { Ctx } from './frameKit';
 import { renderToken, type RenderSource } from './render';
@@ -143,15 +144,16 @@ describe('backgrounds', () => {
   });
 });
 
-describe('foreground overlays', () => {
+describe('overlay effects (the Foreground section until v8)', () => {
   const grey = bg({ kind: 'color', color: '#808080' });
-  const withOverlay = (o: Partial<OverlayLayer> & { kind: OverlayKind }) => draw({ ...grey, foreground: [{ ...newOverlay(o.kind, 'o'), ...o }] });
+  const overlay = (o: Partial<EffectLayer> & { kind: EffectKind }, id = 'o'): EffectLayer => ({ ...newEffect(o.kind, id), placement: 'over', ...o });
+  const withOverlay = (o: Partial<EffectLayer> & { kind: EffectKind }) => draw({ ...grey, effects: [overlay(o)] });
   const changed = (a: Px, b: Px) => a.some((v, i) => Math.abs(v - b[i]!) > 6);
   const plain = draw(grey);
 
-  it.each(['gradient', 'vignette', 'foliage', 'smoke', 'mist', 'cobwebs', 'shadow'] as const)('%s changes the picture somewhere, the same every time', (kind) => {
-    const a = withOverlay({ kind, opacity: 1, blend: 'normal' });
-    const b = withOverlay({ kind, opacity: 1, blend: 'normal' });
+  it.each(['gradient', 'vignette', 'foliage', 'cobwebs', 'edgeShadow'] as const)('%s changes the picture somewhere, the same every time', (kind) => {
+    const a = withOverlay({ kind, intensity: 100, blend: 'normal' });
+    const b = withOverlay({ kind, intensity: 100, blend: 'normal' });
     let differs = 0;
     for (let y = 30; y < 170; y += 10) {
       for (let x = 30; x < 170; x += 10) {
@@ -163,28 +165,28 @@ describe('foreground overlays', () => {
   });
 
   it('a vignette darkens the edge, not the middle', () => {
-    const at = withOverlay({ kind: 'vignette', color: '#000000', size: 40, softness: 30, blend: 'normal', opacity: 1 });
+    const at = withOverlay({ kind: 'vignette', color: '#000000', spread: 40, softness: 30, blend: 'normal', intensity: 100 });
     expect(at(MID)).toEqual(plain(MID));
     expect(lum(at([100, 12]))).toBeLessThan(lum(plain([100, 12])) - 40);
   });
 
-  it('an edge shadow and mist sit on the side they face', () => {
-    const shadow = withOverlay({ kind: 'shadow', angle: 90, size: 40, blend: 'normal', opacity: 1 });
-    expect(lum(shadow(BOTTOM))).toBeLessThan(lum(shadow(TOP)) - 30);
-    const mist = withOverlay({ kind: 'mist', angle: 270, color: '#ffffff', size: 40, blend: 'normal', opacity: 1 });
-    expect(lum(mist(TOP))).toBeGreaterThan(lum(mist(BOTTOM)) + 20);
+  it('an edge shadow sits on the side it faces', () => {
+    const below = withOverlay({ kind: 'edgeShadow', angle: 90, spread: 40, blend: 'normal', intensity: 100 });
+    expect(lum(below(BOTTOM))).toBeLessThan(lum(below(TOP)) - 30);
+    const above = withOverlay({ kind: 'edgeShadow', angle: 270, spread: 40, blend: 'normal', intensity: 100 });
+    expect(lum(above(TOP))).toBeLessThan(lum(above(BOTTOM)) - 30);
   });
 
   it('overlays stay inside the opening and hidden ones are skipped', () => {
-    const at = withOverlay({ kind: 'shadow', angle: 90, size: 100, blend: 'normal', opacity: 1 });
+    const at = withOverlay({ kind: 'edgeShadow', angle: 90, spread: 100, blend: 'normal', intensity: 100 });
     expect(at([2, 198])[3]).toBe(0);
-    const hidden = withOverlay({ kind: 'shadow', angle: 90, size: 100, visible: false });
+    const hidden = withOverlay({ kind: 'edgeShadow', angle: 90, spread: 100, visible: false });
     expect(hidden(BOTTOM)).toEqual(plain(BOTTOM));
   });
 
-  it('opacity scales the effect', () => {
-    const full = withOverlay({ kind: 'shadow', angle: 90, size: 60, softness: 0, blend: 'normal', opacity: 1 });
-    const half = withOverlay({ kind: 'shadow', angle: 90, size: 60, softness: 0, blend: 'normal', opacity: 0.5 });
+  it('intensity scales the effect', () => {
+    const full = withOverlay({ kind: 'edgeShadow', angle: 90, spread: 60, softness: 0, blend: 'normal', intensity: 100 });
+    const half = withOverlay({ kind: 'edgeShadow', angle: 90, spread: 60, softness: 0, blend: 'normal', intensity: 50 });
     expect(lum(half(BOTTOM))).toBeGreaterThan(lum(full(BOTTOM)) + 20);
     expect(lum(half(BOTTOM))).toBeLessThan(lum(plain(BOTTOM)) - 20);
   });
@@ -194,7 +196,7 @@ describe('foreground overlays', () => {
     const orange = { type: 'linear' as const, angle: 0, stops: [{ offset: 0, color: '#ff8000', opacity: 1 }, { offset: 1, color: '#ff8000', opacity: 1 }] };
     const results = new Map<BlendMode, Px>();
     for (const blend of ['normal', 'multiply', 'screen', 'overlay', 'soft-light'] as const) {
-      results.set(blend, withOverlay({ kind: 'gradient', gradient: orange, blend, opacity: 1 })(MID));
+      results.set(blend, withOverlay({ kind: 'gradient', gradient: orange, blend, intensity: 100 })(MID));
     }
     expect(results.get('normal')!.slice(0, 3)).toEqual([255, 128, 0]);
     // Multiply darkens, screen lightens, relative to normal.
@@ -206,13 +208,30 @@ describe('foreground overlays', () => {
     expect(new Set(all).size).toBe(5);
   });
 
+  it('a blend mode also works on drawn effects', () => {
+    const fire = (blend: BlendMode) => draw({ ...grey, effects: [overlay({ kind: 'mist', blend, intensity: 100, spread: 100 })] })(BOTTOM);
+    expect(fire('multiply').join()).not.toBe(fire('normal').join());
+  });
+
   it('later overlays are drawn on top of earlier ones', () => {
     const red = { type: 'linear' as const, angle: 0, stops: [{ offset: 0, color: '#ff0000', opacity: 1 }, { offset: 1, color: '#ff0000', opacity: 1 }] };
     const blue = { ...red, stops: red.stops.map((s) => ({ ...s, color: '#0000ff' })) };
-    const a = newOverlay('gradient', 'a');
-    const b = newOverlay('gradient', 'b');
-    const order = (first: OverlayLayer, second: OverlayLayer) => draw({ ...grey, foreground: [first, second] })(MID);
-    const redThenBlue = order({ ...a, gradient: red, blend: 'normal', opacity: 1 }, { ...b, gradient: blue, blend: 'normal', opacity: 1 });
+    const order = (first: EffectLayer, second: EffectLayer) => draw({ ...grey, effects: [first, second] })(MID);
+    const redThenBlue = order(overlay({ kind: 'gradient', gradient: red, blend: 'normal', intensity: 100 }, 'a'), overlay({ kind: 'gradient', gradient: blue, blend: 'normal', intensity: 100 }, 'b'));
     expect(redThenBlue.slice(0, 3)).toEqual([0, 0, 255]);
+  });
+
+  it('blur softens an effect without moving it', () => {
+    const sharp = withOverlay({ kind: 'edgeShadow', angle: 90, spread: 50, softness: 0, blend: 'normal', intensity: 100 });
+    const soft = withOverlay({ kind: 'edgeShadow', angle: 90, spread: 50, softness: 0, blend: 'normal', intensity: 100, blur: 0.2 });
+    // Further from the shadow's edge it stays dark; across the edge the change is gentler.
+    expect(Math.abs(lum(soft([100, 175])) - lum(sharp([100, 175])))).toBeLessThan(30);
+    let sharpJump = 0;
+    let softJump = 0;
+    for (let y = 60; y < 170; y += 2) {
+      sharpJump = Math.max(sharpJump, Math.abs(lum(sharp([100, y + 2])) - lum(sharp([100, y]))));
+      softJump = Math.max(softJump, Math.abs(lum(soft([100, y + 2])) - lum(soft([100, y]))));
+    }
+    expect(softJump).toBeLessThan(sharpJump);
   });
 });

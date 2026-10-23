@@ -14,18 +14,18 @@ import type {
   LightingSettings,
   LightPresetId,
   OuterShadow,
-  OverlayKind,
-  OverlayLayer,
+  PictureSource,
   SizePreset,
   TokenDocument,
 } from './types';
 import { SCHEMA_VERSION } from './types';
 import { DEFAULT_FONT } from '../fonts/catalog';
+import { effectPicture } from '../render/pictureLibrary';
 
-/** Creature sizes (DESIGN.md §2). Tiny is half a square. */
+/** Creature sizes (DESIGN.md §2). Tiny covers half a square and Small 0.8 of one (owner request, v8). */
 export const SIZE_PRESETS: { id: Exclude<SizePreset, 'custom'>; name: string; squares: number }[] = [
   { id: 'tiny', name: 'Tiny', squares: 0.5 },
-  { id: 'small', name: 'Small', squares: 1 },
+  { id: 'small', name: 'Small', squares: 0.8 },
   { id: 'medium', name: 'Medium', squares: 1 },
   { id: 'large', name: 'Large', squares: 2 },
   { id: 'huge', name: 'Huge', squares: 3 },
@@ -63,7 +63,7 @@ export const DEFAULT_ADJUST: ImageAdjustments = {
   invert: false,
 };
 
-export const DEFAULT_REMOVAL: BackgroundRemoval = { enabled: false, color: null, intensity: 20, softness: 15 };
+export const DEFAULT_REMOVAL: BackgroundRemoval = { enabled: false, color: null, intensity: 20, softness: 15, enclosed: true, method: 'colour' };
 
 // The extension's Stamped band: 0.14 thick with 0.1 around it for the shadow.
 const OUTER_SHADOW: OuterShadow = {
@@ -76,7 +76,7 @@ const OUTER_SHADOW: OuterShadow = {
   opacity: 0.8,
 };
 
-// ---- Phase 4: background, foreground overlays and lighting ----
+// ---- Phase 4: background and lighting ----
 
 export const DEFAULT_GRADIENT: Gradient = {
   type: 'linear',
@@ -122,70 +122,51 @@ export const LIGHT_PRESETS: { id: LightPresetId; name: string; settings: Omit<Li
   { id: 'underdark', name: 'Underdark', settings: { direction: 225, color: '#8b5cd6', strength: 65, falloff: 80, rim: { enabled: false, strength: 40, width: 25, softness: 35 } } },
 ];
 
-/** Starting settings for each kind of foreground overlay. */
-const OVERLAY_DEFAULTS: Record<OverlayKind, Partial<OverlayLayer>> = {
-  gradient: { blend: 'soft-light', opacity: 0.6, gradient: { type: 'linear', angle: 90, stops: [{ offset: 0, color: '#ffd9a0', opacity: 0 }, { offset: 1, color: '#1b1020', opacity: 1 }] } },
-  vignette: { blend: 'multiply', opacity: 0.85, color: '#120c08', size: 45, softness: 70 },
-  foliage: { blend: 'normal', opacity: 1, color: '#2f5a24', size: 35, angle: 90, scale: 100 },
-  smoke: { blend: 'screen', opacity: 0.55, color: '#c9ccd6', size: 50, softness: 80, scale: 100 },
-  mist: { blend: 'screen', opacity: 0.7, color: '#dfe6ef', size: 40, softness: 80, angle: 90 },
-  cobwebs: { blend: 'screen', opacity: 0.8, color: '#e8e8ea', size: 40, angle: 225, scale: 100 },
-  shadow: { blend: 'multiply', opacity: 0.8, color: '#000000', size: 45, softness: 70, angle: 90 },
-};
-
-export const OVERLAY_NAMES: Record<OverlayKind, string> = {
-  gradient: 'Gradient',
-  vignette: 'Vignette',
-  foliage: 'Foliage',
-  smoke: 'Smoke',
-  mist: 'Mist',
-  cobwebs: 'Cobwebs',
-  shadow: 'Edge shadow',
-};
-
-export function newOverlay(kind: OverlayKind, id = Math.random().toString(36).slice(2, 10)): OverlayLayer {
-  const d = OVERLAY_DEFAULTS[kind];
-  return {
-    id,
-    kind,
-    visible: true,
-    opacity: 1,
-    blend: 'normal',
-    color: '#000000',
-    size: 50,
-    softness: 50,
-    angle: 90,
-    scale: 100,
-    seed: 1,
-    ...d,
-    gradient: copyGradient(d.gradient ?? DEFAULT_GRADIENT),
-  };
-}
-
 // ---- Phase 6: styles and effects ----
 
-export type EffectGroup = 'Glows' | 'Elemental' | 'Conditions' | 'Atmosphere';
-export const EFFECT_GROUPS: EffectGroup[] = ['Glows', 'Elemental', 'Conditions', 'Atmosphere'];
+export type EffectGroup = 'Glows' | 'Elemental' | 'Conditions' | 'Atmosphere' | 'Overlays' | 'Pictures';
+export const EFFECT_GROUPS: EffectGroup[] = ['Glows', 'Elemental', 'Conditions', 'Atmosphere', 'Overlays', 'Pictures'];
+
+/** Settings an effect's card can show besides Placement, Intensity, Blur and Blend mode. */
+export type EffectControl = 'color' | 'size' | 'spread' | 'angle' | 'softness' | 'gradient' | 'seed' | 'picture';
 
 export interface EffectInfo {
   kind: EffectKind;
   name: string;
   group: EffectGroup;
   /** Starting settings (size is per square: 0.2 = 10 % of a square). */
-  defaults: Pick<EffectLayer, 'placement' | 'intensity' | 'color' | 'size' | 'spread'>;
+  defaults: Pick<EffectLayer, 'placement' | 'intensity' | 'color' | 'size' | 'spread'> & Partial<Pick<EffectLayer, 'blend' | 'angle' | 'softness' | 'gradient'>>;
   /** Colour swatches offered for it (the first is its default). */
   swatches: string[];
+  /** The settings its card shows, and what some of them are called for it. */
+  controls: EffectControl[];
+  labels?: Partial<Record<EffectControl, string>>;
 }
 
-const fx = (kind: EffectKind, name: string, group: EffectGroup, defaults: EffectInfo['defaults'], swatches: string[] = []): EffectInfo => ({
+const DRAWN: EffectControl[] = ['color', 'size', 'spread', 'seed'];
+
+const fx = (
+  kind: EffectKind,
+  name: string,
+  group: EffectGroup,
+  defaults: EffectInfo['defaults'],
+  swatches: string[] = [],
+  controls: EffectControl[] = DRAWN,
+  labels?: EffectInfo['labels'],
+): EffectInfo => ({
   kind,
   name,
   group,
   defaults,
   swatches: [defaults.color, ...swatches.filter((c) => c !== defaults.color)],
+  controls,
+  labels,
 });
 
-/** Every effect (DESIGN.md §6.8), in the order the picker shows them. */
+/** Overlays are drawn at their natural scale at this Size (the old overlay Scale of 100 %). */
+export const OVERLAY_BASE_SIZE = 0.3;
+
+/** Every effect (DESIGN.md §6.8), in the order the picker shows them. Overlays were the Foreground section until v8. */
 export const EFFECTS: EffectInfo[] = [
   fx('outerGlow', 'Outer glow', 'Glows', { placement: 'border', intensity: 90, color: '#6fc3ff', size: 0.16, spread: 25 }, ['#ffd76a', '#ff6a3d', '#76ff4a', '#b06aff', '#ffffff']),
   fx('innerGlow', 'Inner glow', 'Glows', { placement: 'over', intensity: 80, color: '#6fc3ff', size: 0.16, spread: 15 }, ['#ffd76a', '#ff6a3d', '#76ff4a', '#b06aff', '#ffffff']),
@@ -209,21 +190,61 @@ export const EFFECTS: EffectInfo[] = [
   fx('embers', 'Embers', 'Atmosphere', { placement: 'over', intensity: 90, color: '#ff8a2a', size: 0.12, spread: 50 }, ['#ffd24a', '#ff4a2a', '#76ff4a', '#6ac0ff']),
   fx('sparkles', 'Sparkles', 'Atmosphere', { placement: 'over', intensity: 90, color: '#fff4c4', size: 0.12, spread: 50 }, ['#ffffff', '#ffd76a', '#9fd8ff', '#ff9ad2']),
   fx('smoke', 'Smoke', 'Atmosphere', { placement: 'over', intensity: 75, color: '#9a9ca6', size: 0.3, spread: 50 }, ['#d6d8de', '#4a4c56', '#2a2a30', '#76ff4a']),
+
+  fx('vignette', 'Vignette', 'Overlays', { placement: 'over', intensity: 85, color: '#120c08', size: OVERLAY_BASE_SIZE, spread: 45, softness: 70, blend: 'multiply' }, ['#000000', '#1b2233', '#3a0d0d', '#ffffff'], ['color', 'spread', 'softness'], { spread: 'Size' }),
+  fx(
+    'gradient',
+    'Gradient',
+    'Overlays',
+    { placement: 'over', intensity: 60, color: '#1b1020', size: OVERLAY_BASE_SIZE, spread: 50, blend: 'soft-light', gradient: { type: 'linear', angle: 90, stops: [{ offset: 0, color: '#ffd9a0', opacity: 0 }, { offset: 1, color: '#1b1020', opacity: 1 }] } },
+    [],
+    ['gradient'],
+  ),
+  fx('edgeShadow', 'Edge shadow', 'Overlays', { placement: 'over', intensity: 80, color: '#000000', size: OVERLAY_BASE_SIZE, spread: 45, softness: 70, angle: 90, blend: 'multiply' }, ['#1b1020', '#0b1a2a', '#2a1a0b'], ['color', 'angle', 'spread', 'softness'], { spread: 'Reach', angle: 'Side' }),
+  fx('foliage', 'Foliage', 'Overlays', { placement: 'over', intensity: 100, color: '#2f5a24', size: OVERLAY_BASE_SIZE, spread: 35, angle: 90 }, ['#4d7a2a', '#7a8a2a', '#8a4a1a', '#3a3a2a'], ['color', 'angle', 'spread', 'size', 'seed'], { spread: 'Reach', size: 'Leaf size', angle: 'Grows from' }),
+  fx('cobwebs', 'Cobwebs', 'Overlays', { placement: 'over', intensity: 80, color: '#e8e8ea', size: OVERLAY_BASE_SIZE, spread: 40, angle: 225, blend: 'screen' }, ['#c9ccd6', '#9a9aa6'], ['color', 'angle', 'spread', 'size', 'seed'], { spread: 'Size', size: 'Web size', angle: 'Corner' }),
+
+  // Picture effects use the settings of the picture picked (src/render/pictureLibrary.ts).
+  fx('picture', 'Picture', 'Pictures', { placement: 'over', intensity: 90, color: '#ffffff', size: 0.3, spread: 40 }, ['#ffd76a', '#ff6a3d', '#6fc3ff', '#76ff4a', '#b06aff', '#8a0b0b'], ['picture', 'color', 'size', 'spread', 'seed'], { size: 'Picture size', spread: 'Amount' }),
 ];
 
 export const effectInfo = (kind: EffectKind): EffectInfo => EFFECTS.find((e) => e.kind === kind)!;
 
 /** Most effects one token can stack. */
-export const MAX_EFFECTS = 12;
+export const MAX_EFFECTS = 20;
 
 export function newEffect(kind: EffectKind, id = Math.random().toString(36).slice(2, 10)): EffectLayer {
-  return { id, kind, visible: true, ...effectInfo(kind).defaults, seed: 1 };
+  const d = effectInfo(kind).defaults;
+  return {
+    id,
+    kind,
+    visible: true,
+    blend: 'normal',
+    blur: 0,
+    angle: 90,
+    softness: 50,
+    image: null,
+    layout: 'scatter',
+    tint: true,
+    seed: 1,
+    ...d,
+    gradient: copyGradient(d.gradient ?? DEFAULT_GRADIENT),
+  };
+}
+
+/** A picture effect: a built-in sprite (with its own starting settings) or one of the user's own pictures. */
+export function newPictureEffect(image: PictureSource, id?: string): EffectLayer {
+  const e = newEffect('picture', id);
+  const lib = image.type === 'library' ? effectPicture(image.id) : undefined;
+  // The user's own picture keeps its colours and fills the opening until they choose otherwise.
+  if (!lib) return { ...e, image, tint: false, layout: 'fill', spread: 100, intensity: 100 };
+  return { ...e, image, ...lib.defaults };
 }
 
 // ---- Phase 7: decorations ----
 
-export type DecorationGroup = 'Treasure' | 'Creatures' | 'Trims' | 'Class icons';
-export const DECORATION_GROUPS: DecorationGroup[] = ['Treasure', 'Creatures', 'Trims', 'Class icons'];
+export type DecorationGroup = 'Treasure' | 'Creatures' | 'Trims' | 'Class icons' | 'Pictures';
+export const DECORATION_GROUPS: DecorationGroup[] = ['Treasure', 'Creatures', 'Trims', 'Class icons', 'Pictures'];
 
 export interface DecorationInfo {
   kind: DecorationKind;
@@ -283,6 +304,8 @@ export const DECORATIONS: DecorationInfo[] = [
   deco('bow', 'Bow', 'Class icons', 0.5, [0.5, 0.5], { place: 'bottomRight', size: 0.7, color: '#8a5a32', mirror: false, rotation: -90 }, ['#8a5a32', '#4a3a2e', '#c9a24a', '#2f5a24']),
   deco('holySymbol', 'Holy symbol', 'Class icons', 1, [0.5, 0.5], { place: 'top', size: 0.42, color: '#f0c850', mirror: false }, ['#f0c850', '#ffffff', '#c9d2de', '#ff9a3a']),
   deco('lute', 'Lute', 'Class icons', 0.5, [0.5, 0.5], { place: 'bottomLeft', size: 0.6, color: '#b5813a', mirror: false }, ['#b5813a', '#8a5a32', '#8e3b8f', '#3f6fd8']),
+  // A picture (src/render/pictureLibrary.ts): its width comes from the picture itself.
+  deco('picture', 'Picture', 'Pictures', 1, [0.5, 0.5], { place: 'topRight', size: 0.4, color: '#ffffff', mirror: false }, ['#ffffff', ...METAL]),
 ];
 
 export const decorationInfo = (kind: DecorationKind): DecorationInfo => DECORATIONS.find((d) => d.kind === kind)!;
@@ -292,7 +315,13 @@ export const MAX_DECORATIONS = 16;
 
 export function newDecoration(kind: DecorationKind, id = Math.random().toString(36).slice(2, 10)): Decoration {
   const d = decorationInfo(kind).defaults;
-  return { id, kind, visible: true, place: d.place, x: 0, y: -0.8, size: d.size, rotation: d.rotation ?? 0, mirror: d.mirror, flip: false, color: d.color, opacity: 1 };
+  return { id, kind, visible: true, place: d.place, x: 0, y: -0.8, size: d.size, rotation: d.rotation ?? 0, mirror: d.mirror, flip: false, color: d.color, opacity: 1, image: null, tint: true, aspect: decorationInfo(kind).aspect };
+}
+
+/** A picture decoration: a built-in icon (coloured) or one of the user's own pictures (its own colours). */
+export function newPictureDecoration(image: PictureSource, aspect: number, color?: string, id?: string): Decoration {
+  const d = newDecoration('picture', id);
+  return { ...d, image, aspect: aspect > 0 && Number.isFinite(aspect) ? aspect : 1, tint: image.type === 'library', color: color ?? d.color };
 }
 
 // ---- Phase 8: the label (DESIGN.md §6.10) ----
@@ -302,6 +331,7 @@ export const LABEL_SHAPES: { id: LabelShape; name: string }[] = [
   { id: 'plaque', name: 'Plaque' },
   { id: 'pill', name: 'Pill' },
   { id: 'box', name: 'Box' },
+  { id: 'plain', name: 'Plain text' },
   { id: 'ring', name: 'Ring text' },
 ];
 
@@ -313,6 +343,8 @@ export function newLabel(): LabelSettings {
     place: 'bottom',
     x: 0,
     y: 0.75,
+    anchor: 'center',
+    rotation: 0,
     angle: 90,
     arc: 160,
     width: 1.3,
@@ -349,7 +381,6 @@ export function createDocument(name = 'Untitled token'): TokenDocument {
     shape: 'circle',
     art: { assetId: null, transform: { ...DEFAULT_TRANSFORM }, adjust: { ...DEFAULT_ADJUST }, removal: { ...DEFAULT_REMOVAL }, strokes: [], popOut: { enabled: true, strokes: [] } },
     background: { ...DEFAULT_BACKGROUND, gradient: copyGradient(DEFAULT_BACKGROUND.gradient) },
-    foreground: [],
     lighting: { ...DEFAULT_LIGHTING, rim: { ...DEFAULT_LIGHTING.rim } },
     effects: [],
     frame: {

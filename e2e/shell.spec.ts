@@ -26,7 +26,8 @@ test.describe('app shell', () => {
     await page.goto('/');
     const sheet = page.locator('.bottom-sheet');
     await expect(sheet).toHaveAttribute('data-snap', 'peek');
-    await expect(page.getByRole('tab')).toHaveCount(10);
+    // One tab per section, in a row that scrolls sideways.
+    await expect(page.getByRole('tab')).toHaveCount(12);
     await page.getByRole('tab', { name: 'Label' }).click();
     await expect(sheet).toHaveAttribute('data-snap', 'half');
     await expect(page.getByRole('tabpanel').getByRole('button', { name: 'Add a label' })).toBeVisible();

@@ -4,8 +4,10 @@
 // Called by scripts/help-images.ts (npm run help-images).
 import { createCanvas, GlobalFonts, loadImage, type Canvas, type Image } from '@napi-rs/canvas';
 import { existsSync, readFileSync } from 'node:fs';
-import { createDocument, DEFAULT_REMOVAL, LIGHT_PRESETS, newDecoration, newEffect, newLabel, newOverlay, RING_TEXT_STYLE } from '../src/document/defaults';
-import type { Decoration, LabelSettings, LightPresetId, OverlayLayer, PopOutStroke, TokenDocument } from '../src/document/types';
+import { createDocument, DEFAULT_REMOVAL, LIGHT_PRESETS, newDecoration, newEffect, newLabel, newPictureDecoration, newPictureEffect, RING_TEXT_STYLE } from '../src/document/defaults';
+import type { Decoration, EffectKind, EffectLayer, LabelSettings, LightPresetId, PictureSource, PopOutStroke, TokenDocument } from '../src/document/types';
+import { setAiMaskLookup } from '../src/image/process';
+import { pictureAssetId } from '../src/render/pictureLibrary';
 import { findFrameHole } from '../src/image/frameHole';
 import { framePresetById } from '../src/render/catalog';
 import type { Ctx } from '../src/render/frameKit';
@@ -116,8 +118,15 @@ function group(items: { doc: TokenDocument; x: number; y: number; size: number }
 const pair = (save: Save, id: string, before: TokenDocument, after: TokenDocument, backdrop: Backdrop = 'dark') =>
   save(id.replace('.', '-'), tok(before, backdrop), tok(after, backdrop));
 
-const overlay = (kind: OverlayLayer['kind'], patch: Partial<OverlayLayer> = {}): Change => (d) => {
-  d.foreground = [...d.foreground, { ...newOverlay(kind, `${kind}${d.foreground.length}`), ...patch }];
+const overlay = (kind: EffectKind, patch: Partial<EffectLayer> = {}): Change => (d) => {
+  d.effects = [...d.effects, { ...newEffect(kind, `${kind}${d.effects.length}`), ...patch }];
+};
+const pictureFx = (image: PictureSource, patch: Partial<EffectLayer> = {}): Change => (d) => {
+  d.effects = [...d.effects, { ...newPictureEffect(image, `pic${d.effects.length}`), ...patch }];
+};
+const pictureDeco = (id: string, patch: Partial<Decoration> = {}): Change => (d) => {
+  const pic = assets.get(pictureAssetId({ type: 'library', id }))!;
+  d.decorations = [...d.decorations, { ...newPictureDecoration({ type: 'library', id }, pic.width / pic.height, '#c0263a', `deco${d.decorations.length}`), place: 'topRight', ...patch }];
 };
 const bg = (patch: Partial<TokenDocument['background']>): Change => (d) => {
   d.background = { ...d.background, ...patch };
@@ -205,10 +214,10 @@ function fileCard(doc: TokenDocument, fileName: string, bad: boolean): Canvas {
   return c;
 }
 
-/** A token saved as a JPG of the given quality, read back in (for the Quality picture). */
-async function jpeg(doc: TokenDocument, quality: number): Promise<Canvas> {
+/** A token saved as a WebP of the given quality, read back in (for the Quality picture). */
+async function webp(doc: TokenDocument, quality: number): Promise<Canvas> {
   const c = tok(doc, 'light');
-  const img = await loadImage(c.toBuffer('image/jpeg', quality));
+  const img = await loadImage(c.toBuffer('image/webp', quality));
   const out = createCanvas(T, T);
   out.getContext('2d').drawImage(img, 0, 0);
   return out;
@@ -287,6 +296,15 @@ export async function tokenPictures(save: Save): Promise<void> {
   goblinImage = goblin;
   for (const id of ['forest', 'night-sky', 'tavern', 'dungeon']) assets.set(`library:${id}`, source(await loadImage(readFileSync(`public/backgrounds/${id}.webp`))));
   for (const id of ['gilded-laurel', 'rope', 'dragon-scales']) await addFrame(id, `public/frames/${id}.webp`, 'library');
+  for (const id of ['fx-smoke-puffs', 'fx-twinkles', 'deco-heart', 'deco-potion']) assets.set(pictureAssetId({ type: 'library', id }), source(await loadImage(readFileSync(`public/pictures/${id}.webp`))));
+  assets.set(pictureAssetId({ type: 'upload', id: 'demo' }), source(await loadImage(readFileSync('public/backgrounds/night-sky.webp'))));
+  // The AI cut-out of the boss goblin, made once with the real model (BiRefNet-lite) and kept as a fixture.
+  const aiImg = await loadImage('e2e/fixtures/goblin-boss-ai-mask.png');
+  const aiCanvas = createCanvas(aiImg.width, aiImg.height);
+  aiCanvas.getContext('2d').drawImage(aiImg, 0, 0);
+  const aiRgba = aiCanvas.getContext('2d').getImageData(0, 0, aiImg.width, aiImg.height).data;
+  const aiMask = { id: 1, width: aiImg.width, height: aiImg.height, data: Uint8Array.from({ length: aiImg.width * aiImg.height }, (_, i) => aiRgba[i * 4]!) };
+  setAiMaskLookup((id) => (id === 'asset:boss' ? aiMask : null));
   await addFrame('ring', 'e2e/fixtures/purple-ring.png', 'upload');
   // null: the empty token you start with, before any picture is imported.
   const empty = () => with_((d) => (d.art.assetId = null), bg({ kind: 'none' }));
@@ -297,7 +315,6 @@ export async function tokenPictures(save: Save): Promise<void> {
   p('section.import', null, []);
   p('section.image', [boss], [boss, (d) => (d.art.adjust = { ...d.art.adjust, contrast: 25, saturation: 25, temperature: 25 })]);
   p('section.background', [bg({ kind: 'none' })], [forest()]);
-  p('section.foreground', [], [overlay('mist'), overlay('vignette')]);
   p('section.lighting', [], [light('torchlight')]);
   p('section.popout', [zoomed], [popOut()]);
   p('section.effects', [], [(d) => (d.effects = [newEffect('fire', 'f'), newEffect('embers', 'e')])]);
@@ -345,19 +362,28 @@ export async function tokenPictures(save: Save): Promise<void> {
   p('background.blur', [forest()], [forest({ blur: 80 })]);
   p('background.zoom', [forest()], [forest({ zoom: 2.5 })]);
   p('background.move', [forest({ zoom: 1.6 })], [forest({ zoom: 1.6, offsetX: 0.45, offsetY: -0.3 })]);
+  const busy: Change = (d) => {
+    boss(d);
+    d.art.removal = { ...DEFAULT_REMOVAL, enabled: false };
+    d.background = { ...d.background, kind: 'color', color: '#41566e' };
+  };
+  const ai: Change = (d) => (d.art.removal = { ...DEFAULT_REMOVAL, enabled: true, method: 'ai' });
+  p('background.removeMethod', [busy], [busy, ai]);
+  p('background.aiRemove', [busy], [busy, ai]);
   p('background.opacity', [forest(), frame({ backingColor: '#7a2f2f' })], [forest({ opacity: 0.35 }), frame({ backingColor: '#7a2f2f' })]);
 
-  // ---- Foreground ----
-  p('foreground.add', [], [overlay('foliage'), overlay('vignette')]);
-  p('foreground.color', [overlay('mist')], [overlay('mist', { color: '#c58bff' })]);
-  p('foreground.angle', [overlay('foliage', { angle: 90 })], [overlay('foliage', { angle: 225 })]);
-  p('foreground.size', [overlay('vignette', { size: 20 })], [overlay('vignette', { size: 80 })]);
-  p('foreground.softness', [overlay('shadow', { softness: 5 })], [overlay('shadow', { softness: 95 })]);
-  p('foreground.scale', [overlay('foliage', { scale: 60 })], [overlay('foliage', { scale: 180 })]);
-  p('foreground.opacity', [overlay('smoke', { opacity: 0.2 })], [overlay('smoke', { opacity: 0.95 })]);
-  const warm = { opacity: 0.8, gradient: { type: 'linear' as const, angle: 90, stops: [{ offset: 0, color: '#ffb050', opacity: 1 }, { offset: 1, color: '#3a1050', opacity: 1 }] } };
-  p('foreground.blend', [overlay('gradient', { ...warm, blend: 'normal' })], [overlay('gradient', { ...warm, blend: 'soft-light' })]);
-  p('foreground.shuffle', [overlay('cobwebs', { seed: 1 })], [overlay('cobwebs', { seed: 7 })]);
+  // ---- Effects: overlays and pictures (v8) ----
+  const warm = { intensity: 80, gradient: { type: 'linear' as const, angle: 90, stops: [{ offset: 0, color: '#ffb050', opacity: 1 }, { offset: 1, color: '#3a1050', opacity: 1 }] } };
+  p('effects.blend', [overlay('gradient', { ...warm, blend: 'normal' })], [overlay('gradient', { ...warm, blend: 'soft-light' })]);
+  p('effects.blur', [overlay('lightning')], [overlay('lightning', { blur: 0.12 })]);
+  p('effects.angle', [overlay('foliage', { angle: 90 })], [overlay('foliage', { angle: 225 })]);
+  p('effects.softness', [overlay('edgeShadow', { softness: 5 })], [overlay('edgeShadow', { softness: 95 })]);
+  const puffs: PictureSource = { type: 'library', id: 'fx-smoke-puffs' };
+  p('effects.layout', [pictureFx(puffs)], [pictureFx(puffs, { layout: 'fill', intensity: 60 })]);
+  const twinkles: PictureSource = { type: 'library', id: 'fx-twinkles' };
+  p('effects.tint', [pictureFx(twinkles, { color: '#ffffff' })], [pictureFx(twinkles, { color: '#ffc23a' })]);
+  p('effects.upload', [], [pictureFx({ type: 'upload', id: 'demo' }, { blend: 'screen', intensity: 70 })]);
+  p('effect.picture', [], [pictureFx(puffs), pictureFx(twinkles)]);
 
   // ---- Lighting ----
   p('lighting.presets', [], [light('moonlight')]);
@@ -416,6 +442,8 @@ export async function tokenPictures(save: Save): Promise<void> {
   p('decorations.rotation', [deco('sword', { place: 'topRight' })], [deco('sword', { place: 'topRight', rotation: 60 })]);
   p('decorations.color', [deco('gem')], [deco('gem', { color: '#3fbf6a' })]);
   p('decorations.opacity', [deco('crown')], [deco('crown', { opacity: 0.35 })]);
+  p('decorations.picture', [], [pictureDeco('deco-heart')]);
+  p('decorations.tint', [pictureDeco('deco-potion', { tint: false })], [pictureDeco('deco-potion', { color: '#2fae5a' })]);
   p('decorations.flip', [deco('sword', { place: 'topRight' })], [deco('sword', { place: 'topRight', flip: true })]);
 
   // ---- Label ----
@@ -434,6 +462,9 @@ export async function tokenPictures(save: Save): Promise<void> {
   const free = (patch: Partial<LabelSettings>) => label({ shape: 'pill', place: 'free', x: 0, y: 0.75, curve: 0, ...patch });
   p('label.x', [free({})], [free({ x: 0.35 })]);
   p('label.y', [free({})], [free({ y: 0.1 })]);
+  const plain = (patch: Partial<LabelSettings>) => free({ shape: 'plain', ...RING_TEXT_STYLE, ...patch });
+  p('label.anchor', [plain({ x: -0.5, y: 0.6 })], [plain({ x: -0.5, y: 0.6, anchor: 'left' })]);
+  p('label.rotation', [plain({ y: 0.6 })], [plain({ y: 0.6, rotation: -25 })]);
   p('label.arc', [ring({ text: 'Grik the Unbearably Sly', arc: 70 })], [ring({ text: 'Grik the Unbearably Sly', arc: 220 })]);
   p('label.width', [label({ width: 0.9 })], [label({ width: 1.9 })]);
   p('label.curve', [label({ curve: 0 })], [label({ curve: 70 })]);
@@ -485,16 +516,12 @@ export async function tokenPictures(save: Save): Promise<void> {
   save('size-custom', group([{ doc: with_((d) => (d.size = { preset: 'large', squares: 2 })), x: 0, y: 0, size: 96 }], { map: 5 }), group([{ doc: with_((d) => (d.size = { preset: 'custom', squares: 2.5 })), x: 0, y: 0, size: 120 }], { map: 5 }));
 
   // ---- Export ----
-  const jpg = (fill: string): Canvas => {
-    const c = tok(null, 'checker');
-    const ctx = c.getContext('2d');
-    ctx.fillStyle = fill;
-    ctx.fillRect(0, 0, T, T);
-    ctx.drawImage(tokenCanvas(with_()), 0, 0);
-    return c;
-  };
-  save('export-format', jpg('#ffffff'), tok(with_(), 'checker'));
-  save('export-fill', jpg('#ffffff'), jpg('#4f6f86'));
+  {
+    // The same token as a PNG and as a WebP, with their real file sizes at 256 px.
+    const t = tokenCanvas(with_(), 256);
+    const kb = (b: Buffer) => `${Math.max(1, Math.round(b.length / 1024))} KB`;
+    save('export-format', fileCard(with_(), `Goblin.png · ${kb(t.toBuffer('image/png'))}`, false), fileCard(with_(), `Goblin.webp · ${kb(t.toBuffer('image/webp', 92))}`, false));
+  }
   save('export-resolution', lowRes(with_(), 48), tok(with_()));
   save('export-customPx', lowRes(with_(), 80), tok(with_()));
   save('export-fileName', fileCard(with_(), 'Grik the Sly?!.png', true), fileCard(with_(), 'Grik-the-Sly.png', false));
@@ -507,8 +534,9 @@ export async function tokenPictures(save: Save): Promise<void> {
       size: 108,
     }));
   save('export-all', group(batch(1)), group(batch(4)));
-  save('export-advanced', await jpeg(with_(), 92), await jpeg(with_(), 12));
-  save('export-quality', await jpeg(with_(), 92), await jpeg(with_(), 12));
+  save('export-advanced', await webp(with_(), 92), await webp(with_(), 5));
+  save('export-quality', await webp(with_(), 92), await webp(with_(), 5));
+  save('panel-menuStyle', tok(with_()), tok(with_((d) => (d.art.adjust = { ...d.art.adjust, hue: 30, temperature: 40, sepia: 25 }))));
 
   // ---- Batch, canvas, top bar and toolbar ----
   save('batch-strip', group(batch(1)), group(batch(4)));

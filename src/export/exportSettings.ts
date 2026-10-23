@@ -10,9 +10,7 @@ import { FORMAT_IDS, MAX_CUSTOM_PX, MIN_CUSTOM_PX, type ExportFormat } from './f
 export interface ExportSettings {
   format: ExportFormat;
   pxPerSquare: number;
-  /** The colour behind a JPG, which can't be see-through. */
-  fill: string;
-  /** 1…100, for WebP and JPG. */
+  /** 1…100, for WebP. */
   quality: number;
   /**
    * A file name typed by the user, and the token name it was typed for. A new
@@ -22,7 +20,7 @@ export interface ExportSettings {
 }
 
 const KEY = 'tm.export';
-export const DEFAULT_EXPORT: ExportSettings = { format: 'png', pxPerSquare: DEFAULT_PX_PER_SQUARE, fill: '#ffffff', quality: 92, fileName: null };
+export const DEFAULT_EXPORT: ExportSettings = { format: 'png', pxPerSquare: DEFAULT_PX_PER_SQUARE, quality: 92, fileName: null };
 
 function load(): ExportSettings {
   try {
@@ -31,7 +29,6 @@ function load(): ExportSettings {
     return {
       format: FORMAT_IDS.includes(raw.format as ExportFormat) ? (raw.format as ExportFormat) : DEFAULT_EXPORT.format,
       pxPerSquare: clampPx(Number(raw.pxPerSquare) || DEFAULT_EXPORT.pxPerSquare),
-      fill: typeof raw.fill === 'string' && /^#[0-9a-f]{6}$/i.test(raw.fill) ? raw.fill : DEFAULT_EXPORT.fill,
       quality: Math.min(100, Math.max(1, Math.round(Number(raw.quality) || DEFAULT_EXPORT.quality))),
       fileName: null,
     };
@@ -48,9 +45,9 @@ export const getExportSettings = () => exportSettings.getState();
 
 export function setExportSettings(patch: Partial<ExportSettings>): void {
   exportSettings.setState(patch);
-  const { format, pxPerSquare, fill, quality } = exportSettings.getState();
+  const { format, pxPerSquare, quality } = exportSettings.getState();
   try {
-    localStorage.setItem(KEY, JSON.stringify({ format, pxPerSquare, fill, quality }));
+    localStorage.setItem(KEY, JSON.stringify({ format, pxPerSquare, quality }));
   } catch {
     /* private browsing: just don't remember */
   }

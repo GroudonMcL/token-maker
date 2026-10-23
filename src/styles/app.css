@@ -609,6 +609,52 @@ button:disabled {
   overscroll-behavior: contain;
 }
 
+/* Drag handle on the panel's left edge */
+.panel-resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: var(--panel-w);
+  z-index: 5;
+  width: 10px;
+  margin-right: -5px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+@media (max-width: 1023px) {
+  .panel-resizer {
+    right: var(--panel-w-narrow);
+  }
+}
+
+.panel-resizer::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  width: 4px;
+  height: 40px;
+  margin-top: -20px;
+  border-radius: 2px;
+  background: var(--border-strong);
+  opacity: 0.6;
+  transition: opacity var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+
+.panel-resizer:hover::after,
+.panel-resizer:focus-visible::after,
+.panel-resizer:active::after {
+  opacity: 1;
+  background: var(--accent);
+}
+
+/* Simple / Advanced / Expert switch above Import */
+.menu-style {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+
 /* Bottom bar */
 .bottom-bar {
   display: flex;
@@ -907,6 +953,12 @@ button:disabled {
   transition: transform var(--dur) var(--ease);
 }
 
+.advanced--expert {
+  display: grid;
+  gap: var(--space-4);
+  padding-top: var(--space-4);
+}
+
 .advanced__body {
   display: grid;
   gap: var(--space-4);
@@ -923,6 +975,16 @@ button:disabled {
   margin: 0;
   color: var(--text-muted);
   font-size: var(--text-xs);
+}
+
+.control__hint--error {
+  color: var(--danger);
+}
+
+.ai-progress {
+  width: 100%;
+  height: 8px;
+  accent-color: var(--accent);
 }
 
 .text-input {
@@ -1117,6 +1179,30 @@ button:disabled {
   display: inline-flex;
   align-items: center;
   gap: 2px;
+}
+
+.slider__reset {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-right: 2px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.slider__reset:hover:not(:disabled) {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.slider__reset:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 
 .slider__number {
@@ -1316,6 +1402,8 @@ input[type='range']::-moz-range-thumb {
 
 .segmented__row {
   display: flex;
+  /* Long rows (like the seven creature sizes) wrap rather than run off the panel. */
+  flex-wrap: wrap;
   padding: 3px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -1323,7 +1411,8 @@ input[type='range']::-moz-range-thumb {
 }
 
 .segmented__btn {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1408,6 +1497,17 @@ input[type='range']::-moz-range-thumb {
 .tile__preview > * {
   max-width: 100%;
   max-height: 100%;
+}
+
+/* White picture sprites and icons need a dark backdrop in both themes. */
+.tile__preview--dark {
+  border-radius: var(--radius-sm, 6px);
+  background: #2a2633;
+}
+
+.tile__preview--dark > img {
+  object-fit: contain;
+  padding: 3px;
 }
 
 .tile__label {
@@ -1739,13 +1839,6 @@ input[type='range']::-moz-range-thumb {
   gap: var(--space-3);
 }
 
-.gradient-editor__preview {
-  display: block;
-  height: 20px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background-color: #888;
-}
 
 .gradient-stops {
   display: grid;
@@ -2255,6 +2348,11 @@ input[type='range']::-moz-range-thumb {
 
   .segmented__row {
     flex-wrap: wrap;
+  }
+
+  .slider__reset {
+    width: var(--hit);
+    height: var(--hit);
   }
 
   .slider__number,

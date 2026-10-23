@@ -46,7 +46,7 @@ describe('export resolution', () => {
   it.each([...PX_PRESETS, 77])('at %i px per square the export is the preview, pixel for pixel', (px) => {
     for (const squares of [0.5, 1, 2]) {
       const d = doc(squares);
-      const out = renderForExport(d, assets, { format: 'png', pxPerSquare: px, fill: '#fff' }) as unknown as ReturnType<typeof createCanvas>;
+      const out = renderForExport(d, assets, { pxPerSquare: px }) as unknown as ReturnType<typeof createCanvas>;
       const side = Math.round(squares * px);
       expect(out.width).toBe(side);
       expect(Buffer.compare(Buffer.from(pixels(out)), Buffer.from(preview(d, side)))).toBe(0);
@@ -61,13 +61,14 @@ describe('export resolution', () => {
 });
 
 describe('export formats', () => {
-  it('PNG and WebP keep the see-through corners; JPG fills them with the chosen colour', () => {
+  it('only offers see-through formats (JPG was removed), and keeps the corners see-through', () => {
+    expect(FORMAT_IDS).toEqual(['png', 'webp']);
     for (const format of FORMAT_IDS) {
-      const out = renderForExport(doc(), assets, { format, pxPerSquare: 128, fill: '#204060' });
+      void format;
+      const out = renderForExport(doc(), assets, { pxPerSquare: 128 });
       const data = pixels(out);
       const corner = [...data.slice(0, 4)];
-      if (format === 'jpg') expect(corner).toEqual([0x20, 0x40, 0x60, 255]);
-      else expect(corner[3]).toBe(0);
+      expect(corner[3]).toBe(0);
       // The middle is the art, the same in every format.
       const i = (64 * 128 + 64) * 4;
       expect([...data.slice(i, i + 4)]).toEqual([...preview(doc(), 128).slice(i, i + 4)]);
@@ -77,10 +78,10 @@ describe('export formats', () => {
   it('asks the browser for the right file type and quality', async () => {
     const calls: unknown[] = [];
     const canvas = { convertToBlob: async (o: { type: string; quality?: number }) => (calls.push(o), new Blob(['x'], { type: o.type })) };
-    expect((await encodeCanvas(canvas as unknown as OffscreenCanvas, 'jpg', 80)).type).toBe('image/jpeg');
+    expect((await encodeCanvas(canvas as unknown as OffscreenCanvas, 'webp', 80)).type).toBe('image/webp');
     await encodeCanvas(canvas as unknown as OffscreenCanvas, 'png', 80);
     expect(calls).toEqual([
-      { type: 'image/jpeg', quality: 0.8 },
+      { type: 'image/webp', quality: 0.8 },
       { type: 'image/png', quality: undefined },
     ]);
   });
@@ -94,7 +95,7 @@ describe('export formats', () => {
 describe('file names', () => {
   it('only keeps safe characters', () => {
     expect(safeFileName('Goblin Boss', 'webp')).toBe('Goblin-Boss.webp');
-    expect(safeFileName('Ælf / Thing: "Ünder" <3', 'jpg')).toBe('lf-Thing-Under-3.jpg');
+    expect(safeFileName('Ælf / Thing: "Ünder" <3', 'webp')).toBe('lf-Thing-Under-3.webp');
     expect(safeFileName('???', 'png')).toBe('token.png');
   });
 

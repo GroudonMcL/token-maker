@@ -1,8 +1,10 @@
 // Flat-colour background removal (DESIGN.md §6.2), ported from the
 // extension: flood-fill from the image's edges through pixels close to the
-// background colour. Areas of that colour not connected to an edge (e.g. a
-// white shield) are kept. The result is a mask (255 = keep, 0 = removed), so
-// the picture's own pixels are never changed.
+// background colour. Areas of that colour not connected to an edge (e.g. the
+// gap between an arm and a staff) are also removed when `enclosed` is on (v8),
+// as long as they're more than a speck; off keeps them (e.g. a white shield).
+// The result is a mask (255 = keep, 0 = removed), so the picture's own
+// pixels are never changed.
 
 import type { PixelBuffer } from './adjust';
 import { blurMask } from './filters';
@@ -16,6 +18,8 @@ export interface RemovalSettings {
   intensity: number;
   /** 0–100. */
   softness: number;
+  /** Also remove enclosed patches of the background colour (v8). */
+  enclosed?: boolean;
 }
 
 const dist = (d: Uint8ClampedArray, i: number, ref: Rgb) => {
@@ -84,14 +88,47 @@ export function removalMask(buf: PixelBuffer, s: RemovalSettings): Uint8Array {
     seed(y * w);
     seed(y * w + w - 1);
   }
-  while (stack.length) {
-    const p = stack.pop()!;
-    mask[p] = 0;
-    const x = p % w;
-    if (x > 0) seed(p - 1);
-    if (x < w - 1) seed(p + 1);
-    if (p >= w) seed(p - w);
-    if (p < w * (h - 1)) seed(p + w);
+  const fill = () => {
+    while (stack.length) {
+      const p = stack.pop()!;
+      mask[p] = 0;
+      const x = p % w;
+      if (x > 0) seed(p - 1);
+      if (x < w - 1) seed(p + 1);
+      if (p >= w) seed(p - w);
+      if (p < w * (h - 1)) seed(p + w);
+    }
+  };
+  fill();
+
+  if (s.enclosed) {
+    // Enclosed patches of the background colour: each one is filled on its
+    // own, and kept only if it's a speck (an eye's highlight, say).
+    const minArea = Math.max(24, Math.round(w * h * 0.0004));
+    const seen = new Uint8Array(w * h);
+    const patch: number[] = [];
+    for (let start = 0; start < w * h; start++) {
+      if (removed[start] || seen[start] || dist(d, start * 4, ref) > threshold) continue;
+      patch.length = 0;
+      seen[start] = 1;
+      const todo = [start];
+      while (todo.length) {
+        const p = todo.pop()!;
+        patch.push(p);
+        const x = p % w;
+        for (const q of [x > 0 ? p - 1 : -1, x < w - 1 ? p + 1 : -1, p >= w ? p - w : -1, p < w * (h - 1) ? p + w : -1]) {
+          if (q >= 0 && !seen[q] && !removed[q] && dist(d, q * 4, ref) <= threshold) {
+            seen[q] = 1;
+            todo.push(q);
+          }
+        }
+      }
+      if (patch.length < minArea) continue;
+      for (const p of patch) {
+        removed[p] = 1;
+        mask[p] = 0;
+      }
+    }
   }
 
   // Pixels touching the removed area fade by how close they are to the background colour.

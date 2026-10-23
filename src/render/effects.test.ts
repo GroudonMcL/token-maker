@@ -4,13 +4,14 @@
 // placements land in the right layer; list order is respected; sizes are per
 // grid square; and dragging Intensity reuses the drawn layers.
 import { createCanvas } from '@napi-rs/canvas';
-import { createDocument, EFFECTS, newEffect } from '../document/defaults';
+import { createDocument, EFFECTS, newEffect, newPictureEffect } from '../document/defaults';
 import type { EffectKind, EffectLayer, EffectPlacement, TokenDocument } from '../document/types';
 import { setCanvasFactory } from '../image/processedArt';
 import { PAINTERS } from './effectPainters';
 import { clearEffectCache, drawEffect, type EffectArea } from './effects';
 import type { Ctx } from './frameKit';
 import { renderToken, type RenderSource } from './render';
+import { pictureAssetId } from './pictureLibrary';
 import { cutOutArt } from './sampleArt';
 
 const make = (w: number, h: number) => createCanvas(w, h) as unknown as HTMLCanvasElement;
@@ -28,13 +29,29 @@ const flat = (color: string): RenderSource => {
   return { image: c, width: 100, height: 100 };
 };
 
+/** A picture effect's sprite: a white four-pointed star on nothing, like the built-in ones. */
+const SPRITE = { type: 'library', id: 'fx-twinkles' } as const;
+const sprite = ((): RenderSource => {
+  const c = make(64, 64);
+  const ctx = c.getContext('2d')!;
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  for (let i = 0; i < 8; i++) {
+    const a = (i * Math.PI) / 4;
+    const r = i % 2 ? 8 : 31;
+    ctx.lineTo(32 + Math.cos(a) * r, 32 + Math.sin(a) * r);
+  }
+  ctx.fill();
+  return { image: c, width: 64, height: 64 };
+})();
+
 function token(effects: Partial<EffectLayer>[], patch: Partial<TokenDocument> = {}): TokenDocument {
   const d = createDocument();
   return {
     ...d,
     art: { ...d.art, assetId: 'asset:art' },
     background: { ...d.background, kind: 'color', color: '#41566e' },
-    effects: effects.map((e, i) => ({ ...newEffect(e.kind ?? 'fire', `fx${i}`), ...e })),
+    effects: effects.map((e, i) => ({ ...(e.kind === 'picture' ? newPictureEffect(SPRITE, `fx${i}`) : newEffect(e.kind ?? 'fire', `fx${i}`)), ...e })),
     ...patch,
   };
 }
@@ -42,7 +59,7 @@ function token(effects: Partial<EffectLayer>[], patch: Partial<TokenDocument> = 
 function draw(doc: TokenDocument, art: RenderSource = cutOutArt(make, 120), size = SIZE): Uint8ClampedArray {
   const canvas = createCanvas(size, size);
   const ctx = canvas.getContext('2d');
-  renderToken(ctx as unknown as Ctx, doc, new Map([['asset:art', art]]), size);
+  renderToken(ctx as unknown as Ctx, doc, new Map([['asset:art', art], [pictureAssetId(SPRITE), sprite]]), size);
   return ctx.getImageData(0, 0, size, size).data;
 }
 
@@ -62,8 +79,8 @@ function changed(a: Uint8ClampedArray, b: Uint8ClampedArray): number {
 
 const same = (a: Uint8ClampedArray, b: Uint8ClampedArray) => a.length === b.length && a.every((v, i) => v === b[i]);
 
-/** Effects with a random layout (the glows and flat tints have none). */
-const RANDOM: EffectKind[] = EFFECTS.map((e) => e.kind).filter((k) => !['innerGlow', 'outerGlow', 'unconscious'].includes(k));
+/** Effects with a random layout (the glows, flat tints and smooth overlays have none). */
+const RANDOM: EffectKind[] = EFFECTS.map((e) => e.kind).filter((k) => !['innerGlow', 'outerGlow', 'unconscious', 'vignette', 'gradient', 'edgeShadow'].includes(k));
 
 describe('every effect', () => {
   const plain = draw(token([]));

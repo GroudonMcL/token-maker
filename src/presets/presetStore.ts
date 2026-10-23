@@ -2,7 +2,8 @@
 // database of their own, so "New token" never deletes them. Sharing adds the
 // pictures of any uploaded frame the look uses, so the preset works in
 // another browser; importing saves those pictures here. Uploaded label fonts
-// travel the same way.
+// and the user's own pictures in picture effects and decorations (v8) travel
+// the same way.
 
 import { createStore as createIdbStore, del, entries, set, type UseStore } from 'idb-keyval';
 import { useStore } from 'zustand';
@@ -10,6 +11,7 @@ import { createStore } from 'zustand/vanilla';
 import { UPLOAD_PREFIX } from '../fonts/catalog';
 import { hasUploadedFont, saveUploadedFont, uploadedFont } from '../fonts/fontLoader';
 import { hasUploadedFrame, saveUploadedFrame, uploadedFrameBlob } from '../state/frameLibrary';
+import { documentPictures, hasUploadedPicture, saveUploadedPicture, uploadedPictureBlob } from '../state/pictureLibrary';
 import { migratePreset, PresetError, type TokenPreset } from './preset';
 
 let idb: UseStore | null = null;
@@ -85,6 +87,10 @@ export async function withSharedImages(p: TokenPreset): Promise<TokenPreset> {
     const blob = await uploadedFrameBlob(src.id);
     if (blob) out = { ...out, images: { ...out.images, [src.id]: await blobToDataUrl(blob) } };
   }
+  for (const pic of uploadedPictureIds(p)) {
+    const blob = await uploadedPictureBlob(pic);
+    if (blob) out = { ...out, images: { ...out.images, [pic]: await blobToDataUrl(blob) } };
+  }
   const fontId = labelUpload(p);
   if (fontId) {
     const font = await uploadedFont(fontId);
@@ -93,8 +99,17 @@ export async function withSharedImages(p: TokenPreset): Promise<TokenPreset> {
   return out;
 }
 
-/** Saves any frame pictures and label fonts a shared preset brings that this browser doesn't have yet. */
+/** The ids of the user's own pictures a look's effects and decorations use. */
+const uploadedPictureIds = (p: TokenPreset) => [...new Set(documentPictures(p.look).filter((s) => s.type === 'upload').map((s) => s.id))];
+
+/** Saves any frame pictures, effect and decoration pictures and label fonts a shared preset brings that this browser doesn't have yet. */
 export async function installSharedImages(p: TokenPreset): Promise<void> {
+  for (const pic of uploadedPictureIds(p)) {
+    const url = p.images?.[pic];
+    if (!url || (await hasUploadedPicture(pic))) continue;
+    const blob = await (await fetch(url)).blob();
+    await saveUploadedPicture(blob, 'Shared picture', pic).catch((e) => console.warn(e));
+  }
   const fontId = labelUpload(p);
   const font = fontId ? p.fonts?.[fontId] : undefined;
   if (fontId && font && !(await hasUploadedFont(fontId))) {

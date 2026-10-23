@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Section } from '../components';
 import { SECTIONS, type SectionId } from './sections';
+import { MenuStyleSwitch } from './MenuStyleSwitch';
 import { SectionPlaceholder } from './SectionPlaceholder';
 import { SECTION_CONTENT } from '../sections';
 
@@ -20,6 +21,7 @@ export function SidePanel({
   }, [opened]);
   return (
     <aside ref={ref} className="side-panel" aria-label="Token settings">
+      <MenuStyleSwitch />
       {SECTIONS.map((s) => {
         const Content = SECTION_CONTENT[s.id];
         return (

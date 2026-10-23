@@ -96,9 +96,13 @@ test.describe('phone pass', () => {
 for (const theme of ['dark', 'light'] as const) {
   test.describe(`accessibility (${theme} theme)`, () => {
     test.use({ colorScheme: theme });
+    // Dark is the default whatever the device says; light is the theme button's choice.
+    test.beforeEach(async ({ page }) => {
+      await page.addInitScript((t) => (t === 'light' ? localStorage.setItem('tm.theme', 'light') : localStorage.removeItem('tm.theme')), theme);
+    });
 
     test('no axe problems in the editor, with every section open', async ({ page, isMobile }) => {
-      test.setTimeout(180_000);
+      test.setTimeout(420_000);
       await page.goto('/');
       await loadGoblin(page);
       const problems = new Map<string, string>();

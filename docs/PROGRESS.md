@@ -119,6 +119,18 @@ A checklist of build phases, following [`BUILD-PROMPTS.md`](BUILD-PROMPTS.md). D
   - [ ] **Owner:** merge to `main`, check the Cloudflare Pages deployment, and go through README §6 on the live site
   - **Done when:** all tests pass and the site is live on Cloudflare Pages
 
+## Owner feedback after Phase 10 (document v8)
+
+- [x] Main view: resizable side panel; dark theme by default with a moon/sun toggle (no "system"); no "?" beside the theme; Simple / Advanced / Expert menu style above Import; sections reordered (Import, Image, Background, Frame & shape, Pop-out, Lighting & shadows, Effects, Decorations, Size, Label, Presets, Export)
+- [x] Foreground merged into Effects (v7 → v8 migration); Blur and Blend mode on every effect; picture effects (12 CC0 Kenney sprites, or your own picture)
+- [x] Web imports: a clear message when `/api` isn't running; `npm run preview` serves `/api`; Workers deploys get the image server (`wrangler.jsonc`, `worker/index.ts`)
+- [x] A reset button beside every slider
+- [x] Background removal moved to Background; "Remove enclosed gaps too"; in-browser AI cut-out (BiRefNet-lite 512, Transformers.js, Web Worker); gradient preview bar removed
+- [x] Picture decorations (14 CC0 Kenney icons, or your own picture)
+- [x] Size buttons wrap instead of running off the panel; Small covers 0.8 of a square, Tiny 0.5
+- [x] Label: Plain text shape; free labels get an anchor point and rotation
+- [x] JPG export removed
+
 ## Later (not phases yet)
 
-From DESIGN.md §15. Don't build these until the owner decides to: AI background removal, AI auto pop-out, AI relighting, animated borders/overlays with GIF export, Pinterest board browsing, sending tokens to Owlbear/Foundry, condition-variant packs, accounts and cloud saving, premium asset packs, switching adverts on.
+From DESIGN.md §15. Don't build these until the owner decides to: AI auto pop-out, AI relighting, animated borders/overlays with GIF export, Pinterest board browsing, sending tokens to Owlbear/Foundry, condition-variant packs, accounts and cloud saving, premium asset packs, switching adverts on.

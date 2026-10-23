@@ -11,7 +11,7 @@
       // Apply the saved theme before the page paints, so there is no flash.
       try {
         var t = localStorage.getItem('tm.theme');
-        if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+        document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : 'dark');
       } catch (e) {}
     </script>
   </head>

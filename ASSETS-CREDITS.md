@@ -21,6 +21,10 @@ Every font, icon, image and other asset bundled with Token Maker, with its sourc
 | Spectral (label font) | Production Type, via [@fontsource/spectral](https://fontsource.org/fonts/spectral) | SIL Open Font License 1.1 |
 | Germania One (label font) | John Vargas Beltrán, via [@fontsource/germania-one](https://fontsource.org/fonts/germania-one) | SIL Open Font License 1.1 |
 | Eagle Lake (label font) | Astigmatic, via [@fontsource/eagle-lake](https://fontsource.org/fonts/eagle-lake) | SIL Open Font License 1.1 |
+| 12 picture-effect sprites (`public/pictures/fx-*.webp`) | Kenney, [Particle Pack](https://kenney.nl/assets/particle-pack) (cropped and resized) | CC0 1.0 |
+| 14 picture-decoration icons (`public/pictures/deco-*.webp`) | Kenney, [Board Game Icons](https://kenney.nl/assets/board-game-icons) (drawn from the SVGs with a dark outline added) | CC0 1.0 |
+| AI background-removal model (downloaded by the browser when used, not bundled) | [BiRefNet-lite](https://github.com/ZhengPeng7/BiRefNet) by Zheng Peng et al., 512 × 512 ONNX export [studioludens/birefnet-lite-512](https://huggingface.co/studioludens/birefnet-lite-512), run with [Transformers.js](https://github.com/huggingface/transformers.js) | MIT (model); Apache 2.0 (Transformers.js) |
+| AI cut-out test picture (`e2e/fixtures/goblin-boss-ai-mask.png`) | Made once from the goblin fixture with the model above | — |
 | Lucide icons | [lucide.dev](https://lucide.dev) (`lucide-react`) | ISC |
 | Placeholder logo / favicon | Made for the project | — |
 | 27 code-drawn frames and 5 shapes | Ported from the owner's own [LK-to-Owlbear-Combined](https://github.com/GroudonMcL/LK-to-Owlbear-Combined) extension | Owner's own code |
@@ -28,7 +32,7 @@ Every font, icon, image and other asset bundled with Token Maker, with its sourc
 | 8 built-in picture frames (`public/frames/`) | Drawn by code for the project (`scripts/make-frames.ts`) | — (made for the project; no attribution needed) |
 | 18 decorations (gems, crown, star, skull, horn, wing, ribbon, laurel, chain, leaf, class icons) | Drawn by code at render time (`src/render/decorationPainters.ts`) | — |
 | Label shapes (banner, plaque, pill, box) | Drawn by code at render time (`src/render/label.ts`) | — |
-| Foreground overlays (foliage, smoke, mist, cobwebs, vignette, edge shadow) | Drawn by code at render time (`src/render/overlays.ts`) | — |
+| Overlay effects (foliage, smoke, mist, cobwebs, vignette, edge shadow) | Drawn by code at render time (`src/render/overlays.ts`) | — |
 | Sample art in frame tiles, frame sheet and tests | Drawn by code for the project (`src/render/sampleArt.ts`, `scripts/make-fixture.ts`) | — |
 | "Try a sample" goblin picture (`public/sample/goblin.png`) | Drawn by code for the project (`scripts/make-fixture.ts`) | — |
 | Help-tip before/after pictures (`public/help/`) | Drawn by the site's own renderer (`scripts/help-images.ts`, `scripts/help-token-pictures.ts`) | — |

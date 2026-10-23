@@ -6,7 +6,7 @@
 // creature's size. Text is laid out letter by letter along a path, so the
 // same code draws straight, arched and ring text.
 
-import type { LabelSettings, TokenDocument } from '../document/types';
+import type { LabelAnchor, LabelSettings, TokenDocument } from '../document/types';
 import { cssFont } from '../fonts/catalog';
 import { newCanvas } from '../image/processedArt';
 import { rgba, shade } from './color';
@@ -60,6 +60,14 @@ export interface LabelLayout {
   room: number;
   /** Where the label's middle is (px): the shape's centre, or the text's middle on the ring. */
   centre: Point;
+  /** Where its anchor point is (px): what a free label's x, y set (v8). The centre for ring text. */
+  anchor: Point;
+  /**
+   * A free label's move and turn round its anchor point (v8): the shape,
+   * glyphs and whole text are laid out before it, and drawn with it. The
+   * hit outline, centre and anchor already include it.
+   */
+  transform: { x: number; y: number; angle: number } | null;
 }
 
 export interface LabelShapeParts {
@@ -196,9 +204,22 @@ function placeGlyphs(letters: string[], widths: number[], spacing: number, path:
 // ---- Layout ----
 
 /** Room either side of the text, as a share of the shape's height. */
-const PAD: Record<string, number> = { banner: 0.3, plaque: 0.42, pill: 0.5, box: 0.3 };
+const PAD: Record<string, number> = { banner: 0.3, plaque: 0.42, pill: 0.5, box: 0.3, plain: 0.05 };
 /** The shape's height, as a multiple of the text size. */
-const HEIGHT: Record<string, number> = { banner: 1.75, plaque: 2, pill: 1.7, box: 1.7 };
+const HEIGHT: Record<string, number> = { banner: 1.75, plaque: 2, pill: 1.7, box: 1.7, plain: 1.2 };
+
+/** Where each anchor point is on a w × h label, as shares of its width and height from its middle (v8). */
+const ANCHOR_AT: Record<LabelAnchor, [number, number]> = {
+  topLeft: [-0.5, -0.5],
+  top: [0, -0.5],
+  topRight: [0.5, -0.5],
+  left: [-0.5, 0],
+  center: [0, 0],
+  right: [0.5, 0],
+  bottomLeft: [-0.5, 0.5],
+  bottom: [0, 0.5],
+  bottomRight: [0.5, 0.5],
+};
 
 /**
  * Lays the label out for a token of half-size `R` px. `measure` is any 2D
@@ -253,10 +274,10 @@ export function layoutLabel(measure: Ctx | null, doc: LabelDoc, R: number): Labe
       return pts;
     };
     const centre = path.at(start + used / 2);
-    return { fontPx, font: font(fontPx), glyphs, whole: null, shape: null, hit: [...side(1), ...side(-1).reverse()], natural, room, centre };
+    return { fontPx, font: font(fontPx), glyphs, whole: null, shape: null, hit: [...side(1), ...side(-1).reverse()], natural, room, centre, anchor: centre, transform: null };
   }
 
-  // A shape: banner, plaque, pill or box.
+  // A shape: banner, plaque, pill or box, or plain text with no shape (v8).
   const h = fontPx * HEIGHT[l.shape]!;
   const pad = h * PAD[l.shape]!;
   let w = l.width * unit;
@@ -274,8 +295,11 @@ export function layoutLabel(measure: Ctx | null, doc: LabelDoc, R: number): Labe
   const bend = l.shape === 'banner' ? (l.curve / 100) * (Math.PI / 2) : 0;
   const radius = Math.abs(bend) > 1e-3 ? w / bend : null;
 
-  let cx = l.place === 'free' ? l.x * R : 0;
-  let cy = l.place === 'free' ? l.y * R : l.place === 'top' ? -geo.ringAt(270) * R : geo.ringAt(90) * R;
+  const free = l.place === 'free';
+  const [ax, ay] = ANCHOR_AT[l.anchor] ?? ANCHOR_AT.center;
+  // A free label is laid out round its anchor point, then moved and turned there.
+  let cx = free ? -ax * w : 0;
+  let cy = free ? -ay * h : l.place === 'top' ? -geo.ringAt(270) * R : geo.ringAt(90) * R;
   let parts = shapeParts(l, cx, cy, w, h, radius);
   if (l.place !== 'free') {
     // Snapped labels stay inside the square.
@@ -304,7 +328,29 @@ export function layoutLabel(measure: Ctx | null, doc: LabelDoc, R: number): Labe
     const widths = adv.map((x) => (x * fontPx) / 100);
     glyphs = placeGlyphs(letters, widths, l.letterSpacing * fontPx, path, start + w / 2 + h, rise);
   }
-  return { fontPx, font: font(fontPx), glyphs, whole, shape: parts, hit: parts.outline, natural, room, centre: { x: cx, y: cy } };
+  if (!free) {
+    const centre = { x: cx, y: cy };
+    return { fontPx, font: font(fontPx), glyphs, whole, shape: parts, hit: parts.outline, natural, room, centre, anchor: { x: cx + ax * w, y: cy + ay * h }, transform: null };
+  }
+  const transform = { x: l.x * R, y: l.y * R, angle: (l.rotation * Math.PI) / 180 };
+  const place = (p: Point): Point => {
+    const c = Math.cos(transform.angle);
+    const sn = Math.sin(transform.angle);
+    return { x: transform.x + p.x * c - p.y * sn, y: transform.y + p.x * sn + p.y * c };
+  };
+  return {
+    fontPx,
+    font: font(fontPx),
+    glyphs,
+    whole,
+    shape: parts,
+    hit: parts.outline.map(place),
+    natural,
+    room,
+    centre: place({ x: cx, y: cy }),
+    anchor: { x: transform.x, y: transform.y },
+    transform,
+  };
 }
 
 /** The shape's outline and pieces, centred at (cx, cy), `w` × `h` px. */
@@ -316,8 +362,9 @@ function shapeParts(l: LabelSettings, cx: number, cy: number, w: number, h: numb
     { x: x0, y: y1 },
   ];
   const outlineBox = box(cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2);
-  if (l.shape === 'pill' || l.shape === 'box') {
-    const r = l.shape === 'pill' ? h / 2 : l.corners === 'rounded' ? h * 0.24 : 0;
+  if (l.shape === 'pill' || l.shape === 'box' || l.shape === 'plain') {
+    // Plain text has no shape drawn; its box is only for picking it on the canvas.
+    const r = l.shape === 'pill' ? h / 2 : l.corners === 'rounded' && l.shape === 'box' ? h * 0.24 : 0;
     return {
       body: (ctx) => roundRect(ctx, cx - w / 2, cy - h / 2, w, h, r),
       tails: [],
@@ -449,12 +496,21 @@ export function drawLabel(ctx: Ctx, doc: LabelDoc, R: number, size: number): voi
   const unit = R / doc.size.squares;
   const fall = fallVector(doc);
 
+  // A free label's move and turn round its anchor (v8), applied inside each layer so shadows still fall away from the light.
+  const place = (c: Ctx) => {
+    c.translate(R, R);
+    if (layout.transform) {
+      c.translate(layout.transform.x, layout.transform.y);
+      c.rotate(layout.transform.angle);
+    }
+  };
+
   // The shape, on a layer of its own so its opacity is even where the pieces overlap.
   const parts = layout.shape;
-  if (parts && l.opacity > 0) {
+  if (parts && l.opacity > 0 && l.shape !== 'plain') {
     const layer = newCanvas(size, size);
     const s = layer.getContext('2d') as Ctx;
-    s.translate(R, R);
+    place(s);
     s.lineJoin = 'round';
     const outlinePx = l.outline.width * unit;
     for (const tail of parts.tails) {
@@ -480,7 +536,7 @@ export function drawLabel(ctx: Ctx, doc: LabelDoc, R: number, size: number): voi
     g.addColorStop(0.5, 'rgba(255, 255, 255, 0)');
     g.addColorStop(1, 'rgba(0, 0, 0, 0.2)');
     s.fillStyle = g;
-    s.fillRect(-R, -R, size, size);
+    s.fillRect(-size * 2, -size * 2, size * 4, size * 4);
     s.restore();
     if (outlinePx > 0) {
       trace(s, parts.body);
@@ -507,7 +563,7 @@ export function drawLabel(ctx: Ctx, doc: LabelDoc, R: number, size: number): voi
   // The text: outline under the letters, then the letters; its shadow falls away from the light.
   const layer = newCanvas(size, size);
   const t = layer.getContext('2d') as Ctx;
-  t.translate(R, R);
+  place(t);
   t.font = layout.font;
   t.textAlign = 'center';
   t.textBaseline = 'alphabetic';
@@ -555,7 +611,7 @@ let scratch: Ctx | null | undefined;
  * The label laid out in token units (R = 1), for the editor: its outline
  * (for picking it on the canvas) and its middle. Null without a label.
  */
-export function labelPlacement(doc: LabelDoc): { outline: Point[]; centre: Point } | null {
+export function labelPlacement(doc: LabelDoc): { outline: Point[]; centre: Point; anchor: Point } | null {
   if (scratch === undefined) {
     try {
       scratch = (newCanvas(1, 1).getContext('2d') as Ctx | null) ?? null;
@@ -566,7 +622,11 @@ export function labelPlacement(doc: LabelDoc): { outline: Point[]; centre: Point
   const R = 200;
   const layout = layoutLabel(scratch, doc, R);
   if (!layout) return null;
-  return { outline: layout.hit.map((p) => ({ x: p.x / R, y: p.y / R })), centre: { x: layout.centre.x / R, y: layout.centre.y / R } };
+  return {
+    outline: layout.hit.map((p) => ({ x: p.x / R, y: p.y / R })),
+    centre: { x: layout.centre.x / R, y: layout.centre.y / R },
+    anchor: { x: layout.anchor.x / R, y: layout.anchor.y / R },
+  };
 }
 
 /** Within this far (token units) of the top or bottom snap point, a dragged label snaps there. */
@@ -574,10 +634,10 @@ export const LABEL_SNAP = 0.15;
 /** Ring text snaps to the top or bottom within this many degrees. */
 export const RING_SNAP = 12;
 
-/** Where a label's middle is when snapped to the top or bottom (token units). */
+/** Where a label's anchor point is when snapped to the top or bottom (token units). */
 export function labelSnapPoint(doc: LabelDoc, place: 'top' | 'bottom'): Point {
   const l = doc.label;
   if (!l) return { x: 0, y: 0 };
   const p = labelPlacement({ ...doc, label: { ...l, place } });
-  return p ? p.centre : { x: 0, y: 0 };
+  return p ? p.anchor : { x: 0, y: 0 };
 }

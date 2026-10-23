@@ -8,7 +8,11 @@
 // and the effect's Intensity), so dragging Intensity never redraws anything.
 
 import type { EffectLayer, EffectPlacement } from '../document/types';
+import { blurImage } from '../image/filters';
 import { newCanvas } from '../image/processedArt';
+import { BLEND_OPS } from './overlays';
+import { pictureAssetId } from './pictureLibrary';
+import type { AssetMap, RenderSource } from './render';
 import type { ShapeId } from './catalog';
 import { PAINTERS, type Pass } from './effectPainters';
 import { seededRandom, type Ctx } from './frameKit';
@@ -68,6 +72,8 @@ export interface EffectScene {
   traceArea: (ctx: Ctx) => void;
   /** The art's outline (opaque where the art is), for glows round a cut-out creature. Only inside the opening. */
   subject: CanvasImageSource | null;
+  /** A picture effect's picture, when it has loaded. */
+  picture: RenderSource | null;
 }
 
 /** Where the art is: a picture of it on its own, and a key that changes when it does. */
@@ -114,17 +120,24 @@ export function drawEffects(
   size: number,
   subject: Subject | null = null,
   time = 0,
+  assets: AssetMap = NO_ASSETS,
 ): void {
   for (const fx of effects) {
     if (!fx.visible || fx.placement !== placement || fx.intensity <= 0) continue;
-    drawEffect(ctx, fx, area, size, fx.kind === 'outerGlow' && placement !== 'border' ? subject : null, time);
+    drawEffect(ctx, fx, area, size, fx.kind === 'outerGlow' && placement !== 'border' ? subject : null, time, assets);
   }
 }
 
+const NO_ASSETS: AssetMap = new Map();
+
 /** Paints one effect (whatever its placement says), with the origin at the token centre. */
-export function drawEffect(ctx: Ctx, fx: EffectLayer, area: EffectArea, size: number, subject: Subject | null = null, time = 0): void {
-  const scene = makeScene(fx, area, subject?.image ?? null, time);
+export function drawEffect(ctx: Ctx, fx: EffectLayer, area: EffectArea, size: number, subject: Subject | null = null, time = 0, assets: AssetMap = NO_ASSETS): void {
+  const picture = fx.kind === 'picture' && fx.image ? (assets.get(pictureAssetId(fx.image)) ?? null) : null;
+  if (fx.kind === 'picture' && !picture) return; // still loading
+  const scene = makeScene(fx, area, subject?.image ?? null, time, picture);
   const passes = PAINTERS[fx.kind](scene);
+  // Blur (v8) is drawn into the cached layer, so cheap direct passes go through one too.
+  const blurPx = Math.max(0, fx.blur) * area.unit;
   const strength = Math.min(1, Math.max(0, fx.intensity / 100));
   passes.forEach((pass, i) => {
     const alpha = strength * (pass.alpha ?? 1);
@@ -136,21 +149,23 @@ export function drawEffect(ctx: Ctx, fx: EffectLayer, area: EffectArea, size: nu
       ctx.clip('evenodd');
     }
     ctx.globalAlpha = alpha;
-    ctx.globalCompositeOperation = pass.op ?? 'source-over';
-    if (pass.direct) {
+    // A chosen blend mode (v8) replaces the effect's own; 'normal' keeps it.
+    ctx.globalCompositeOperation = fx.blend !== 'normal' ? BLEND_OPS[fx.blend] : (pass.op ?? 'source-over');
+    if (pass.direct && blurPx < 0.5) {
       // Cheap passes (a flat fill) are drawn straight on.
       pass.paint(ctx);
     } else {
-      ctx.drawImage(passLayer(scene, pass, i, size, subject?.key ?? ''), -size / 2, -size / 2, size, size);
+      ctx.drawImage(passLayer(scene, pass, i, size, subject?.key ?? '', blurPx), -size / 2, -size / 2, size, size);
     }
     ctx.restore();
   });
 }
 
-function passLayer(scene: EffectScene, pass: Pass, index: number, size: number, subjectKey: string): CanvasImageSource {
+function passLayer(scene: EffectScene, pass: Pass, index: number, size: number, subjectKey: string, blurPx: number): CanvasImageSource {
   const { fx, area } = scene;
-  // Everything that changes the picture; not Intensity or visibility, which apply when compositing.
-  const key = JSON.stringify([fx.kind, fx.placement, fx.color, fx.size, fx.spread, fx.seed, index, area, size, scene.time, subjectKey]);
+  // Everything that changes the picture; not Intensity, blend mode or visibility, which apply when compositing.
+  const extra = fx.kind === 'gradient' ? fx.gradient : fx.kind === 'picture' ? [fx.image, fx.layout, fx.tint] : 0;
+  const key = JSON.stringify([fx.kind, fx.placement, fx.color, fx.size, fx.spread, fx.seed, fx.angle, fx.softness, extra, index, area, size, scene.time, subjectKey, Math.round(blurPx * 10)]);
   const hit = cache.get(key);
   if (hit) {
     cache.delete(key);
@@ -163,10 +178,35 @@ function passLayer(scene: EffectScene, pass: Pass, index: number, size: number, 
   lctx.save();
   pass.paint(lctx);
   lctx.restore();
+  if (blurPx >= 0.5) blurLayer(c, size, blurPx);
   // On the border nothing may stop dead at the image's edge: fade out just before it.
   if (scene.border && pass.clip !== 'area') fadeAtSquareEdge(lctx, size, Math.max(2, area.unit * 0.12));
   remember(key, c as CanvasImageSource, size * size);
   return c as CanvasImageSource;
+}
+
+/** Blurring works on a copy at most this many pixels across, then is scaled back up: it's blurred anyway. */
+const BLUR_SIDE = 1024;
+
+/** Blurs a square layer in place by `sigma` pixels. */
+function blurLayer(c: ReturnType<typeof newCanvas>, size: number, sigma: number): void {
+  const k = Math.min(1, BLUR_SIDE / size);
+  const w = Math.max(1, Math.round(size * k));
+  const small = k < 1 ? newCanvas(w, w) : c;
+  const sctx = small.getContext('2d') as Ctx;
+  if (k < 1) sctx.drawImage(c as CanvasImageSource, 0, 0, w, w);
+  const img = sctx.getImageData(0, 0, w, w);
+  blurImage({ data: img.data, width: w, height: w }, sigma * k);
+  sctx.putImageData(img, 0, 0);
+  if (k < 1) {
+    const ctx = c.getContext('2d') as Ctx;
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, size, size);
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(small as CanvasImageSource, 0, 0, size, size);
+    ctx.restore();
+  }
 }
 
 /** Fades a layer out over the last `fade` pixels (6 % of a square) before each side of the square. */
@@ -187,7 +227,7 @@ function fadeAtSquareEdge(ctx: Ctx, size: number, fade: number): void {
   ctx.restore();
 }
 
-function makeScene(fx: EffectLayer, area: EffectArea, subject: CanvasImageSource | null, time: number): EffectScene {
+function makeScene(fx: EffectLayer, area: EffectArea, subject: CanvasImageSource | null, time: number, picture: RenderSource | null = null): EffectScene {
   const border = fx.placement === 'border';
   const { shape, R } = area;
   const bandMid = (area.bandOuter + area.bandInner) / 2;
@@ -257,6 +297,7 @@ function makeScene(fx: EffectLayer, area: EffectArea, subject: CanvasImageSource
     scatter,
     traceArea,
     subject: border ? null : subject,
+    picture,
   };
 }
 

@@ -3,7 +3,7 @@
 
 import type { FrameStyle, ShapeId } from '../render/catalog';
 
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 8;
 
 export type SizePreset = 'tiny' | 'small' | 'medium' | 'large' | 'huge' | 'gargantuan' | 'custom';
 
@@ -19,7 +19,6 @@ export interface TokenDocument {
   shape: ShapeId;
   art: ArtLayer;
   background: BackgroundLayer;
-  foreground: OverlayLayer[];
   lighting: LightingSettings;
   effects: EffectLayer[];
   frame: FrameSettings;
@@ -87,6 +86,18 @@ export interface BackgroundRemoval {
   intensity: number;
   /** 0…100: how soft the cut-out edge is. */
   softness: number;
+  /**
+   * Flat-colour removal only takes the background joined to the picture's
+   * edge; this also takes enclosed patches of the same colour (between an
+   * arm and a staff, say) (v8).
+   */
+  enclosed: boolean;
+  /**
+   * 'colour' removes a flat colour; 'ai' uses a cut-out mask made in the
+   * browser by an AI model (v8). The mask belongs to the picture, not the
+   * document (src/image/aiRemoval.ts), so it follows each picture in a batch.
+   */
+  method: 'colour' | 'ai';
 }
 
 /**
@@ -241,32 +252,6 @@ export interface BackgroundLayer {
 }
 
 export type BlendMode = 'normal' | 'multiply' | 'screen' | 'overlay' | 'soft-light';
-export type OverlayKind = 'gradient' | 'vignette' | 'foliage' | 'smoke' | 'mist' | 'cobwebs' | 'shadow';
-
-/**
- * One foreground overlay, drawn over the art inside the frame. All kinds
- * share these fields; each uses the ones that make sense for it.
- */
-export interface OverlayLayer {
-  id: string;
-  kind: OverlayKind;
-  visible: boolean;
-  /** 0…1 */
-  opacity: number;
-  blend: BlendMode;
-  color: string;
-  /** 0…100: how far it reaches in (vignette, mist, shadow, foliage, cobwebs) or how much there is (smoke). */
-  size: number;
-  /** 0…100 */
-  softness: number;
-  /** Degrees: which side it sits on (shadow, foliage, mist, cobwebs). 90 = bottom, 270 = top. */
-  angle: number;
-  /** 50…200 %: size of the leaves, puffs or webs. */
-  scale: number;
-  /** Changes the random layout of leaves, smoke and webs. */
-  seed: number;
-  gradient: Gradient;
-}
 
 export type LightPresetId = 'torchlight' | 'moonlight' | 'holy' | 'fel' | 'firelight' | 'underdark';
 
@@ -314,7 +299,18 @@ export type EffectKind =
   | 'mist'
   | 'embers'
   | 'sparkles'
-  | 'smoke';
+  | 'smoke'
+  // Overlays (the old Foreground section, v8)
+  | 'vignette'
+  | 'gradient'
+  | 'edgeShadow'
+  | 'foliage'
+  | 'cobwebs'
+  // A picture: a built-in sprite or the user's own (v8)
+  | 'picture';
+
+/** Where a picture (a picture effect or decoration) comes from: built in, or the user's own upload kept in IndexedDB. */
+export type PictureSource = { type: 'library'; id: string } | { type: 'upload'; id: string };
 
 /** Where an effect is drawn: under the art (layer 4), over it (layer 7) or on the frame (layer 10). */
 export type EffectPlacement = 'behind' | 'over' | 'border';
@@ -337,6 +333,22 @@ export interface EffectLayer {
   spread: number;
   /** "Shuffle": picks another random layout, kept so the token always looks the same. */
   seed: number;
+  /** How it mixes with what's under it; 'normal' keeps each effect's own look (v8). */
+  blend: BlendMode;
+  /** Blur, per square (v8). */
+  blur: number;
+  /** Degrees: the side it sits on (edge shadow, foliage, cobwebs), 90 = bottom (v8). */
+  angle: number;
+  /** 0…100: how soft its edge is (vignette, edge shadow) (v8). */
+  softness: number;
+  /** The colours of a gradient overlay (v8). */
+  gradient: Gradient;
+  /** A picture effect's picture (v8). */
+  image: PictureSource | null;
+  /** A picture effect: scattered copies, or one copy filling the area (v8). */
+  layout: 'scatter' | 'fill';
+  /** A picture effect: coloured with `color` instead of its own colours (v8). */
+  tint: boolean;
 }
 
 // ---- Layers built in later phases. Kept minimal so the shape is settled now. ----
@@ -361,7 +373,9 @@ export type DecorationKind =
   | 'holySymbol'
   | 'leaf'
   | 'lute'
-  | 'dagger';
+  | 'dagger'
+  // A picture: a built-in one or the user's own (v8)
+  | 'picture';
 
 /** The eight snap points round the frame (degrees: right 0, bottom 90, left 180, top 270). */
 export type SnapPoint = 'top' | 'topRight' | 'right' | 'bottomRight' | 'bottom' | 'bottomLeft' | 'left' | 'topLeft';
@@ -390,12 +404,21 @@ export interface Decoration {
   color: string;
   /** 0…1 */
   opacity: number;
+  /** A picture decoration's picture (v8). */
+  image: PictureSource | null;
+  /** A picture decoration's width ÷ height, read from the picture when it is added (v8). */
+  aspect: number;
+  /** A picture decoration: coloured with `color` instead of its own colours (v8). */
+  tint: boolean;
 }
 
 // ---- Phase 8: the label (DESIGN.md §6.10) ----
 
-/** A banner, plaque, pill or box behind the text, or text curved round the ring with no shape. */
-export type LabelShape = 'banner' | 'plaque' | 'pill' | 'box' | 'ring';
+/** A banner, plaque, pill or box behind the text, plain text with no shape (v8), or text curved round the ring. */
+export type LabelShape = 'banner' | 'plaque' | 'pill' | 'box' | 'plain' | 'ring';
+
+/** Which point of a free label sits on its position (v8). */
+export type LabelAnchor = 'topLeft' | 'top' | 'topRight' | 'left' | 'center' | 'right' | 'bottomLeft' | 'bottom' | 'bottomRight';
 
 /**
  * The token's label (layer 14). Shapes sit at the top or bottom of the frame
@@ -407,9 +430,12 @@ export interface LabelSettings {
   /** The words, or null to use the token's name. */
   text: string | null;
   place: 'top' | 'bottom' | 'free';
-  /** Where a free label's middle sits, token units (R = 1, from the centre). */
+  /** Where a free label's anchor point sits, token units (R = 1, from the centre). */
   x: number;
   y: number;
+  /** Free labels: which point of the label sits at x, y, and the turn round it (degrees, clockwise) (v8). */
+  anchor: LabelAnchor;
+  rotation: number;
   /** Ring text: degrees round the ring of the text's middle (0 = right, 90 = bottom, 270 = top). */
   angle: number;
   /** Ring text: most of the ring it may cover, degrees. */
