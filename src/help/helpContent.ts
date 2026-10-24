@@ -540,7 +540,7 @@ export const helpContent = {
   'frame.shape': { title: 'Shape', text: 'The outline of the token. Hexagons suit hex-grid maps.', media: beforeAfter('frame-shape', 'a round token becomes a hexagon') },
   'frame.kind': {
     title: 'Frame type',
-    text: 'Drawn frames are made by the site in any colour and thickness. Picture frames use a PNG with a see-through middle, built in or your own.',
+    text: 'Drawn frames are made by the site in any colour and thickness, and Frame Studio frames are designs you made in Frame Studio. Picture frames use a PNG with a see-through middle, built in or your own.',
     media: beforeAfter('frame-kind', 'a drawn frame becomes a gold laurel picture frame'),
   },
   'frame.picture': {
@@ -552,6 +552,16 @@ export const helpContent = {
     title: 'Upload a frame',
     text: 'Use your own PNG ring with a see-through middle: the site finds the hole and shows the art through it. Your frames are kept in this browser.',
     media: beforeAfter('frame-upload', 'a purple ring picture becomes the frame'),
+  },
+  'frame.design': {
+    title: 'Frame Studio design',
+    text: 'Pick a design you opened from Frame Studio. It follows the token shape, thickness and spacing, like a drawn frame.',
+    media: beforeAfter('frame-design', 'a drawn frame becomes a Frame Studio design'),
+  },
+  'frame.designOpen': {
+    title: 'Open a Frame Studio design',
+    text: 'Open a .framestudio.json file saved in Frame Studio to use it as the frame. Your designs are kept in this browser.',
+    media: beforeAfter('frame-designOpen', 'a design file is opened and becomes the frame'),
   },
   'frame.holeSize': { title: 'Hole size', text: "Make the art's opening bigger or smaller if the hole found in the picture doesn't quite fit.", media: beforeAfter('frame-holeSize', 'a too-small hole is made to fit the frame') },
   'frame.holeX': { title: 'Move hole sideways', text: "Nudge the art's opening left or right to line it up with the frame picture.", media: beforeAfter('frame-holeX', 'a hole that sat off to one side is lined up') },

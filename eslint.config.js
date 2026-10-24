@@ -16,4 +16,9 @@ export default tseslint.config(
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
     },
   },
+  {
+    // Frame Studio's copied code (never edited here) follows Frame Studio's own lint rules.
+    files: ['src/frameStudio/**/*.ts'],
+    rules: { '@typescript-eslint/no-unused-vars': ['error', { ignoreRestSiblings: true, argsIgnorePattern: '^_' }] },
+  },
 );

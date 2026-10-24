@@ -311,3 +311,28 @@ describe('migrateDocument', () => {
     expect(migrateDocument({ ...base, label: { ...newLabel(), anchor: 'middle' } }).label!.anchor).toBe('center');
   });
 });
+
+describe('v9: Frame Studio designs', () => {
+  const design = { format: 'frame-studio-project', schemaVersion: 4, name: 'Ring', stage: {}, layers: [{ type: 'line', id: 'l1', name: 'Rim', at: 0.5, width: 0.2, paint: { kind: 'solid', color: '#ffffff' } }] };
+
+  it('a version-8 token gets no design and keeps its frame', () => {
+    const v8 = { ...JSON.parse(JSON.stringify(createDocument('Old'))), schemaVersion: 8 };
+    delete v8.frame.design;
+    const doc = migrateDocument(v8);
+    expect(doc.schemaVersion).toBe(SCHEMA_VERSION);
+    expect(doc.frame).toMatchObject({ kind: 'code', design: null, style: 'stamped' });
+  });
+
+  it('keeps a design, read and checked by Frame Studio’s own reader', () => {
+    const doc = migrateDocument({ ...createDocument(), frame: { ...createDocument().frame, kind: 'design', design: { id: 'd1', name: 'Ring', project: design } } });
+    expect(doc.frame.kind).toBe('design');
+    expect(doc.frame.design?.project.layers[0]).toMatchObject({ type: 'line', clip: 'none', waveAmplitude: 0 });
+  });
+
+  it('drops a design that is not one, and a kept design can never be code that runs', () => {
+    for (const bad of [{ id: 'd1', project: { hello: 1 } }, { id: '', project: design }, { id: 'd1' }, 'nonsense']) {
+      const doc = migrateDocument({ ...createDocument(), frame: { ...createDocument().frame, kind: 'design', design: bad } });
+      expect(doc.frame.design).toBeNull();
+    }
+  });
+});

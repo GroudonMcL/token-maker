@@ -1,9 +1,10 @@
 // The TokenDocument (DESIGN.md §4.1): everything about a token in one plain
 // JSON object. Images are not stored here, only asset ids.
 
+import type { FrameProject } from '../frameStudio/share/frameDesign';
 import type { FrameStyle, ShapeId } from '../render/catalog';
 
-export const SCHEMA_VERSION = 8;
+export const SCHEMA_VERSION = 9;
 
 export type SizePreset = 'tiny' | 'small' | 'medium' | 'large' | 'huge' | 'gargantuan' | 'custom';
 
@@ -133,8 +134,11 @@ export interface PopOutSettings {
 }
 
 export interface FrameSettings {
-  /** A frame drawn by code, or a picture (PNG) frame (Phase 7). Switching keeps both kinds' settings. */
-  kind: 'code' | 'image';
+  /**
+   * A frame drawn by code, a picture (PNG) frame (Phase 7), or a design made
+   * in Frame Studio (v9). Switching keeps every kind's settings.
+   */
+  kind: 'code' | 'image' | 'design';
   /** Which preset tile is selected (two presets can share a style, e.g. Arcane/Infernal). */
   presetId: string;
   style: FrameStyle;
@@ -151,6 +155,23 @@ export interface FrameSettings {
   backingOpacity: number;
   /** The picture frame, used when `kind` is 'image' (Phase 7). */
   image: ImageFrame | null;
+  /** The Frame Studio design, used when `kind` is 'design' (v9). */
+  design: DesignFrame | null;
+}
+
+/**
+ * A frame designed in Frame Studio and opened from its .framestudio.json
+ * file (DESIGN.md §6.12). The whole design is kept in the document, so the
+ * renderer, undo, autosave and presets need nothing else; it is drawn on the
+ * same band as a drawn frame (thickness and spacing), on the token's shape.
+ */
+export interface DesignFrame {
+  /** The design's id in this browser's design library (src/state/designLibrary.ts). */
+  id: string;
+  /** Shown in the panel. */
+  name: string;
+  /** The design, as Frame Studio's reader checked it. */
+  project: FrameProject;
 }
 
 /** Where a picture frame comes from: a built-in one, or one the user uploaded (kept in IndexedDB). */

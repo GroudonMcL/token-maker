@@ -2,6 +2,7 @@
 // upgraded step by step, then everything is checked and filled in from the
 // defaults, so a damaged or partial file can never crash the editor.
 
+import { readFrameDesign } from '../frameStudio/share/frameDesign';
 import { FRAME_STYLES, SHAPES } from '../render/catalog';
 import {
   copyGradient,
@@ -26,6 +27,7 @@ import {
   type BackgroundImageSource,
   type BackgroundLayer,
   type BlendMode,
+  type DesignFrame,
   type Decoration,
   type DecorationKind,
   type ImageFrame,
@@ -86,6 +88,8 @@ export const MIGRATIONS: Record<number, (doc: Json) => Json> = {
       effects: [...arr(foreground).map(overlayToEffect), ...arr(doc.effects)],
     };
   },
+  // v8 → v9 (Frame Studio designs as frames): nothing could use one before; `design` starts empty (filled in by sanitize).
+  8: (doc) => doc,
 };
 
 /** The effect kind each old foreground overlay became (v8). */
@@ -339,6 +343,20 @@ export function imageFrame(raw: unknown): ImageFrame | null {
   };
 }
 
+/** Most characters a kept Frame Studio design may have (its JSON). */
+const MAX_DESIGN_CHARS = 2_000_000;
+
+/** A Frame Studio design frame, checked by Frame Studio's own reader (nothing in it is ever run). */
+export function designFrame(raw: unknown): DesignFrame | null {
+  if (!isObject(raw)) return null;
+  const id = typeof raw.id === 'string' ? raw.id.slice(0, 80) : '';
+  if (!id || !isObject(raw.project)) return null;
+  if (JSON.stringify(raw.project).length > MAX_DESIGN_CHARS) return null;
+  const read = readFrameDesign(raw.project);
+  if (!read.ok) return null;
+  return { id, name: str(raw.name, read.project.name).slice(0, 80), project: read.project };
+}
+
 /** Most stroke data any one document keeps (about 2 MB of numbers). */
 const MAX_STROKE_NUMBERS = 300_000;
 
@@ -390,6 +408,7 @@ export function sanitize(raw: Json): TokenDocument {
   const t = obj(art.transform);
   const frame = obj(raw.frame);
   const frameImage = imageFrame(frame.image);
+  const frameDesign = designFrame(frame.design);
   const shadows = obj(raw.shadows);
   const outer = (v: unknown, base: TokenDocument['shadows']['outer']) => {
     const s = obj(v);
@@ -448,7 +467,7 @@ export function sanitize(raw: Json): TokenDocument {
       .filter((e): e is EffectLayer => e !== null)
       .slice(0, MAX_EFFECTS),
     frame: {
-      kind: frame.kind === 'image' && frameImage ? 'image' : 'code',
+      kind: frame.kind === 'image' && frameImage ? 'image' : frame.kind === 'design' ? 'design' : 'code',
       presetId: str(frame.presetId, d.frame.presetId),
       style: FRAME_STYLES.has(frame.style as string) ? (frame.style as TokenDocument['frame']['style']) : d.frame.style,
       color: hex(frame.color, d.frame.color),
@@ -459,6 +478,7 @@ export function sanitize(raw: Json): TokenDocument {
       backingColor: hex(frame.backingColor, d.frame.backingColor),
       backingOpacity: num(frame.backingOpacity, 1, 0, 1),
       image: frameImage,
+      design: frameDesign,
     },
     decorations: arr(raw.decorations)
       .map((x, i) => decoration(x, i))

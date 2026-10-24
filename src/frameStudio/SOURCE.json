@@ -1,0 +1,26 @@
+{
+  "repo": "https://github.com/GroudonMcL/Frame-Studio",
+  "commit": "5b71845c468e43ddb3060fb6a5a7f835cf3dca97",
+  "from": "src",
+  "files": {
+    "project/convert.ts": "2a549e3ecfde555093420548fa32ef8e0528a851ccc03fe94646c24ed8df42bd",
+    "project/defaults.ts": "cd8f979b3387ef52e1acb1c324eb060a010c774abe549b371cc6e2f8b3f08ee0",
+    "project/migrate.ts": "b5d02e4316656060a4049582c1c5aa1eb3d472d6835db40454787cf4012501be",
+    "project/transfer.ts": "c14c5fb31e071d1ab5d760b955ec5950e95495c027e283fb892fac823be5b0ca",
+    "project/tree.ts": "82adf55b26d2cc1577b283bbbf05ad13161884949db59380a6569e9d2239ca5c",
+    "project/types.ts": "954f152e3aef5c4d381bd0bc0cbe2d2accc96377473238ac2954162f2fa8e3f4",
+    "render/band.ts": "d97694c9bbdda6152090ee20ab923b20b86013845f37c74d55aa3d010ee02dfa",
+    "render/canvas.ts": "beefbb20a01a6b686e1467081a1310282012acc71e2ada78e07ebb32b19a30d1",
+    "render/compare.ts": "b6786de71db3aba76117b46c68ccc17943af734f307ad8060ac1ed7ad5f444e5",
+    "render/elements.ts": "824582e09a418dd4ae17beed0ab34414ef1fd298c7d6f263a16d0092a08466a3",
+    "render/hitTest.ts": "569588967af627b21600996f120c32883ba85784cfd884684aa103673959391a",
+    "render/layerCache.ts": "e2deb774a8f15ada1bdecbb97336163773f9008b066a8d3d6b7287723ff0595e",
+    "render/layers.ts": "bcb8cf32c3763295dedc6af3c418e5c604c65c7c38ba7b813750df1116056cbc",
+    "render/light.ts": "1c3447bffe308c71b2bd069a56df2f84a83be40dcfafa1cebcff7b9fbca08586",
+    "render/paint.ts": "efe38251b4fd3b9d5138158dc55272fb7952355146e1d362f2f8fe48f01da35a",
+    "render/placed.ts": "f29db36f582ac794bf603b8379b6ed1cb16d72577c5e49f5070e76e5522496f8",
+    "render/renderProject.ts": "486e881c0d6b0681f2460a8cd5f856fb67ac4a7ee3a4399ff4f4a587c939e26b",
+    "render/textures.ts": "43675e9f71279bef4b9b0886e2b16f344fd949404a0238c20485487b4885bc7f",
+    "share/frameDesign.ts": "97710aa2da497b0620e28b106497c1a97723732df25eae1f22604fb3a91973ae"
+  }
+}

@@ -395,6 +395,7 @@ export function createDocument(name = 'Untitled token'): TokenDocument {
       backingColor: '#1d1f27',
       backingOpacity: 1,
       image: null,
+      design: null,
     },
     decorations: [],
     shadows: {

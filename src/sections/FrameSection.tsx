@@ -1,14 +1,16 @@
-import { Circle, Hexagon, RotateCcw, Square, SquareRoundCorner, Trash2, Upload } from 'lucide-react';
+import { Circle, FolderOpen, Hexagon, RotateCcw, Square, SquareRoundCorner, Trash2, Upload } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ColorSwatches, SegmentedButtons, Slider, TileGrid } from '../components';
 import { updateFrameAndArt } from '../editor/artActions';
 import { nudgeHole, pickImageFrame, uploadFrame } from '../editor/frameActions';
-import type { FrameSettings, ImageFrame } from '../document/types';
+import { applyDesignFrame, openDesignFile } from '../editor/designActions';
+import type { DesignFrame, FrameSettings, ImageFrame } from '../document/types';
+import { refreshDesigns, removeDesign, useDesignLibrary } from '../state/designLibrary';
 import { FRAME_LIBRARY, frameThumbUrl } from '../render/imageFrames';
 import { libraryFrameName, refreshUploadedFrames, removeUploadedFrame, useUploadedFrames } from '../state/frameLibrary';
 import { FRAME_PRESETS, framePresetById, SHAPES, type ShapeId } from '../render/catalog';
 import { commitDoc, updateDoc, useDoc } from '../state/tokenStore';
-import { frameThumbnails } from './frameThumbs';
+import { designThumbnail, frameThumbnails } from './frameThumbs';
 import { createDocument } from '../document/defaults';
 import { frameAccent } from '../render/frames';
 
@@ -32,13 +34,14 @@ const toPct = (v: number) => Math.round(v * 50 * 10) / 10;
 const fromPct = (p: number) => p / 50;
 
 /**
- * Frame & shape section (DESIGN.md §6.9): shape, 27 frames drawn by code
- * (colour, thickness, spacing) or a picture frame (built-in or your own,
- * with its hole), and the backing.
+ * Frame & shape section (DESIGN.md §6.9, §6.12): shape, 27 frames drawn by
+ * code (colour, thickness, spacing), a picture frame (built-in or your own,
+ * with its hole) or a Frame Studio design (on the same band as a drawn
+ * frame), and the backing.
  */
 export function FrameSection() {
   const frame = useDoc((d) => d.frame);
-  const kind = frame.kind === 'image' && frame.image ? 'image' : 'code';
+  const kind = frame.kind === 'image' && frame.image ? 'image' : frame.kind === 'design' ? 'design' : 'code';
   return (
     <>
       <SegmentedButtons
@@ -47,15 +50,17 @@ export function FrameSection() {
         value={kind}
         onChange={(k) => {
           if (k === 'code') updateFrameAndArt((d) => ({ ...d, frame: { ...d.frame, kind: 'code' } }));
+          else if (k === 'design') updateFrameAndArt((d) => ({ ...d, frame: { ...d.frame, kind: 'design' } }));
           else if (frame.image) updateFrameAndArt((d) => ({ ...d, frame: { ...d.frame, kind: 'image' } }));
           else void pickImageFrame({ type: 'library', id: FRAME_LIBRARY[0]!.id }, FRAME_LIBRARY[0]!.name);
         }}
         options={[
           { value: 'code', label: 'Drawn' },
           { value: 'image', label: 'Picture' },
+          { value: 'design', label: 'Frame Studio' },
         ]}
       />
-      {kind === 'image' ? <PictureFrame image={frame.image!} /> : <DrawnFrame />}
+      {kind === 'image' ? <PictureFrame image={frame.image!} /> : kind === 'design' ? <DesignFramePanel design={frame.design} /> : <DrawnFrame />}
       <ColorSwatches
         label="Backing colour"
         helpId="frame.backingColor"
@@ -195,6 +200,148 @@ function PictureFrame({ image }: { image: ImageFrame }) {
   );
 }
 
+/**
+ * A Frame Studio design: the designs opened in this browser, opening another
+ * .framestudio.json file, and the band it sits on (shape, thickness and
+ * spacing, as for a drawn frame).
+ */
+function DesignFramePanel({ design }: { design: DesignFrame | null }) {
+  const shape = useDoc((d) => d.shape);
+  const { designs, loaded } = useDesignLibrary();
+  const input = useRef<HTMLInputElement>(null);
+  const [thumbs, setThumbs] = useState<Map<string, string>>(new Map());
+  useEffect(() => {
+    if (!loaded) void refreshDesigns();
+  }, [loaded]);
+  useEffect(() => {
+    // Drawn after the panel appears, so opening it stays snappy.
+    const id = requestAnimationFrame(() => {
+      const next = new Map<string, string>();
+      for (const d of designs) {
+        const url = designThumbnail(d.id, d.project, shape) ?? d.preview;
+        if (url) next.set(d.id, url);
+      }
+      setThumbs(next);
+    });
+    return () => cancelAnimationFrame(id);
+  }, [designs, shape]);
+  // The design the token uses, even if it was removed from (or never saved in) this browser's library.
+  const tiles = designs.some((d) => d.id === design?.id) || !design ? designs : [{ id: design.id, name: design.name, project: design.project, preview: null, added: 0 }, ...designs];
+  return (
+    <>
+      <ShapeControl />
+      {tiles.length > 0 ? (
+        <TileGrid
+          label="Frame Studio design"
+          helpId="frame.design"
+          value={design?.id ?? ''}
+          onChange={(id) => {
+            const d = tiles.find((t) => t.id === id);
+            if (d) applyDesignFrame(d.id, d.name, d.project);
+          }}
+          tiles={tiles.map((d) => ({
+            id: d.id,
+            label: d.name,
+            preview: thumbs.get(d.id) ? <img src={thumbs.get(d.id)} alt="" width={44} height={44} /> : <span className="tile__blank" />,
+          }))}
+        />
+      ) : (
+        <p className="control__hint">No designs yet. Make one in Frame Studio, save it, and open the .framestudio.json file here.</p>
+      )}
+      <div className="control control--row" data-control="frame-design-open" data-help-id="frame.designOpen">
+        <button type="button" className="btn btn--small" onClick={() => input.current?.click()}>
+          <FolderOpen size={14} aria-hidden="true" />
+          Open a Frame Studio design
+        </button>
+        {design && designs.some((d) => d.id === design.id) && (
+          <button type="button" className="btn btn--ghost btn--small" onClick={() => void removeDesign(design.id)}>
+            <Trash2 size={14} aria-hidden="true" />
+            Remove from this browser
+          </button>
+        )}
+        <input
+          ref={input}
+          type="file"
+          accept=".framestudio.json,.json,application/json"
+          className="visually-hidden"
+          tabIndex={-1}
+          aria-hidden="true"
+          data-testid="design-file-input"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = '';
+            if (file) void openDesignFile(file);
+          }}
+        />
+      </div>
+      <p className="control__hint">The design follows the token's shape, thickness and spacing, and is lit from the direction it was made with.</p>
+      <BandSliders />
+    </>
+  );
+}
+
+/** The token's shape. */
+function ShapeControl() {
+  const shape = useDoc((d) => d.shape);
+  return (
+    <SegmentedButtons
+      label="Shape"
+      helpId="frame.shape"
+      value={shape}
+      onChange={(s) => updateFrameAndArt((d) => ({ ...d, shape: s }))}
+      options={SHAPES.map((s) => ({ value: s.id, label: s.name, icon: SHAPE_ICONS[s.id], iconOnly: true }))}
+    />
+  );
+}
+
+/** Thickness and spacing of the frame band (drawn frames and Frame Studio designs). */
+function BandSliders() {
+  const frame = useDoc((d) => d.frame);
+  const setFrame = (patch: Partial<FrameSettings>, transient = false) =>
+    updateFrameAndArt((d) => ({ ...d, frame: { ...d.frame, ...patch } }), { transient });
+  return (
+    <>
+      <Slider
+        label="Thickness"
+        helpId="frame.thickness"
+        unit="% of a square"
+        defaultValue={toPct(DEFAULTS.thickness)}
+        min={0}
+        max={20}
+        step={0.5}
+        value={toPct(frame.thickness)}
+        disabled={frame.kind !== 'design' && frame.style === 'none'}
+        onChange={(v) => setFrame({ thickness: fromPct(v) }, true)}
+        onCommit={commitDoc}
+      />
+      <Slider
+        label="Outer spacing"
+        helpId="frame.outerSpacing"
+        unit="% of a square"
+        defaultValue={toPct(DEFAULTS.outerSpacing)}
+        min={0}
+        max={15}
+        step={0.5}
+        value={toPct(frame.outerSpacing)}
+        onChange={(v) => setFrame({ outerSpacing: fromPct(v) }, true)}
+        onCommit={commitDoc}
+      />
+      <Slider
+        label="Inner spacing"
+        helpId="frame.innerSpacing"
+        unit="% of a square"
+        defaultValue={toPct(DEFAULTS.innerSpacing)}
+        min={0}
+        max={15}
+        step={0.5}
+        value={toPct(frame.innerSpacing)}
+        onChange={(v) => setFrame({ innerSpacing: fromPct(v) }, true)}
+        onCommit={commitDoc}
+      />
+    </>
+  );
+}
+
 /** A frame drawn by code: shape, the 27 frames, colour, thickness and spacing. */
 function DrawnFrame() {
   const shape = useDoc((d) => d.shape);
@@ -213,13 +360,7 @@ function DrawnFrame() {
 
   return (
     <>
-      <SegmentedButtons
-        label="Shape"
-        helpId="frame.shape"
-        value={shape}
-        onChange={(s) => updateFrameAndArt((d) => ({ ...d, shape: s }))}
-        options={SHAPES.map((s) => ({ value: s.id, label: s.name, icon: SHAPE_ICONS[s.id], iconOnly: true }))}
-      />
+      <ShapeControl />
       <TileGrid
         label="Frame"
         helpId="frame.style"
@@ -253,43 +394,7 @@ function DrawnFrame() {
           onCommit={commitDoc}
         />
       )}
-      <Slider
-        label="Thickness"
-        helpId="frame.thickness"
-        unit="% of a square"
-        defaultValue={toPct(DEFAULTS.thickness)}
-        min={0}
-        max={20}
-        step={0.5}
-        value={toPct(frame.thickness)}
-        disabled={frame.style === 'none'}
-        onChange={(v) => setFrame({ thickness: fromPct(v) }, true)}
-        onCommit={commitDoc}
-      />
-      <Slider
-        label="Outer spacing"
-        helpId="frame.outerSpacing"
-        unit="% of a square"
-        defaultValue={toPct(DEFAULTS.outerSpacing)}
-        min={0}
-        max={15}
-        step={0.5}
-        value={toPct(frame.outerSpacing)}
-        onChange={(v) => setFrame({ outerSpacing: fromPct(v) }, true)}
-        onCommit={commitDoc}
-      />
-      <Slider
-        label="Inner spacing"
-        helpId="frame.innerSpacing"
-        unit="% of a square"
-        defaultValue={toPct(DEFAULTS.innerSpacing)}
-        min={0}
-        max={15}
-        step={0.5}
-        value={toPct(frame.innerSpacing)}
-        onChange={(v) => setFrame({ innerSpacing: fromPct(v) }, true)}
-        onCommit={commitDoc}
-      />
+      <BandSliders />
     </>
   );
 }

@@ -1,0 +1,115 @@
+{
+  "format": "frame-studio-project",
+  "schemaVersion": 3,
+  "name": "Night sky",
+  "stage": {
+    "shape": "hexagon",
+    "thickness": 0.14,
+    "outerSpacing": 0.1,
+    "showArt": true,
+    "backingColor": "#1d1f27",
+    "light": 300
+  },
+  "layers": [
+    {
+      "id": "f3-8",
+      "name": "Sky",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "type": "bandFill",
+      "from": 0,
+      "to": 1,
+      "paint": {
+        "kind": "ring",
+        "stops": [
+          {
+            "angle": 0,
+            "color": "#1a1a4a"
+          },
+          {
+            "angle": 90,
+            "color": "#0b0d1e"
+          },
+          {
+            "angle": 180,
+            "color": "#3a2a6a"
+          },
+          {
+            "angle": 225,
+            "color": "#6a4a9a"
+          },
+          {
+            "angle": 270,
+            "color": "#3a2a6a"
+          }
+        ],
+        "followLight": true
+      }
+    },
+    {
+      "id": "f3-9",
+      "name": "Stars",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "type": "texture",
+      "kind": "scatter",
+      "from": 0,
+      "to": 1,
+      "color": "#ffffff",
+      "color2": "#6a5acd",
+      "amount": 1.3,
+      "scale": 1,
+      "strength": 1,
+      "where": "everywhere",
+      "seed": 22434
+    },
+    {
+      "id": "f3-10",
+      "name": "Glow line",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "type": "line",
+      "at": 0.75,
+      "width": 0.03,
+      "paint": {
+        "kind": "solid",
+        "color": "#cfc4ff"
+      },
+      "dash": "solid",
+      "glow": "#8a7aff",
+      "waveAmplitude": 0,
+      "waves": 12,
+      "wavePhase": 0
+    },
+    {
+      "id": "f3-11",
+      "name": "Outer rim",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "type": "line",
+      "at": 0.02,
+      "width": 0.04,
+      "paint": {
+        "kind": "solid",
+        "color": "#b8b0e0"
+      },
+      "dash": "solid",
+      "glow": null,
+      "waveAmplitude": 0,
+      "waves": 12,
+      "wavePhase": 0
+    }
+  ]
+}
