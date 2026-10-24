@@ -15,6 +15,11 @@ import { frameAssetId } from '../src/render/imageFrames';
 import { renderToken, type RenderSource } from '../src/render/render';
 import { BUILT_IN_PRESETS } from '../src/presets/builtins';
 import { LOOK_KEYS } from '../src/presets/preset';
+import { editableProject } from '../src/frameStudio/project/convert';
+import { setCanvasFactory as setFrameStudioCanvas } from '../src/frameStudio/render/canvas';
+
+// Frame Studio's renderer (designs as frames) draws on canvases of its own.
+setFrameStudioCanvas((w, h) => createCanvas(w, h) as unknown as HTMLCanvasElement);
 
 type Save = (name: string, before: Canvas, after: Canvas) => void;
 type Change = (d: TokenDocument) => void;
@@ -498,6 +503,13 @@ export async function tokenPictures(save: Save): Promise<void> {
   p('frame.kind', [], [imageFrame('gilded-laurel')]);
   p('frame.picture', [imageFrame('rope')], [imageFrame('dragon-scales')]);
   p('frame.upload', [], [imageFrame('ring')]);
+  // A Frame Studio design: Token Maker's Paladin, rebuilt from editable layers and lit from the bottom right.
+  const design = editableProject('paladin')!;
+  const studio: Change = (d) => {
+    d.frame = { ...d.frame, kind: 'design', design: { id: 'help', name: 'Paladin, re-lit', project: { ...design, stage: { ...design.stage, light: 45 } } } };
+  };
+  p('frame.design', [], [studio]);
+  p('frame.designOpen', [frame({ kind: 'design', design: null })], [studio]);
   p('frame.holeSize', [imageFrame('ring', { x: 0, y: 0, scale: 0.8 })], [imageFrame('ring')]);
   p('frame.holeX', [imageFrame('ring', { x: 0.14, y: 0, scale: 1 })], [imageFrame('ring')]);
   p('frame.holeY', [imageFrame('ring', { x: 0, y: 0.14, scale: 1 })], [imageFrame('ring')]);

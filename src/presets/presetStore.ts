@@ -13,6 +13,7 @@ import { hasUploadedFont, saveUploadedFont, uploadedFont } from '../fonts/fontLo
 import { hasUploadedFrame, saveUploadedFrame, uploadedFrameBlob } from '../state/frameLibrary';
 import { documentPictures, hasUploadedPicture, saveUploadedPicture, uploadedPictureBlob } from '../state/pictureLibrary';
 import { migratePreset, PresetError, type TokenPreset } from './preset';
+import { hasDesign, saveDesign } from '../state/designLibrary';
 
 let idb: UseStore | null = null;
 function store(): UseStore | null {
@@ -116,6 +117,9 @@ export async function installSharedImages(p: TokenPreset): Promise<void> {
     const blob = await (await fetch(font.data)).blob();
     await saveUploadedFont(blob, font.name, fontId).catch((e) => console.warn(e));
   }
+  // A Frame Studio design travels inside the look; keep it in this browser's design library too, to pick again.
+  const design = p.look.frame.design;
+  if (design && !(await hasDesign(design.id))) await saveDesign(JSON.stringify(design.project), design.name, design.id).catch((e) => console.warn(e));
   const img = p.look.frame.image;
   if (img?.source.type !== 'upload') return;
   const url = p.images?.[img.source.id];

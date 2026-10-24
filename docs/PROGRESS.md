@@ -131,6 +131,15 @@ A checklist of build phases, following [`BUILD-PROMPTS.md`](BUILD-PROMPTS.md). D
 - [x] Label: Plain text shape; free labels get an anchor point and rotation
 - [x] JPG export removed
 
+## Frame Studio designs as frames (document v9)
+
+- [x] Frame Studio's project reader and renderer copied into `src/frameStudio/` by Frame Studio's `npm run share:export`, with `SOURCE.json` and a test that fails if a copy is edited here
+- [x] Frame type **Frame Studio**: open a `.framestudio.json` file; designs kept in this browser (`token-maker-designs`) and shown as tiles; remove one; the band follows Thickness, Outer spacing and Inner spacing and the token's shape
+- [x] The design is kept in the token (v8 → v9 migration; checked by Frame Studio's own reader), so undo, autosave, batch mode and presets carry it; shared presets add it to the other browser's designs
+- [x] Help tips with before/after pictures for the new controls (`npm run help-images`)
+- [x] Tests: a design looks exactly the same here as in Frame Studio on every shape, thickness, spacing and token size; the migration and checks; the panel, the library and presets; Playwright on desktop, tablet and phone
+- **Done when:** a design made in Frame Studio opens as a frame here from its `.framestudio.json` file ✔
+
 ## Later (not phases yet)
 
 From DESIGN.md §15. Don't build these until the owner decides to: AI auto pop-out, AI relighting, animated borders/overlays with GIF export, Pinterest board browsing, sending tokens to Owlbear/Foundry, condition-variant packs, accounts and cloud saving, premium asset packs, switching adverts on.

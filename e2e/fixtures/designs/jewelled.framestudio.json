@@ -1,0 +1,201 @@
+{
+  "format": "frame-studio-project",
+  "schemaVersion": 2,
+  "name": "Jewelled",
+  "stage": {
+    "shape": "circle",
+    "thickness": 0.14,
+    "outerSpacing": 0.1,
+    "showArt": false,
+    "backingColor": "#1d1f27",
+    "light": 225
+  },
+  "layers": [
+    {
+      "id": "F1",
+      "name": "Silver band",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "type": "bandFill",
+      "from": 0,
+      "to": 1,
+      "paint": {
+        "kind": "lit",
+        "color": "#9aa3ad",
+        "light": 0.9,
+        "dark": 0.75,
+        "pressed": false
+      }
+    },
+    {
+      "id": "F2",
+      "name": "Vine",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "type": "line",
+      "at": 0.5,
+      "width": 0.05,
+      "paint": {
+        "kind": "solid",
+        "color": "#2f5d36"
+      },
+      "dash": "solid",
+      "glow": null,
+      "waveAmplitude": 0.18,
+      "waves": 16,
+      "wavePhase": 0
+    },
+    {
+      "id": "F3",
+      "name": "Outer rim",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "type": "line",
+      "at": 0.02,
+      "width": 0.04,
+      "paint": {
+        "kind": "solid",
+        "color": "#e8ecf0"
+      },
+      "dash": "solid",
+      "glow": null,
+      "waveAmplitude": 0,
+      "waves": 12,
+      "wavePhase": 0
+    },
+    {
+      "id": "F4",
+      "name": "Inner rim",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "type": "line",
+      "at": 0.98,
+      "width": 0.04,
+      "paint": {
+        "kind": "solid",
+        "color": "#2a2e36"
+      },
+      "dash": "solid",
+      "glow": null,
+      "waveAmplitude": 0,
+      "waves": 12,
+      "wavePhase": 0
+    },
+    {
+      "id": "F5",
+      "name": "Jewels",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "type": "group",
+      "children": [
+        {
+          "id": "F6",
+          "name": "Diamonds",
+          "visible": true,
+          "locked": false,
+          "opacity": 1,
+          "blend": "source-over",
+          "clip": "none",
+          "type": "repeat",
+          "element": "diamond",
+          "mode": "count",
+          "count": 24,
+          "spacing": 1,
+          "snapToCorners": true,
+          "at": 0.5,
+          "size": 0.32,
+          "stretch": 0.7,
+          "rotation": 0,
+          "offset": 0,
+          "fill": "#d94a4a",
+          "outline": null,
+          "outlineWidth": 0.08,
+          "raised": true,
+          "glow": null,
+          "accentEvery": 0,
+          "accentScale": 1.6,
+          "accentColor": null,
+          "seed": 1,
+          "altColors": [
+            "#3a7bd5"
+          ],
+          "altSizes": [
+            1,
+            0.7
+          ],
+          "skipAroundAccent": 0,
+          "alternateSides": 0
+        },
+        {
+          "id": "F7",
+          "name": "Gems",
+          "visible": true,
+          "locked": false,
+          "opacity": 1,
+          "blend": "source-over",
+          "clip": "none",
+          "type": "path",
+          "place": "band",
+          "along": 0.25,
+          "across": 0.5,
+          "x": 0,
+          "y": -0.8,
+          "size": 1.2,
+          "stretch": 1,
+          "rotation": 0,
+          "mirror": "leftRight",
+          "fill": "#3fbf7f",
+          "shaded": true,
+          "outline": "#1a1008",
+          "outlineWidth": 0.06,
+          "raised": true,
+          "glow": null,
+          "points": [
+            {
+              "x": -0.5,
+              "y": -0.8,
+              "handle": null
+            },
+            {
+              "x": 0.5,
+              "y": -0.8,
+              "handle": null
+            },
+            {
+              "x": 0.9,
+              "y": -0.3,
+              "handle": null
+            },
+            {
+              "x": 0,
+              "y": 1,
+              "handle": null
+            },
+            {
+              "x": -0.9,
+              "y": -0.3,
+              "handle": null
+            }
+          ],
+          "closed": true
+        }
+      ],
+      "collapsed": false
+    }
+  ]
+}

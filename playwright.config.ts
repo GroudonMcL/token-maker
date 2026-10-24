@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 // End-to-end tests run against the dev server on a desktop and a phone viewport.
+// CHROMIUM_PATH lets a pre-installed browser be used instead of Playwright's own.
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
@@ -10,6 +11,7 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:5173',
     trace: 'retain-on-failure',
+    launchOptions: { executablePath: process.env.CHROMIUM_PATH || undefined },
   },
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } } },

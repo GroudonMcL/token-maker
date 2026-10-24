@@ -67,7 +67,7 @@ Everything about a token is stored in one plain JSON object. The renderer is a p
 
 ```ts
 interface TokenDocument {
-  schemaVersion: number;            // bump + write a migration whenever the shape changes
+  schemaVersion: number;            // bump + write a migration whenever the shape changes (9 since Frame Studio designs, §6.12)
   name: string;                     // file name / label default
   size: { preset: 'tiny'|'small'|'medium'|'large'|'huge'|'gargantuan'|'custom'; squares: number };
   shape: 'circle'|'rounded'|'square'|'hexagon'|'flatHex';
@@ -326,6 +326,18 @@ Tiny, Small, Medium, Large, Huge, Gargantuan, Custom (any number of squares). Ch
 - *Phones: the full-size processed art is made by the art Web Worker before rendering (as before), the browser encodes the file off the main thread, and a ZIP is packed by its own Web Worker (`src/export/zip.worker.ts`, fflate, files stored without recompressing since PNG/WebP/JPG are compressed already; on the main thread where workers aren't available). Rendering the token itself stays on the main thread (it needs the page's fonts, pictures and caches), one token at a time with a pause between tokens, and each canvas is emptied as soon as it is encoded; pictures not on screen drop their full-size processed art after their turn. A progress card shows "Token 3 of 6" with a bar and a Stop button.*
 - *ZIP files are named after each token (`uniqueFileNames`: "-2", "-3"… for clashes, ignoring case) and the ZIP is `tokens.zip`.*
 - *GIF and other animated formats: not built. `src/export/animated.ts` explains where they plug in (a time in `RenderOptions`, `frameTimes()`, an encoder in a Web Worker, a new entry in `FORMATS`).)*
+
+### 6.12 Frame Studio designs as frames (document v9)
+
+[Frame Studio](https://github.com/GroudonMcL/Frame-Studio) is the owner's visual editor for code-drawn frames. Its designs open here as a third **Frame type**, beside Drawn and Picture.
+
+- **Shared code, one renderer.** `src/frameStudio/` is Frame Studio's project reader and renderer (`src/project/`, `src/render/`, `src/share/` there), copied by Frame Studio's `npm run share:export -- ../token-maker` with `src/frameStudio/SOURCE.json` (its commit and each file's SHA-256). The only change made while copying: imports of Frame Studio's copy of this site's frame engine point at `src/render/` here, the code it was copied from. **Never edit these files here**; `src/frameStudio/frameStudio.test.ts` fails if one was. Change Frame Studio and export again (`npm run share:check -- ../token-maker` lists what differs). They follow Frame Studio's lint rules (`eslint.config.js`).
+- **In the document:** `frame.kind: 'design'` and `frame.design: { id, name, project }`. The whole design (a few kilobytes of JSON) is kept in the document, so the renderer stays a pure function of the document, and undo, autosave, batch mode and presets need nothing new. Reading a document checks the design with Frame Studio's own reader (`readFrameDesign`: any version Frame Studio has saved, every field checked, nothing in it ever run); a design that isn't one is dropped. **v8 → v9** adds `design: null`, so old tokens are unchanged.
+- **Drawing:** layer 9 draws the design with `drawFrameDesign(ctx, project, geometry)` on the same `FrameGeometry` as a drawn frame (token shape, `frameOuter`/`frameInner` from `computeInsets`), on the cached frame layer. So the band follows **Thickness**, **Outer spacing** and **Inner spacing** per square, like a drawn frame, and the inner shadow, effects on the border, pop-out shadow and decorations treat it as a drawn frame. The design is lit from the light it was made with (Frame Studio's light dial). Frame type set to Frame Studio with no design opened draws no frame. `computeInsets` always gives a design a band (a drawn frame's "No frame" style doesn't apply).
+- **In the panel (Frame & shape → Frame type → Frame Studio):** Shape; the designs opened in this browser as tiles (drawn by the real renderer on the token's shape); **Open a Frame Studio design** (a `.framestudio.json` file, up to 5 MB; refused with Frame Studio's reason if it isn't one; warnings shown); **Remove from this browser**; Thickness, Outer spacing and Inner spacing.
+- **Kept in this browser:** the `token-maker-designs` IndexedDB database (`src/state/designLibrary.ts`) holds each opened file's text, read again (and so migrated) by Frame Studio's reader. "New token" never deletes it. A token keeps working without it, since the design is in the document.
+- **Presets:** a look with a design carries it (it is part of `frame`). Installing a shared preset also adds its design to that browser's designs, as uploaded frame pictures are.
+- **Tests:** `src/render/designFrames.test.ts` draws designs saved by Frame Studio (versions 2 and 3, plus Paladin as editable layers lit from the bottom right) through `renderToken` and through Frame Studio's own `renderProject` on a band of the same shape, thickness and spacing, and checks they are the **same picture, pixel for pixel**, on every shape and at other thicknesses, spacings and token sizes. Also the migration and checks, the panel, presets and the library, and end-to-end on desktop, tablet and phone (open two designs, pick one, thicken the band, reload, export).
 
 ---
 

@@ -46,7 +46,8 @@ const MAX_INSET = 0.85;
 export function computeInsets(doc: Pick<TokenDocument, 'frame' | 'size'>): Insets {
   const sq = doc.size.squares;
   const f = doc.frame;
-  let border = f.style === 'none' ? 0 : perSquareToTokenUnits(f.thickness, sq);
+  // A Frame Studio design always has a band (its own style setting isn't used).
+  let border = f.style === 'none' && f.kind !== 'design' ? 0 : perSquareToTokenUnits(f.thickness, sq);
   let margin = perSquareToTokenUnits(f.outerSpacing, sq);
   let padding = perSquareToTokenUnits(f.innerSpacing, sq);
   const total = border + margin + padding;

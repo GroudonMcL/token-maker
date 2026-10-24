@@ -18,6 +18,8 @@ import { drawDecorations } from './decorations';
 import { drawLabel } from './label';
 import { activeImageFrame, drawImageFrame, frameAssetId } from './imageFrames';
 import { shapePolygon } from './shapes';
+import { drawFrameDesign } from '../frameStudio/share/frameDesign';
+import type { DesignFrame } from '../document/types';
 
 /** A decoded image the renderer can draw. */
 export interface RenderSource {
@@ -49,9 +51,13 @@ const frameLayers = new Map<string, CanvasImageSource>();
 const MAX_FRAME_LAYERS = 6;
 const MAX_CACHED_SIDE = 2048;
 
-/** The frame drawn on a transparent square layer of `size`, centred. */
-function frameLayer(style: FrameStyle, g: FrameGeometry, size: number): CanvasImageSource {
-  const key = `${style}|${size}|${JSON.stringify(g)}`;
+/**
+ * The frame drawn on a transparent square layer of `size`, centred: a drawn
+ * frame of `style`, or a Frame Studio design (keyed by the design object
+ * itself, which only changes when the design does).
+ */
+function frameLayer(style: FrameStyle | DesignFrame, g: FrameGeometry, size: number): CanvasImageSource {
+  const key = `${typeof style === 'string' ? style : `design:${objectId(style.project)}`}|${size}|${JSON.stringify(g)}`;
   const hit = frameLayers.get(key);
   if (hit) {
     // Most recently used goes last.
@@ -74,7 +80,9 @@ function frameLayer(style: FrameStyle, g: FrameGeometry, size: number): CanvasIm
   lctx.setTransform(1, 0, 0, 1, 0, 0);
   lctx.clearRect(0, 0, size, size);
   lctx.translate(size / 2, size / 2);
-  drawFrame(lctx, style, g);
+  if (typeof style === 'string') drawFrame(lctx, style, g);
+  // Frame Studio keeps its own per-layer cache (up to 2048 px, like this one).
+  else drawFrameDesign(lctx, style.project, g);
   if (cache) frameLayers.set(key, layer as CanvasImageSource);
   return layer as CanvasImageSource;
 }
@@ -88,7 +96,10 @@ export function renderToken(ctx: Ctx, doc: TokenDocument, assets: AssetMap, size
   // A picture frame (Phase 7) fills the square; its hole is the art's clipping shape.
   const imageFrame = activeImageFrame(doc.frame);
   const frameImage = imageFrame ? assets.get(frameAssetId(imageFrame.source)) : undefined;
-  const hasFrame = imageFrame ? true : doc.frame.style !== 'none' && insets.frameInner > insets.frameOuter;
+  // A Frame Studio design (v9) sits on the same band as a drawn frame.
+  const design = doc.frame.kind === 'design' ? doc.frame.design : null;
+  // Frame Studio chosen but no design opened yet: no frame.
+  const hasFrame = imageFrame ? true : (doc.frame.kind === 'design' ? !!design : doc.frame.style !== 'none') && insets.frameInner > insets.frameOuter;
   const art = doc.art.assetId ? assets.get(doc.art.assetId) : undefined;
   const clip = imageFrame ? imageClipPolygon(doc).map((p) => ({ x: p.x * R, y: p.y * R })) : shapePolygon(doc.shape, R, insets.image * R);
   // The token's outline: the frame's outer edge, or the art's edge without a frame.
@@ -261,7 +272,7 @@ export function renderToken(ctx: Ctx, doc: TokenDocument, assets: AssetMap, size
     fctx.restore();
   }
 
-  // 9. Frame: a picture frame, or one drawn by code.
+  // 9. Frame: a picture frame, one drawn by code, or a Frame Studio design.
   if (frameImage) {
     fctx.save();
     drawImageFrame(fctx, frameImage, R);
@@ -275,7 +286,7 @@ export function renderToken(ctx: Ctx, doc: TokenDocument, assets: AssetMap, size
       color: doc.frame.color,
       accent: doc.frame.highlightColor ?? undefined,
     };
-    fctx.drawImage(frameLayer(doc.frame.style, geometry, size), -R, -R);
+    fctx.drawImage(frameLayer(design ?? doc.frame.style, geometry, size), -R, -R);
   }
 
   if (layer) {
