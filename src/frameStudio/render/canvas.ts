@@ -21,3 +21,16 @@ export function newCanvas(w: number, h: number): CanvasLike {
 }
 
 export const context2d = (c: CanvasLike) => c.getContext('2d') as unknown as Ctx;
+
+/** A blank `size`×`size` canvas with its origin at the centre. */
+export function centredCanvas(size: number): { canvas: CanvasLike; ctx: Ctx } {
+  const canvas = newCanvas(size, size);
+  const ctx = context2d(canvas);
+  ctx.translate(size / 2, size / 2);
+  return { canvas, ctx };
+}
+
+/** Draws a full-size picture at the origin of a centred context. */
+export function putCentred(ctx: Ctx, canvas: CanvasLike, size: number): void {
+  ctx.drawImage(canvas as CanvasImageSource, -size / 2, -size / 2);
+}

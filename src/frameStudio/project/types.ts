@@ -14,7 +14,7 @@
 import type { FrameStyle, ShapeId } from '../../render/catalog';
 
 export const PROJECT_FORMAT = 'frame-studio-project';
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 9;
 
 export interface FrameProject {
   format: typeof PROJECT_FORMAT;
@@ -38,13 +38,57 @@ export interface StageSettings {
   backingColor: string;
   /** Where the light comes from, in degrees: 0 right, 90 below, 225 top left (token-maker's light). */
   light: number;
+  // The lighting rig (version 9), all off by default:
+  /** More lights, each coloured, lighting bevels as well as the main one (a cold rim light, a warm fill). */
+  lights: ExtraLight[];
+  /** The colour shaded sides take on (instead of each bevel's shaded colour), and how much. */
+  ambient: string;
+  ambientStrength: number;
+  /** A soft glow round the brightest parts of the whole design (0–1). */
+  bloom: number;
+  /** Coloured light spilling onto neighbouring parts (0–1). */
+  bleed: number;
+}
+
+export interface ExtraLight {
+  /** Where it comes from, in degrees (as `light`). */
+  angle: number;
+  color: string;
+  /** 0–2 */
+  strength: number;
+  /** Degrees above the band (10–90). */
+  height: number;
 }
 
 /** token-maker's light: from the top left. */
 export const DEFAULT_LIGHT = 225;
 
-/** Blend modes offered in Advanced (all work in Canvas 2D everywhere). */
-export const BLEND_MODES = ['source-over', 'multiply', 'screen', 'overlay', 'soft-light', 'lighter', 'color'] as const;
+/**
+ * Blend modes offered in Advanced (all work in Canvas 2D everywhere). The
+ * last one, 'destination-out', isn't a colour blend: it cuts a hole through
+ * the layers below (a knockout), so the editor offers it as its own switch.
+ */
+export const BLEND_MODES = [
+  'source-over',
+  'multiply',
+  'screen',
+  'overlay',
+  'soft-light',
+  'lighter',
+  'color',
+  // Version 5:
+  'hard-light',
+  'color-dodge',
+  'color-burn',
+  'darken',
+  'lighten',
+  'difference',
+  'exclusion',
+  'hue',
+  'saturation',
+  'luminosity',
+  'destination-out',
+] as const;
 export type BlendMode = (typeof BLEND_MODES)[number];
 
 interface LayerBase {
@@ -59,7 +103,169 @@ interface LayerBase {
   blend: BlendMode;
   /** Only show the layer inside the band, or inside the layer below it (like a clipping mask). */
   clip: ClipMode;
+  /** Surface effects applied to the layer's picture, first first (DESIGN.md §5.4). Version 5. */
+  effects: Effect[];
+  /** Show the layer only through another layer's shape or brightness (version 8). */
+  mask: LayerMask | null;
+  /** How the layer shapes its group's shared height map (version 8): not at all, raised, or carved in. */
+  heightMode: HeightMode;
+  /** How high it rises or how deep it is carved (0–3). */
+  heightDepth: number;
+  /** How far in from its edge the slope reaches (band widths). */
+  heightSize: number;
 }
+
+/** A mask from any layer (version 8). */
+export interface LayerMask {
+  /** The id of the layer whose picture is the mask. */
+  source: string;
+  /** Its shape (alpha) or its brightness (luminance). */
+  mode: 'alpha' | 'luminance';
+  invert: boolean;
+}
+
+export const HEIGHT_MODES = ['none', 'raise', 'carve'] as const;
+export type HeightMode = (typeof HEIGHT_MODES)[number];
+
+/*
+ * Effects (version 5): non-destructive filters on a layer's (or a group's)
+ * picture, before it is composited. Sizes are in band widths, so they fit
+ * every token size and thickness; everything lit follows stage.light.
+ */
+export const BEVEL_PROFILES = ['rounded', 'chisel', 'cove', 'ridge', 'stepped'] as const;
+export type BevelProfile = (typeof BEVEL_PROFILES)[number];
+export const SURFACES = ['smooth', 'hammered', 'grain', 'brushed', 'cracked', 'scales'] as const;
+export type Surface = (typeof SURFACES)[number];
+
+/**
+ * A 2.5D surface: a height map made from the picture's shape (how far each
+ * pixel is from its edge, through a profile) plus a surface texture, turned
+ * into normals and lit by the stage's light. Raised or sunk into the band.
+ */
+export interface BevelEffect {
+  kind: 'bevel';
+  on: boolean;
+  direction: 'raised' | 'sunken';
+  profile: BevelProfile;
+  /** How far in from the edge the slope reaches (band widths). */
+  size: number;
+  /** How steep it looks (0–4). */
+  depth: number;
+  /** Smooths the height map (band widths). */
+  soften: number;
+  highlight: string;
+  highlightOpacity: number;
+  shadow: string;
+  shadowOpacity: number;
+  /** Shiny highlights (0 matt – 1 polished). */
+  gloss: number;
+  /** How high the light is, in degrees above the band (10–90). */
+  lightHeight: number;
+  surface: Surface;
+  /** How deep the surface texture is (0–2). */
+  surfaceDepth: number;
+  /** How big its marks are (band widths). */
+  surfaceScale: number;
+  seed: number;
+}
+
+/** A soft shadow cast away from the light (or, inside, from the edge facing it). */
+export interface ShadowEffect {
+  kind: 'shadow';
+  on: boolean;
+  inner: boolean;
+  color: string;
+  opacity: number;
+  /** Band widths. */
+  distance: number;
+  /** Band widths. */
+  blur: number;
+}
+
+/** A soft glow round the picture's edge, outside or inside it. */
+export interface GlowEffect {
+  kind: 'glow';
+  on: boolean;
+  inner: boolean;
+  color: string;
+  opacity: number;
+  /** Band widths. */
+  size: number;
+}
+
+/** Maps how light each pixel is to a colour gradient (a gradient map): turns anything gold, bronze, bone… */
+export interface RecolourEffect {
+  kind: 'recolour';
+  on: boolean;
+  /** Dark (at 0) to light (at 1). */
+  stops: GradientStop[];
+  /** 0–1: how much of the new colour. */
+  amount: number;
+}
+
+export interface AdjustEffect {
+  kind: 'adjust';
+  on: boolean;
+  /** Degrees round the colour wheel. */
+  hue: number;
+  /** −1 grey … 1 twice as vivid. */
+  saturation: number;
+  /** −1 … 1 */
+  brightness: number;
+  /** −1 … 1 */
+  contrast: number;
+}
+
+/** Age: chipped edges, edges rubbed bright, and grime in blotches. */
+export interface WearEffect {
+  kind: 'wear';
+  on: boolean;
+  /** 0–1: how much of the edge is chipped away. */
+  chips: number;
+  /** 0–1: how bright the edges are rubbed. */
+  polish: number;
+  /** 0–1: how much grime. */
+  grime: number;
+  grimeColor: string;
+  /** How big the marks are (band widths). */
+  scale: number;
+  seed: number;
+  /** 0–1: fine scratches across it (version 7). */
+  scratches: number;
+}
+
+/** Warps the picture with smooth noise: wobbly edges, irregular stone, subtle distortion (version 7). */
+export interface DistortEffect {
+  kind: 'distort';
+  on: boolean;
+  /** How far pixels move (band widths). */
+  amount: number;
+  /** How big the wobbles are (band widths). */
+  scale: number;
+  seed: number;
+}
+
+/** Extruded sidewalls: the shape pushed back away from the light, its sides shaded (version 8). */
+export interface ExtrudeEffect {
+  kind: 'extrude';
+  on: boolean;
+  /** How deep (band widths). */
+  depth: number;
+  /** How dark the sides are (0–1). */
+  shade: number;
+}
+
+/** Grows (positive) or shrinks (negative) the picture's shape (version 8). */
+export interface OffsetEffect {
+  kind: 'offset';
+  on: boolean;
+  /** Band widths. */
+  amount: number;
+}
+
+export type Effect = BevelEffect | ShadowEffect | GlowEffect | RecolourEffect | AdjustEffect | WearEffect | DistortEffect | ExtrudeEffect | OffsetEffect;
+export const EFFECT_KINDS = ['bevel', 'shadow', 'glow', 'recolour', 'adjust', 'wear', 'distort', 'extrude', 'offset'] as const satisfies readonly Effect['kind'][];
+export type EffectKind = (typeof EFFECT_KINDS)[number];
 
 export const CLIP_MODES = ['none', 'band', 'below'] as const;
 export type ClipMode = (typeof CLIP_MODES)[number];
@@ -145,6 +351,8 @@ export interface LineLayer extends LayerBase {
   waves: number;
   /** Slides the waves round, as a fraction of one wave (0–1). */
   wavePhase: number;
+  /** Fit the waves to the band (version 7): one wave every this many band widths, so the number changes with the band; 0 = use `waves`. */
+  waveFit: number;
 }
 
 export const ELEMENT_KINDS = [
@@ -164,6 +372,13 @@ export const ELEMENT_KINDS = [
   'eye',
   'note',
   'claw',
+  // Version 5, faceted and lit by the light:
+  'gem',
+  'plate',
+  'shard',
+  // Version 7:
+  'tooth',
+  'gash',
 ] as const;
 export type ElementKind = (typeof ELEMENT_KINDS)[number];
 
@@ -212,7 +427,40 @@ export interface RepeatLayer extends LayerBase {
   shaded: boolean;
   /** Which elements are drawn, as a repeating on/off pattern: [true, false] = every other one. Empty = all. Version 4. */
   show: boolean[];
+  // Version 6 (Phase 7):
+  /** The id of a path or line layer to follow instead of the band; null (or a layer that is gone) = the band. */
+  follow: string | null;
+  /** Along the path (turning with it) or upright on the screen. */
+  orient: RepeatOrient;
+  /** Size at the end of the path (or the way round), as a multiple of the start (1 = all the same). */
+  scaleEnd: number;
+  /** Random variation, picked by `seed`: size (0–1, a share), angle (degrees either way), and a chance of leaving one out (0–1). */
+  jitterSize: number;
+  jitterAngle: number;
+  skipChance: number;
+  /** How a cut gem (element 'gem') is cut. */
+  gemCut: GemCut;
+  /** The flat top as a share of the gem (brilliant, emerald). */
+  gemTable: number;
+  /** How high the crown rises, so how strongly the facets catch the light (0.2–3). */
+  gemCrown: number;
+  /** How many sides the gem has (brilliant, rose, rough). */
+  gemFacets: number;
+  /** A glint of light on the side facing the light (0 = none). */
+  gemSparkle: number;
+  /** A metal setting round each element. */
+  setting: GemSetting;
+  settingColor: string;
+  /** The setting's own effects (a metal style), applied to the setting alone. */
+  settingEffects: Effect[];
 }
+
+export const REPEAT_ORIENTS = ['along', 'upright'] as const;
+export type RepeatOrient = (typeof REPEAT_ORIENTS)[number];
+export const GEM_CUTS = ['brilliant', 'rose', 'emerald', 'cabochon', 'rough'] as const;
+export type GemCut = (typeof GEM_CUTS)[number];
+export const GEM_SETTINGS = ['none', 'bezel', 'claws4', 'claws6'] as const;
+export type GemSetting = (typeof GEM_SETTINGS)[number];
 
 /**
  * Where a shape or path sits. 'band' (the default) anchors it at a point
@@ -235,6 +483,14 @@ export interface Placement {
   rotation: number;
   /** Extra mirrored copies: a left/right pair, a top/bottom pair, or all four. */
   mirror: MirrorMode;
+  /** A radial array (version 6): this many copies round the anchor (1 = off), each pointing outwards. */
+  radialCount: number;
+  /** How far each copy is from the anchor: band widths ('band') or half-sizes ('free'). */
+  radialRadius: number;
+  /** Where the first copy is, in degrees clockwise from straight out ("up"). */
+  radialStart: number;
+  /** Every other copy is mirrored. */
+  radialMirror: boolean;
 }
 
 export const MIRROR_MODES = ['none', 'leftRight', 'topBottom', 'four'] as const;
@@ -251,6 +507,12 @@ export interface PlacedStyle {
   outlineWidth: number;
   raised: boolean;
   glow: string | null;
+  /** Cut into flat faces, each lit by the light (gems, plates, crystals). Version 5. */
+  faceted: boolean;
+  /** The flat top as a share of the shape (0 = a point, like a pyramid). */
+  facetTable: number;
+  /** How steep the faces are (0.2–3). */
+  facetDepth: number;
 }
 
 export const SHAPE_KINDS = ['circle', 'rectangle', 'polygon', 'star'] as const;
@@ -277,6 +539,8 @@ export interface PathPoint {
   x: number;
   y: number;
   handle: { x: number; y: number } | null;
+  /** The control point arriving at it, relative to it, when it isn't the mirror of `handle` (version 8; left out = mirrored). */
+  handleIn?: { x: number; y: number };
 }
 
 /** A drawn path: points joined by straight lines or curves, open or closed. */
@@ -284,6 +548,11 @@ export interface PathLayer extends LayerBase, Placement, PlacedStyle {
   type: 'path';
   points: PathPoint[];
   closed: boolean;
+  /** Draw the path as a filled stroke this wide (a share of its height), tapering at its ends; 0 = off (version 8). */
+  stroke: number;
+  /** How much it narrows at the start and at the end (0 = not, 1 = to a point). */
+  taperStart: number;
+  taperEnd: number;
 }
 
 export const TEXTURE_KINDS = ['marble', 'hammered', 'wear', 'wood', 'stone', 'scatter', 'rope', 'scales', 'cracks'] as const;
@@ -318,6 +587,222 @@ export interface TextureLayer extends LayerBase {
   seed: number;
 }
 
+export const TEXT_FONTS = ['runes', 'grenze', 'atkinson'] as const;
+export type TextFont = (typeof TEXT_FONTS)[number];
+
+/**
+ * A line of text running round the band, or along a path or line layer
+ * (version 6). Letters stand on the line with their tops outwards (or, with
+ * `reverse`, read the other way with their tops inwards, for the bottom of a
+ * token).
+ */
+export interface TextLayer extends LayerBase {
+  type: 'text';
+  text: string;
+  font: TextFont;
+  /** Letter height, in band widths. */
+  size: number;
+  /** Extra room between letters, as a share of the letter height. */
+  spacing: number;
+  /** Across position of the letters' middle (on the band). */
+  at: number;
+  /** Where the text is, round the band or along the path (0–1, clockwise from the top). */
+  along: number;
+  /** `along` is the middle of the text, or where it starts. */
+  align: 'centre' | 'start';
+  reverse: boolean;
+  /** A path or line layer to follow instead of the band. */
+  follow: string | null;
+  fill: string;
+  outline: string | null;
+  /** Fraction of the letter height. */
+  outlineWidth: number;
+}
+
+/** Several lines round the band at once, a quick ring builder (version 6). */
+export interface ContoursLayer extends LayerBase {
+  type: 'contours';
+  count: number;
+  /** Across position of the first (outermost) line. */
+  from: number;
+  /** Across distance between lines (band widths). */
+  spacing: number;
+  /** The first line's width (band widths). */
+  width: number;
+  /** How much thinner the last line is than the first (−1 … 0.95; negative = thicker). */
+  taper: number;
+  paint: Paint;
+  /** Every other line in this colour instead (solid and metal paints). null = all the same. */
+  altColor: string | null;
+  dash: 'solid' | 'dashed' | 'dotted';
+}
+
+// ---------------------------------------------------------------- generators (version 7)
+
+export const GROWTH_KINDS = ['vine', 'roots', 'thorns', 'tendrils', 'antlers'] as const;
+export type GrowthKind = (typeof GROWTH_KINDS)[number];
+export const GROWTH_EXTRAS = ['none', 'leaves', 'thorns', 'berries'] as const;
+export type GrowthExtra = (typeof GROWTH_EXTRAS)[number];
+
+/**
+ * Organic growth along the band or a path: a stem (wavy or gnarled) with
+ * branches that curl and taper, and leaves, thorns or berries, drawn as
+ * filled shapes so effects work on them (DESIGN.md §5.7).
+ */
+export interface GrowthLayer extends LayerBase {
+  type: 'growth';
+  kind: GrowthKind;
+  follow: string | null;
+  at: number;
+  /** Stems along the track (antlers: how many antlers). */
+  count: number;
+  /** Band widths per wave of the stem (fitted to the band); 0 = straight. */
+  waveLength: number;
+  /** How far the stem wanders (band widths). */
+  amplitude: number;
+  /** How gnarled the stem is (0–1). */
+  gnarl: number;
+  /** Stem thickness (band widths). */
+  thickness: number;
+  /** How thin the branch tips get (0 = not at all, 1 = to a point). */
+  taper: number;
+  /** How often branches grow (0–1). */
+  branching: number;
+  /** Branch length (band widths). */
+  branchLength: number;
+  /** Degrees from the stem. */
+  branchAngle: number;
+  /** How much branches curl (degrees per band width). */
+  curl: number;
+  /** Levels of branches on branches (1–3). */
+  depth: number;
+  extra: GrowthExtra;
+  /** Band widths between leaves (or thorns, berries). */
+  extraSpacing: number;
+  /** Their size (band widths). */
+  extraSize: number;
+  color: string;
+  extraColor: string;
+  seed: number;
+}
+
+export const FRACTURE_KINDS = ['cracks', 'lightning'] as const;
+export type FractureKind = (typeof FRACTURE_KINDS)[number];
+
+/** Branching cracks across the band, or lightning bolts along it, as geometry (version 7). */
+export interface FractureLayer extends LayerBase {
+  type: 'fracture';
+  kind: FractureKind;
+  /** The part of the band they stay in (across positions). */
+  from: number;
+  to: number;
+  count: number;
+  /** How long each main crack or bolt is (band widths). */
+  length: number;
+  /** How much they fork (0–1). */
+  branching: number;
+  /** How jagged (0–1). */
+  jagged: number;
+  /** Width at the start (band widths). */
+  width: number;
+  color: string;
+  seed: number;
+}
+
+export const CELL_PATTERNS = ['voronoi', 'hex', 'brick', 'grid', 'scales'] as const;
+export type CellPattern = (typeof CELL_PATTERNS)[number];
+
+/** The band divided into separate plates (flagstones, scales, honeycomb, mosaic), each its own shape (version 7). */
+export interface CellsLayer extends LayerBase {
+  type: 'cells';
+  pattern: CellPattern;
+  from: number;
+  to: number;
+  /** How big a cell is (band widths). */
+  size: number;
+  /** The gap between cells (band widths). */
+  gap: number;
+  /** How irregular Voronoi cells are (0–1). */
+  jitter: number;
+  /** Rounded corners (0–1). */
+  rounding: number;
+  /** Share of cells left out (missing fragments). */
+  missing: number;
+  /** How much each cell's colour varies (0–1). */
+  vary: number;
+  color: string;
+  seed: number;
+}
+
+/** Interlaced bands with real over/under crossings (version 7). */
+export interface KnotworkLayer extends LayerBase {
+  type: 'knotwork';
+  follow: string | null;
+  at: number;
+  /** Band widths per crossing pair (one wave), fitted to the band. */
+  waveLength: number;
+  /** How far the strands swing (band widths). */
+  amplitude: number;
+  /** Strand width (band widths). */
+  width: number;
+  color: string;
+  outline: string | null;
+  /** Outline width each side (band widths). */
+  outlineWidth: number;
+  outlineOpacity: number;
+  /** A shine line down each strand. */
+  shine: boolean;
+  /** Each strand drawn as two lines (a double band). */
+  double: boolean;
+  /** Swaps which strand is on top at each crossing. */
+  flip: boolean;
+}
+
+/** Gears round the band or along a path (version 7). */
+export interface GearsLayer extends LayerBase {
+  type: 'gears';
+  follow: string | null;
+  at: number;
+  count: number;
+  snapToCorners: boolean;
+  /** Diameter (band widths). */
+  size: number;
+  teeth: number;
+  /** Tooth height as a share of the radius. */
+  toothDepth: number;
+  toothShape: 'square' | 'pointed';
+  /** Spokes (0 = a solid wheel). */
+  spokes: number;
+  /** The hub's size as a share of the radius. */
+  hub: number;
+  /** A domed boss in the middle, lit by the light. */
+  domed: boolean;
+  /** Every other gear this size (a multiple). */
+  altSize: number;
+  /** Turns every other gear by half a tooth so neighbours mesh. */
+  interlock: boolean;
+  /** Degrees. */
+  rotation: number;
+  offset: number;
+  color: string;
+  shaded: boolean;
+}
+
+/** A chain of interlocking links round the band or along a path (version 7). */
+export interface ChainLayer extends LayerBase {
+  type: 'chain';
+  follow: string | null;
+  at: number;
+  /** One link's length (band widths). */
+  linkLength: number;
+  /** Width of a link as a share of its length. */
+  linkWidth: number;
+  /** Thickness of the metal (band widths). */
+  thickness: number;
+  color: string;
+  shaded: boolean;
+}
+
 /** Layers kept together: hidden, locked, faded and moved as one. */
 export interface GroupLayer extends LayerBase {
   type: 'group';
@@ -325,7 +810,12 @@ export interface GroupLayer extends LayerBase {
   children: Layer[];
   /** Folded up in the layer list. */
   collapsed: boolean;
+  /** How its layers' shapes combine (version 8): drawn over each other, or the first with the rest added, cut out, overlapped or excluded. */
+  combine: CombineMode;
 }
+
+export const COMBINE_MODES = ['normal', 'union', 'subtract', 'intersect', 'exclude'] as const;
+export type CombineMode = (typeof COMBINE_MODES)[number];
 
 /**
  * A layer from a newer version of Frame Studio, or one this version can't
@@ -338,7 +828,26 @@ export interface UnsupportedLayer extends LayerBase {
   reason: string;
 }
 
-export type Layer = LegacyFrameLayer | BandFillLayer | LineLayer | RepeatLayer | TextureLayer | ShapeLayer | PathLayer | GroupLayer | UnsupportedLayer;
+export type Layer =
+  | LegacyFrameLayer
+  | BandFillLayer
+  | LineLayer
+  | RepeatLayer
+  | TextureLayer
+  | ShapeLayer
+  | PathLayer
+  | TextLayer
+  | ContoursLayer
+  | GrowthLayer
+  | FractureLayer
+  | CellsLayer
+  | KnotworkLayer
+  | GearsLayer
+  | ChainLayer
+  | GroupLayer
+  | UnsupportedLayer;
+/** Layers that a repeat or text can follow (their outline is a track). */
+export type TrackLayer = PathLayer | LineLayer;
 /** Layers with a placement (move, scale, rotate, mirror). */
 export type PlacedLayer = ShapeLayer | PathLayer;
 export type LayerType = Layer['type'];

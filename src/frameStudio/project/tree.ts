@@ -98,13 +98,39 @@ export function isShown(layers: Layer[], id: string): boolean {
   return !!found && found.layer.visible && found.ancestors.every((g) => g.visible);
 }
 
-/** A deep copy of a layer with fresh ids for it and everything inside it. */
-export function cloneWithNewIds(layer: Layer, newId: () => string): Layer {
-  const copy = structuredClone(layer);
+/** The ids of other layers a layer refers to (the path a repeat or text follows). */
+export function referencesOf(layer: Layer): string[] {
+  const out = 'follow' in layer && layer.follow ? [layer.follow] : [];
+  if (layer.mask) out.push(layer.mask.source);
+  return out;
+}
+
+/** Points a layer's references at new ids (those not in `ids` are kept). */
+function remap(layer: Layer, ids: Map<string, string>): void {
+  if ('follow' in layer && layer.follow && ids.has(layer.follow)) layer.follow = ids.get(layer.follow)!;
+  if (layer.mask && ids.has(layer.mask.source)) layer.mask = { ...layer.mask, source: ids.get(layer.mask.source)! };
+}
+
+/**
+ * Deep copies of layers with fresh ids for them and everything inside them.
+ * A reference between copied layers (a repeat following a copied path)
+ * points at the copy; one to a layer outside them is kept.
+ */
+export function cloneAllWithNewIds(layers: Layer[], newId: () => string): Layer[] {
+  const copies = structuredClone(layers);
+  const ids = new Map<string, string>();
   const renew = (l: Layer) => {
-    l.id = newId();
+    const id = newId();
+    ids.set(l.id, id);
+    l.id = id;
     if (l.type === 'group') l.children.forEach(renew);
   };
-  renew(copy);
-  return copy;
+  copies.forEach(renew);
+  flatten(copies).forEach((l) => remap(l, ids));
+  return copies;
+}
+
+/** A deep copy of a layer with fresh ids for it and everything inside it. */
+export function cloneWithNewIds(layer: Layer, newId: () => string): Layer {
+  return cloneAllWithNewIds([layer], newId)[0];
 }

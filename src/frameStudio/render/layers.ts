@@ -4,13 +4,18 @@
 // Groups and clipping are handled by renderProject.
 
 import { rgba } from '../../render/color';
-import { atPoint, noShadow, tracePolygon, type FrameGeometry } from '../../render/frameKit';
+import { atPoint, noShadow, seededRandom, tracePolygon, type FrameGeometry } from '../../render/frameKit';
 import { drawFrame } from '../../render/frames';
-import type { PerimeterSample, Point } from '../../render/shapes';
-import type { Layer, LegacyFrameLayer, LineLayer, RepeatLayer } from '../project/types';
-import { bandWidthPx, outlineAt, repeatCount, spacedAlong } from './band';
-import { context2d, newCanvas, type Ctx } from './canvas';
-import { drawElement, runeFor } from './elements';
+import type { PerimeterSample } from '../../render/shapes';
+import { lineLayer } from '../project/defaults';
+import type { ContoursLayer, Layer, LegacyFrameLayer, LineLayer, Paint, RepeatLayer } from '../project/types';
+import { bandWidthPx, repeatCount } from './band';
+import { centredCanvas, context2d, newCanvas, putCentred, type Ctx } from './canvas';
+import { activeEffects, applyEffects } from './effects';
+import { drawElement, drawSetting, gemOutline, runeFor, type GemStyle } from './elements';
+import { drawText } from './text';
+import { drawCells, drawChain, drawFracture, drawGears, drawGrowth, drawKnotwork } from './generators';
+import { findNothing, followed, lineOutline, spacedOnTrack, trackLength, tracksFor, type FindLayer } from './track';
 import { lightAt, raisedFrom } from './light';
 import { fillBand, paintStyle, recolourRound, ringTableFor } from './paint';
 import { drawPlaced } from './placed';
@@ -23,6 +28,8 @@ export interface RenderEnv {
   light: number;
   /** The square's size in pixels. */
   size: number;
+  /** Finds the layers others follow (version 6). */
+  find?: FindLayer;
 }
 
 function drawLegacy(ctx: Ctx, layer: LegacyFrameLayer, g: FrameGeometry): void {
@@ -30,18 +37,7 @@ function drawLegacy(ctx: Ctx, layer: LegacyFrameLayer, g: FrameGeometry): void {
   drawFrame(ctx, layer.style, { ...g, color: layer.color, accent: layer.accent ?? undefined });
 }
 
-/** The outline a line follows: the band's outline at its position, wobbling in and out if it is wavy. */
-export function lineOutline(layer: LineLayer, g: FrameGeometry): Point[] {
-  const outline = outlineAt(g, layer.at);
-  if (layer.waveAmplitude <= 0 || outline.length === 0) return outline;
-  const n = Math.max(240, layer.waves * 24);
-  const amp = layer.waveAmplitude * bandWidthPx(g);
-  return spacedAlong(outline, n).map((p, i) => {
-    const off = amp * Math.sin(Math.PI * 2 * (layer.waves * (i / n) + layer.wavePhase));
-    // Inwards is to the right of the direction of travel (outlines run clockwise).
-    return { x: p.x - Math.sin(p.angle) * off, y: p.y + Math.cos(p.angle) * off };
-  });
-}
+export { lineOutline } from './track';
 
 function drawLine(ctx: Ctx, layer: LineLayer, env: RenderEnv): void {
   const { g } = env;
@@ -98,8 +94,10 @@ export interface RepeatPlacement {
   color: string;
   /** Points the other way (alternate sides). */
   flip: boolean;
-  /** Its number round the ring before any were left out (picks the rune or note). */
+  /** Its number before any were left out (picks the rune, note or rough crystal). */
   index: number;
+  /** Extra turn from random variation, in radians. */
+  spin: number;
 }
 
 /** How far element i is from the nearest bigger one, counting round the ring. */
@@ -109,52 +107,85 @@ function stepsFromAccent(i: number, n: number, every: number): number {
   return Math.min(back, next < n ? next - i : n - i);
 }
 
-/** Where each element of a repeat goes, for drawing and for picking on the canvas. */
-export function repeatPlacements(layer: RepeatLayer, g: FrameGeometry): RepeatPlacement[] {
-  const n = repeatCount(g, layer.at, layer.mode, layer.count, layer.spacing, layer.snapToCorners);
-  const points = spacedAlong(outlineAt(g, layer.at), n, layer.offset);
+/**
+ * Where each element of a repeat goes, for drawing and for picking on the
+ * canvas: round the band, or along every track of the layer it follows
+ * (DESIGN.md §4.9), with its patterns and random variation.
+ */
+export function repeatPlacements(layer: RepeatLayer, g: FrameGeometry, find: FindLayer = findNothing): RepeatPlacement[] {
+  const tracks = tracksFor(layer.follow, layer.at, g, find);
+  const onBand = !followed(layer.follow, find);
   const w = bandWidthPx(g);
   const h = layer.size * w;
   const colors = [layer.fill, ...layer.altColors];
+  const varies = layer.jitterSize > 0 || layer.jitterAngle > 0 || layer.skipChance > 0;
+  const random = seededRandom(layer.seed * 4099 + 0x51f7);
   const out: RepeatPlacement[] = [];
-  points.forEach((p, i) => {
-    if (layer.show.length && !layer.show[i % layer.show.length]) return;
-    const accent = layer.accentEvery > 0 && i % layer.accentEvery === 0;
-    if (!accent && layer.accentEvery > 0 && layer.skipAroundAccent > 0 && stepsFromAccent(i, n, layer.accentEvery) <= layer.skipAroundAccent) return;
-    const size = h * (layer.altSizes.length ? layer.altSizes[i % layer.altSizes.length] : 1) * (accent ? layer.accentScale : 1);
-    const flip = layer.alternateSides > 0 && i % 2 === 1;
-    let at = p;
-    if (layer.alternateSides > 0) {
-      const off = (flip ? 1 : -1) * layer.alternateSides * w;
-      at = { ...p, x: p.x - Math.sin(p.angle) * off, y: p.y + Math.cos(p.angle) * off };
-    }
-    const color = accent && layer.accentColor ? layer.accentColor : colors[i % colors.length];
-    out.push({ p: at, h: size, accent, color, flip, index: i });
-  });
+  let first = 0;
+  for (const track of tracks) {
+    const n = onBand
+      ? repeatCount(g, layer.at, layer.mode, layer.count, layer.spacing, layer.snapToCorners)
+      : layer.mode === 'count'
+        ? layer.count
+        : Math.max(1, Math.round(trackLength(track) / Math.max(1, layer.spacing * w)) + (track.closed ? 0 : 1));
+    spacedOnTrack(track, n, layer.offset).forEach((p, k) => {
+      const i = first + k;
+      // Three numbers per element, whether or not it is drawn, so one setting doesn't reshuffle the others.
+      const [rs, ra, rk] = varies ? [random(), random(), random()] : [0.5, 0.5, 1];
+      if (!p) return;
+      if (layer.show.length && !layer.show[i % layer.show.length]) return;
+      if (rk < layer.skipChance) return;
+      const accent = layer.accentEvery > 0 && i % layer.accentEvery === 0;
+      if (!accent && layer.accentEvery > 0 && layer.skipAroundAccent > 0 && stepsFromAccent(k, n, layer.accentEvery) <= layer.skipAroundAccent) return;
+      const along = layer.scaleEnd === 1 ? 1 : 1 + (layer.scaleEnd - 1) * p.t;
+      const size = h * (layer.altSizes.length ? layer.altSizes[i % layer.altSizes.length] : 1) * (accent ? layer.accentScale : 1) * along * (1 + layer.jitterSize * (rs - 0.5) * 2);
+      const flip = layer.alternateSides > 0 && i % 2 === 1;
+      let at: PerimeterSample = { x: p.x, y: p.y, angle: p.angle };
+      if (layer.alternateSides > 0) {
+        const off = (flip ? 1 : -1) * layer.alternateSides * w;
+        at = { ...at, x: p.x - Math.sin(p.angle) * off, y: p.y + Math.cos(p.angle) * off };
+      }
+      if (layer.orient === 'upright') at = { ...at, angle: 0 };
+      const color = accent && layer.accentColor ? layer.accentColor : colors[i % colors.length];
+      out.push({ p: at, h: size, accent, color, flip, index: i, spin: ((layer.jitterAngle * (ra - 0.5) * 2) * Math.PI) / 180 });
+    });
+    first += n;
+  }
   return out;
 }
 
-function drawRepeat(ctx: Ctx, layer: RepeatLayer, env: RenderEnv): void {
+const OVAL = (w: number, h: number) => Array.from({ length: 32 }, (_v, i) => ({ x: (Math.cos((i * Math.PI) / 16) * w) / 2, y: (Math.sin((i * Math.PI) / 16) * h) / 2 }));
+
+/** The elements of a repeat, or (with `part`) only the back or front of their settings. */
+function drawRepeat(ctx: Ctx, layer: RepeatLayer, env: RenderEnv, part: 'elements' | 'back' | 'front' = 'elements'): void {
   const { g } = env;
-  const placements = repeatPlacements(layer, g);
+  const placements = repeatPlacements(layer, g, env.find);
   const variants = runeFor(layer.seed, placements.at(-1) ? placements.at(-1)!.index + 1 : 0);
   const w = bandWidthPx(g);
-  const turn = (layer.rotation * Math.PI) / 180;
+  const turnBy = (layer.rotation * Math.PI) / 180;
   ctx.save();
-  if (layer.raised) raisedFrom(ctx, w, env.light);
-  if (layer.glow) {
+  if (layer.raised && part !== 'front') raisedFrom(ctx, w, env.light);
+  if (layer.glow && part === 'elements') {
     ctx.shadowColor = rgba(layer.glow, 1);
     ctx.shadowBlur = w * 0.5;
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 0;
   }
-  for (const { p, h, color, flip, index } of placements) {
+  for (const { p, h, color, flip, index, spin } of placements) {
+    const t = turnBy + spin;
     const l = lightAt(p, env.light);
     // The light turned back by the element's own rotation, and flipped with it.
-    const light = { x: l.x * Math.cos(-turn) - l.y * Math.sin(-turn), y: (l.x * Math.sin(-turn) + l.y * Math.cos(-turn)) * (flip ? -1 : 1) };
+    const light = { x: l.x * Math.cos(-t) - l.y * Math.sin(-t), y: (l.x * Math.sin(-t) + l.y * Math.cos(-t)) * (flip ? -1 : 1) };
+    const gem: GemStyle | undefined =
+      layer.element === 'gem' ? { cut: layer.gemCut, table: layer.gemTable, crown: layer.gemCrown, facets: layer.gemFacets, sparkle: layer.gemSparkle, seed: layer.seed * 131 + index } : undefined;
     atPoint(ctx, p, () => {
-      ctx.rotate(turn);
+      ctx.rotate(t);
       if (flip) ctx.scale(1, -1);
+      if (part !== 'elements') {
+        const ew = h * layer.stretch;
+        drawSetting(ctx, layer.setting, part, gem ? gemOutline(gem, ew, h) : OVAL(ew, h), ew, h, layer.settingColor, light);
+        return;
+      }
       drawElement(ctx, layer.element, h, layer.stretch, {
         fill: color,
         outline: layer.outline,
@@ -162,11 +193,45 @@ function drawRepeat(ctx: Ctx, layer: RepeatLayer, env: RenderEnv): void {
         rune: variants[index],
         light,
         shaded: layer.shaded,
+        gem,
       });
     });
   }
   noShadow(ctx);
   ctx.restore();
+}
+
+/** A repeat with a setting: the back of the settings, the elements, then the front, each part of the setting with its own effects. */
+function drawSetRepeat(ctx: Ctx, layer: RepeatLayer, env: RenderEnv): void {
+  const part = (which: 'back' | 'front') => {
+    const own = centredCanvas(env.size);
+    drawRepeat(own.ctx, layer, env, which);
+    if (activeEffects(layer.settingEffects).length) {
+      own.ctx.save();
+      own.ctx.setTransform(1, 0, 0, 1, 0, 0);
+      applyEffects(own.ctx, env.size, layer.settingEffects, { bw: bandWidthPx(env.g), light: env.light });
+      own.ctx.restore();
+    }
+    putCentred(ctx, own.canvas, env.size);
+  };
+  part('back');
+  drawRepeat(ctx, layer, env);
+  part('front');
+}
+
+/** Several lines round the band at once, each thinner (or thicker) than the one before. */
+export function contourLines(layer: ContoursLayer): LineLayer[] {
+  return Array.from({ length: layer.count }, (_v, i) => {
+    const k = layer.count > 1 ? i / (layer.count - 1) : 0;
+    const paint: Paint = layer.altColor && i % 2 === 1 && (layer.paint.kind === 'solid' || layer.paint.kind === 'lit') ? { ...layer.paint, color: layer.altColor } : layer.paint;
+    return {
+      ...lineLayer(),
+      at: layer.from + i * layer.spacing,
+      width: Math.max(0.001, layer.width * (1 - layer.taper * k)),
+      paint,
+      dash: layer.dash,
+    };
+  });
 }
 
 /** Draws one layer that isn't a group (groups are drawn by renderProject). */
@@ -179,7 +244,24 @@ export function drawLayer(ctx: Ctx, layer: Layer, env: RenderEnv): void {
     case 'line':
       return drawLine(ctx, layer, env);
     case 'repeat':
-      return drawRepeat(ctx, layer, env);
+      return layer.setting === 'none' ? drawRepeat(ctx, layer, env) : drawSetRepeat(ctx, layer, env);
+    case 'text':
+      return drawText(ctx, layer, env.g, env.light, env.find);
+    case 'contours':
+      for (const line of contourLines(layer)) drawLine(ctx, line, env);
+      return;
+    case 'growth':
+      return drawGrowth(ctx, layer, env.g, env.light, env.find);
+    case 'fracture':
+      return drawFracture(ctx, layer, env.g);
+    case 'cells':
+      return drawCells(ctx, layer, env.g);
+    case 'knotwork':
+      return drawKnotwork(ctx, layer, env.g, env.find);
+    case 'gears':
+      return drawGears(ctx, layer, env.g, env.light, env.find);
+    case 'chain':
+      return drawChain(ctx, layer, env.g, env.light, env.find);
     case 'texture':
       return drawTexture(ctx, layer, env.g, env.light, env.size);
     case 'shape':

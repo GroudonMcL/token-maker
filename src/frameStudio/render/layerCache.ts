@@ -27,9 +27,21 @@ let used = 0;
 export const renderStats = { drawn: 0, reused: 0 };
 
 /** Everything that changes how a layer looks, but not how it is composited: its settings, the band, the light and the size. */
-export function layerKey(layer: Layer, g: Pick<FrameGeometry, 'shape' | 'outer' | 'inner'>, light: number, size: number): string {
-  const { id: _i, name: _n, visible: _v, locked: _l, opacity: _o, blend: _b, clip, ...look } = layer;
-  return `${size}|${g.shape}|${g.outer}|${g.inner}|${light}|${clip === 'band' ? 'band' : ''}|${JSON.stringify(look)}`;
+export function layerKey(layer: Layer, g: Pick<FrameGeometry, 'shape' | 'outer' | 'inner'>, light: number, size: number, deps = ''): string {
+  // Effects aren't in the layer's own picture: its picture with effects has a key of its own (effectsKey).
+  const { clip, ...look } = lookOf(layer);
+  return `${size}|${g.shape}|${g.outer}|${g.inner}|${light}|${clip === 'band' ? 'band' : ''}|${JSON.stringify(look)}${deps ? `|${deps}` : ''}`;
+}
+
+/** A layer's settings without the ones that don't change its own picture (id, name, visibility, lock, opacity, blend, effects). */
+export function lookOf(layer: Layer): Partial<Layer> {
+  const { id: _i, name: _n, visible: _v, locked: _l, opacity: _o, blend: _b, effects: _e, ...look } = layer;
+  return look as Partial<Layer>;
+}
+
+/** The key of a layer's picture with its effects: its own picture's key and the effects that are on. */
+export function effectsKey(layer: Layer, key: string): string {
+  return `fx|${key}|${JSON.stringify(layer.effects.filter((e) => e.on))}`;
 }
 
 function drop(key: string): void {
