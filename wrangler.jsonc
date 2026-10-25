@@ -13,5 +13,8 @@
     // The image proxy runs before the static files, so /api/* never gets the editor's page.
     "run_worker_first": ["/api/*"]
   },
-  "observability": { "enabled": true }
+  "observability": { "enabled": true },
+  // Lets `npx wrangler preview` (Cloudflare's deploy command for non-production
+  // branches) upload a preview. Empty is enough: everything above applies to previews too.
+  "previews": {}
 }
