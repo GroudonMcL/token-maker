@@ -7,6 +7,7 @@
 import type { FrameGeometry } from '../../render/frameKit';
 import type { Layer } from '../project/types';
 import type { CanvasLike } from './canvas';
+import { pictureEpoch } from './pictures';
 
 /** Renders bigger than this are not cached (like token-maker's frame cache). */
 export const MAX_CACHED_SIZE = 2048;
@@ -30,7 +31,10 @@ export const renderStats = { drawn: 0, reused: 0 };
 export function layerKey(layer: Layer, g: Pick<FrameGeometry, 'shape' | 'outer' | 'inner'>, light: number, size: number, deps = ''): string {
   // Effects aren't in the layer's own picture: its picture with effects has a key of its own (effectsKey).
   const { clip, ...look } = lookOf(layer);
-  return `${size}|${g.shape}|${g.outer}|${g.inner}|${light}|${clip === 'band' ? 'band' : ''}|${JSON.stringify(look)}${deps ? `|${deps}` : ''}`;
+  const json = JSON.stringify(look);
+  // A layer with a photo texture is drawn again once its picture has loaded.
+  const pictures = json.includes('"kind":"picture"') ? `|p${pictureEpoch()}` : '';
+  return `${size}|${g.shape}|${g.outer}|${g.inner}|${light}|${clip === 'band' ? 'band' : ''}|${json}${pictures}${deps ? `|${deps}` : ''}`;
 }
 
 /** A layer's settings without the ones that don't change its own picture (id, name, visibility, lock, opacity, blend, effects). */

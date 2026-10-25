@@ -7,7 +7,7 @@
 import type { FrameGeometry } from '../../render/frameKit';
 import { perimeterLength } from '../../render/frameKit';
 import type { PerimeterSample, Point } from '../../render/shapes';
-import type { Layer, LineLayer } from '../project/types';
+import type { Layer, LineLayer, WaveShape } from '../project/types';
 import { bandWidthPx, outlineAt, spacedAlong } from './band';
 import { flattenPath } from './facets';
 import { placements, toCanvas } from './placed';
@@ -21,15 +21,27 @@ export interface Track {
   closed: boolean;
 }
 
+/** One wave of each shape (version 10), for t from 0 to 1 a wave: -1 (outwards) to 1 (inwards). */
+const WAVE: Record<WaveShape, (t: number) => number> = {
+  sine: (t) => Math.sin(Math.PI * 2 * t),
+  zigzag: (t) => (2 / Math.PI) * Math.asin(Math.sin(Math.PI * 2 * t)),
+  // Arches bulging outwards, meeting in points on the inside.
+  scallop: (t) => 1 - 2 * Math.abs(Math.sin(Math.PI * t)),
+  // Battlements: a smoothed square wave.
+  square: (t) => Math.max(-1, Math.min(1, Math.sin(Math.PI * 2 * t) * 6)),
+};
+
 /** The outline a line follows: the band's outline at its position, wobbling in and out if it is wavy. */
 export function lineOutline(layer: LineLayer, g: FrameGeometry): Point[] {
   const outline = outlineAt(g, layer.at);
   if (layer.waveAmplitude <= 0 || outline.length === 0) return outline;
   const waves = lineWaves(layer, outline, g);
-  const n = Math.max(240, waves * 24);
+  const shape = layer.waveShape ?? 'sine';
+  const n = Math.max(240, waves * (shape === 'sine' ? 24 : 48));
   const amp = layer.waveAmplitude * bandWidthPx(g);
+  const wave = WAVE[shape] ?? WAVE.sine;
   return spacedAlong(outline, n).map((p, i) => {
-    const off = amp * Math.sin(Math.PI * 2 * (waves * (i / n) + layer.wavePhase));
+    const off = amp * wave(waves * (i / n) + layer.wavePhase);
     // Inwards is to the right of the direction of travel (outlines run clockwise).
     return { x: p.x - Math.sin(p.angle) * off, y: p.y + Math.cos(p.angle) * off };
   });

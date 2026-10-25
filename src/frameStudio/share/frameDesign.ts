@@ -14,6 +14,11 @@ export { PROJECT_FORMAT, SCHEMA_VERSION } from '../project/types';
 export type { FrameProject } from '../project/types';
 export type { ParseResult } from '../project/migrate';
 export { PROJECT_EXTENSION } from '../project/transfer';
+/**
+ * Loads the photo textures a design uses. Call it (and wait) before
+ * drawFrameDesign; a picture not loaded yet is drawn as its average colour.
+ */
+export { loadPictures as loadFrameDesignPictures } from '../render/pictures';
 
 /**
  * Reads a design from a file's text, or from the object a token document

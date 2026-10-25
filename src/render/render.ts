@@ -18,6 +18,7 @@ import { drawDecorations } from './decorations';
 import { drawLabel } from './label';
 import { activeImageFrame, drawImageFrame, frameAssetId } from './imageFrames';
 import { shapePolygon } from './shapes';
+import { pictureEpoch } from '../frameStudio/render/pictures';
 import { drawFrameDesign } from '../frameStudio/share/frameDesign';
 import type { DesignFrame } from '../document/types';
 
@@ -57,7 +58,8 @@ const MAX_CACHED_SIDE = 2048;
  * itself, which only changes when the design does).
  */
 function frameLayer(style: FrameStyle | DesignFrame, g: FrameGeometry, size: number): CanvasImageSource {
-  const key = `${typeof style === 'string' ? style : `design:${objectId(style.project)}`}|${size}|${JSON.stringify(g)}`;
+  // A design is drawn again once a photo texture it uses has arrived (pictureEpoch).
+  const key = `${typeof style === 'string' ? style : `design:${objectId(style.project)}:${pictureEpoch()}`}|${size}|${JSON.stringify(g)}`;
   const hit = frameLayers.get(key);
   if (hit) {
     // Most recently used goes last.
