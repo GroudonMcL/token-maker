@@ -25,6 +25,8 @@ Every font, icon, image and other asset bundled with Token Maker, with its sourc
 | 14 picture-decoration icons (`public/pictures/deco-*.webp`) | Kenney, [Board Game Icons](https://kenney.nl/assets/board-game-icons) (drawn from the SVGs with a dark outline added) | CC0 1.0 |
 | AI background-removal model (downloaded by the browser when used, not bundled) | [BiRefNet-lite](https://github.com/ZhengPeng7/BiRefNet) by Zheng Peng et al., 512 × 512 ONNX export [studioludens/birefnet-lite-512](https://huggingface.co/studioludens/birefnet-lite-512), run with [Transformers.js](https://github.com/huggingface/transformers.js) | MIT (model); Apache 2.0 (Transformers.js) |
 | AI cut-out test picture (`e2e/fixtures/goblin-boss-ai-mask.png`) | Made once from the goblin fixture with the model above | — |
+| 48 ornament icons in Frame Studio designs (`src/frameStudio/project/iconGlyphs.ts`) | Lorc, Delapouite, Carl Olsen and Caro Asercion, [game-icons.net](https://game-icons.net) (each icon's page is listed in that file and in [Frame Studio's credits](https://github.com/GroudonMcL/Frame-Studio/blob/main/docs/CREDITS.md)) | CC BY 3.0 |
+| 20 photo textures in Frame Studio designs (`src/frameStudio/render/pictureData.ts`) | [Poly Haven](https://polyhaven.com) and [ambientCG](https://ambientcg.com) (resized to 512 px; each photo's page is in `src/frameStudio/project/pictures.ts`) | CC0 1.0 |
 | Lucide icons | [lucide.dev](https://lucide.dev) (`lucide-react`) | ISC |
 | Placeholder logo / favicon | Made for the project | — |
 | 27 code-drawn frames and 5 shapes | Ported from the owner's own [LK-to-Owlbear-Combined](https://github.com/GroudonMcL/LK-to-Owlbear-Combined) extension | Owner's own code |

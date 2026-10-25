@@ -17,7 +17,7 @@ import { drawText } from './text';
 import { drawCells, drawChain, drawFracture, drawGears, drawGrowth, drawKnotwork } from './generators';
 import { findNothing, followed, lineOutline, spacedOnTrack, trackLength, tracksFor, type FindLayer } from './track';
 import { lightAt, raisedFrom } from './light';
-import { fillBand, paintStyle, recolourRound, ringTableFor } from './paint';
+import { fillBand, paintCanvas, paintStyle, recolourRound, ringTableFor } from './paint';
 import { drawPlaced } from './placed';
 import { drawTexture } from './textures';
 
@@ -68,6 +68,7 @@ function drawLine(ctx: Ctx, layer: LineLayer, env: RenderEnv): void {
     octx.strokeStyle = '#000000';
     octx.stroke();
     recolourRound(octx, g.R, ringTableFor(layer.paint, env.light));
+    if (layer.raised) raisedFrom(ctx, bandWidthPx(g), env.light);
     if (layer.glow) {
       ctx.shadowColor = rgba(layer.glow, 1);
       ctx.shadowBlur = bandWidthPx(g) * 0.5;
@@ -78,6 +79,7 @@ function drawLine(ctx: Ctx, layer: LineLayer, env: RenderEnv): void {
     return;
   }
   ctx.strokeStyle = paintStyle(ctx, g, layer.paint, layer.at, layer.at, env.light);
+  if (layer.raised) raisedFrom(ctx, bandWidthPx(g), env.light);
   if (layer.glow) {
     ctx.shadowColor = rgba(layer.glow, 1);
     ctx.shadowBlur = bandWidthPx(g) * 0.5;
@@ -98,6 +100,8 @@ export interface RepeatPlacement {
   index: number;
   /** Extra turn from random variation, in radians. */
   spin: number;
+  /** A random number (0–1) for elements that come in kinds (Bard's notes), or undefined. */
+  variant?: number;
 }
 
 /** How far element i is from the nearest bigger one, counting round the ring. */
@@ -120,11 +124,14 @@ export function repeatPlacements(layer: RepeatLayer, g: FrameGeometry, find: Fin
   const colors = [layer.fill, ...layer.altColors];
   const varies = layer.jitterSize > 0 || layer.jitterAngle > 0 || layer.skipChance > 0;
   const random = seededRandom(layer.seed * 4099 + 0x51f7);
+  // Wandering in and out and Bard's kinds of note come from the seed itself, in Token Maker's order (version 10).
+  const tokenMaker = seededRandom(layer.seed);
+  const kinds = layer.element === 'bardNote';
   const out: RepeatPlacement[] = [];
   let first = 0;
   for (const track of tracks) {
     const n = onBand
-      ? repeatCount(g, layer.at, layer.mode, layer.count, layer.spacing, layer.snapToCorners)
+      ? repeatCount(g, layer.at, layer.mode, layer.count, layer.spacing, layer.snapToCorners, layer.multipleOf)
       : layer.mode === 'count'
         ? layer.count
         : Math.max(1, Math.round(trackLength(track) / Math.max(1, layer.spacing * w)) + (track.closed ? 0 : 1));
@@ -132,6 +139,8 @@ export function repeatPlacements(layer: RepeatLayer, g: FrameGeometry, find: Fin
       const i = first + k;
       // Three numbers per element, whether or not it is drawn, so one setting doesn't reshuffle the others.
       const [rs, ra, rk] = varies ? [random(), random(), random()] : [0.5, 0.5, 1];
+      const across = layer.wander > 0 ? (tokenMaker() - 0.5) * layer.wander : 0;
+      const variant = kinds ? tokenMaker() : undefined;
       if (!p) return;
       if (layer.show.length && !layer.show[i % layer.show.length]) return;
       if (rk < layer.skipChance) return;
@@ -141,13 +150,11 @@ export function repeatPlacements(layer: RepeatLayer, g: FrameGeometry, find: Fin
       const size = h * (layer.altSizes.length ? layer.altSizes[i % layer.altSizes.length] : 1) * (accent ? layer.accentScale : 1) * along * (1 + layer.jitterSize * (rs - 0.5) * 2);
       const flip = layer.alternateSides > 0 && i % 2 === 1;
       let at: PerimeterSample = { x: p.x, y: p.y, angle: p.angle };
-      if (layer.alternateSides > 0) {
-        const off = (flip ? 1 : -1) * layer.alternateSides * w;
-        at = { ...at, x: p.x - Math.sin(p.angle) * off, y: p.y + Math.cos(p.angle) * off };
-      }
+      const off = (layer.alternateSides > 0 ? (flip ? 1 : -1) * layer.alternateSides * w : 0) + across * w;
+      if (off !== 0) at = { ...at, x: p.x - Math.sin(p.angle) * off, y: p.y + Math.cos(p.angle) * off };
       if (layer.orient === 'upright') at = { ...at, angle: 0 };
       const color = accent && layer.accentColor ? layer.accentColor : colors[i % colors.length];
-      out.push({ p: at, h: size, accent, color, flip, index: i, spin: ((layer.jitterAngle * (ra - 0.5) * 2) * Math.PI) / 180 });
+      out.push({ p: at, h: size, accent, color, flip, index: i, spin: ((layer.jitterAngle * (ra - 0.5) * 2) * Math.PI) / 180, variant });
     });
     first += n;
   }
@@ -163,6 +170,7 @@ function drawRepeat(ctx: Ctx, layer: RepeatLayer, env: RenderEnv, part: 'element
   const variants = runeFor(layer.seed, placements.at(-1) ? placements.at(-1)!.index + 1 : 0);
   const w = bandWidthPx(g);
   const turnBy = (layer.rotation * Math.PI) / 180;
+  const paint = layer.fillPaint && part === 'elements' ? { canvas: paintCanvas(layer.fillPaint, g, env.light, env.size), each: layer.paintEach } : null;
   ctx.save();
   if (layer.raised && part !== 'front') raisedFrom(ctx, w, env.light);
   if (layer.glow && part === 'elements') {
@@ -171,7 +179,7 @@ function drawRepeat(ctx: Ctx, layer: RepeatLayer, env: RenderEnv, part: 'element
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 0;
   }
-  for (const { p, h, color, flip, index, spin } of placements) {
+  for (const { p, h, color, flip, index, spin, variant } of placements) {
     const t = turnBy + spin;
     const l = lightAt(p, env.light);
     // The light turned back by the element's own rotation, and flipped with it.
@@ -194,6 +202,9 @@ function drawRepeat(ctx: Ctx, layer: RepeatLayer, env: RenderEnv, part: 'element
         light,
         shaded: layer.shaded,
         gem,
+        detail: layer.detail,
+        variant,
+        paint,
       });
     });
   }
@@ -266,7 +277,7 @@ export function drawLayer(ctx: Ctx, layer: Layer, env: RenderEnv): void {
       return drawTexture(ctx, layer, env.g, env.light, env.size);
     case 'shape':
     case 'path':
-      return drawPlaced(ctx, layer, env.g, env.light);
+      return drawPlaced(ctx, layer, env.g, env.light, env.size);
     case 'group':
     case 'unsupported':
       return;

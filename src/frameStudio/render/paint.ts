@@ -2,10 +2,13 @@
 
 import { angularFill, clipToBand, litTables, type FrameGeometry, type LitTables } from '../../render/frameKit';
 import { mix, rgba } from '../../render/color';
+import { shapePolygon } from '../../render/shapes';
+import { pictureById } from '../project/pictures';
 import { DEFAULT_LIGHT, type GradientStop, type Paint, type RingStop } from '../project/types';
-import { insetAt } from './band';
-import type { Ctx } from './canvas';
-import { turn, turnTable } from './light';
+import { bandWidthPx, insetAt, spacedAlong } from './band';
+import { context2d, newCanvas, type CanvasLike, type Ctx } from './canvas';
+import { lightVector, turn, turnTable } from './light';
+import { pictureImage, type PicturePaint } from './pictures';
 
 const litCache = new Map<string, LitTables>();
 
@@ -97,8 +100,12 @@ function litTable(paint: Extract<Paint, { kind: 'lit' }>, light: number): string
  * instead, see fillBand). `from`/`to` are the across positions the gradient
  * spans; `light` is the stage's light direction.
  */
-export function paintStyle(ctx: Ctx, g: FrameGeometry, paint: Paint, from: number, to: number, light: number): string | CanvasGradient {
+export function paintStyle(ctx: Ctx, g: FrameGeometry, paint: Paint, from: number, to: number, light: number): string | CanvasGradient | CanvasPattern {
   switch (paint.kind) {
+    case 'picture': {
+      const img = pictureImage(paint.picture);
+      return img ? picturePattern(ctx, img, paint, tileSize(g, paint)) : standIn(paint);
+    }
     case 'solid':
       return paint.color;
     case 'lit': {
@@ -146,9 +153,143 @@ export function fillBand(ctx: Ctx, g: FrameGeometry, from: number, to: number, p
     angularFill(ctx, g, outer, inner, ringTableFor(paint, light));
     return;
   }
+  if (paint.kind === 'picture') {
+    ctx.save();
+    clipToBand(ctx, { ...g, outer, inner });
+    const img = pictureImage(paint.picture);
+    if (img && paint.bend) bentPicture(ctx, g, outer, inner, img, paint);
+    else {
+      ctx.fillStyle = paintStyle(ctx, g, paint, lo, hi, light);
+      ctx.fillRect(-g.R, -g.R, g.R * 2, g.R * 2);
+    }
+    finishPicture(ctx, g.R, paint, light);
+    ctx.restore();
+    return;
+  }
   ctx.save();
   clipToBand(ctx, { ...g, outer, inner });
   ctx.fillStyle = paintStyle(ctx, g, paint, lo, hi, light);
   ctx.fillRect(-g.R, -g.R, g.R * 2, g.R * 2);
   ctx.restore();
+}
+
+// ---- Photo textures (picture paints, version 6) ----
+
+/** A tile's size in pixels: `scale` band widths. */
+const tileSize = (g: FrameGeometry, paint: PicturePaint) => Math.max(2, paint.scale * bandWidthPx(g));
+
+/** What is drawn until the picture has loaded: its average colour (or its tint). */
+const standIn = (paint: PicturePaint) => paint.tint ?? pictureById(paint.picture)?.average ?? '#808080';
+
+/** The picture as a repeating pattern, `tile` pixels to a tile, turned by the paint's angle. */
+function picturePattern(ctx: Ctx, img: CanvasImageSource, paint: PicturePaint, tile: number): CanvasPattern {
+  const pattern = ctx.createPattern(img, 'repeat')!;
+  const k = tile / ((img as unknown as { width: number }).width || 1);
+  const a = (paint.angle * Math.PI) / 180;
+  pattern.setTransform({ a: k * Math.cos(a), b: k * Math.sin(a), c: -k * Math.sin(a), d: k * Math.cos(a), e: 0, f: 0 });
+  return pattern;
+}
+
+/**
+ * The picture bent round the band: the band is cut into thin pieces between
+ * matching points on its outer and inner edges, and each piece is filled
+ * with the pattern turned to run along it, continuing where the last left
+ * off. Each piece reaches a little into the next, so no seam shows.
+ */
+function bentPicture(ctx: Ctx, g: FrameGeometry, outer: number, inner: number, img: CanvasImageSource, paint: PicturePaint): void {
+  const w = bandWidthPx(g);
+  const outerLine = shapePolygon(g.shape, g.R, outer);
+  const innerLine = shapePolygon(g.shape, g.R, inner);
+  if (outerLine.length < 2 || innerLine.length < 2) return;
+  const n = Math.max(24, Math.round((2 * Math.PI * (g.R - outer)) / Math.max(1, w * 0.3)));
+  const a = spacedAlong(outerLine, n);
+  const b = spacedAlong(innerLine, n);
+  const pattern = picturePattern(ctx, img, paint, tileSize(g, paint));
+  const reach = 0.75;
+  let along = 0;
+  for (let k = 0; k < n; k++) {
+    const a0 = a[k];
+    const a1 = a[(k + 1) % n];
+    const b0 = b[k];
+    const b1 = b[(k + 1) % n];
+    const len = Math.hypot(a1.x - a0.x, a1.y - a0.y) || 1;
+    const ux = (a1.x - a0.x) / len;
+    const uy = (a1.y - a0.y) / len;
+    const blen = Math.hypot(b1.x - b0.x, b1.y - b0.y) || 1;
+    const vx = (b1.x - b0.x) / blen;
+    const vy = (b1.y - b0.y) / blen;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(a0.x - ux * reach, a0.y - uy * reach);
+    ctx.lineTo(a1.x + ux * reach, a1.y + uy * reach);
+    ctx.lineTo(b1.x + vx * reach, b1.y + vy * reach);
+    ctx.lineTo(b0.x - vx * reach, b0.y - vy * reach);
+    ctx.closePath();
+    ctx.clip();
+    ctx.translate(a0.x, a0.y);
+    ctx.rotate(Math.atan2(uy, ux));
+    ctx.translate(-along, 0);
+    ctx.fillStyle = pattern;
+    ctx.fillRect(along - w, -w, len + w * 2, w * 3);
+    ctx.restore();
+    along += (len + blen) / 2;
+  }
+}
+
+/** A picture's tint (its colours replaced, keeping its light and dark) and lighting, over what has been drawn inside the clip. */
+function finishPicture(ctx: Ctx, R: number, paint: PicturePaint, light: number): void {
+  if (paint.tint) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'color';
+    ctx.fillStyle = paint.tint;
+    ctx.fillRect(-R, -R, R * 2, R * 2);
+    ctx.restore();
+  }
+  if (paint.lighting > 0) {
+    const l = lightVector(light);
+    const shine = ctx.createLinearGradient(l.x * R, l.y * R, -l.x * R, -l.y * R);
+    shine.addColorStop(0, `rgba(255, 255, 255, ${0.4 * paint.lighting})`);
+    shine.addColorStop(0.5, 'rgba(255, 255, 255, 0)');
+    shine.addColorStop(0.5, 'rgba(0, 0, 0, 0)');
+    shine.addColorStop(1, `rgba(0, 0, 0, ${0.55 * paint.lighting})`);
+    ctx.fillStyle = shine;
+    ctx.fillRect(-R, -R, R * 2, R * 2);
+  }
+}
+
+/** Thin wedges round the centre, each one colour of a 360-entry table, reaching past the square. */
+function wedges(ctx: Ctx, R: number, table: string[]): void {
+  const far = R * 2;
+  const n = 240;
+  for (let i = 0; i < n; i++) {
+    const t0 = (i / n) * Math.PI * 2 - 0.004;
+    const t1 = ((i + 1) / n) * Math.PI * 2 + 0.004;
+    ctx.fillStyle = table[Math.floor(((i + 0.5) / n) * 360)];
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(Math.cos(t0) * far, Math.sin(t0) * far);
+    ctx.lineTo(Math.cos(t1) * far, Math.sin(t1) * far);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+/**
+ * A paint over the whole picture (`size` pixels square, origin in the
+ * middle), for filling ornaments, shapes and paths with it: colours round
+ * the ring and metal lighting by angle, gradients and pictures straight.
+ */
+export function paintCanvas(paint: Paint, g: FrameGeometry, light: number, size: number): CanvasLike {
+  const canvas = newCanvas(size, size);
+  const ctx = context2d(canvas);
+  ctx.translate(size / 2, size / 2);
+  const R = size / 2;
+  if (paint.kind === 'lit') wedges(ctx, R, litTable(paint, light));
+  else if (paint.kind === 'ring') wedges(ctx, R, ringTableFor(paint, light));
+  else {
+    ctx.fillStyle = paintStyle(ctx, g, paint, 0, 1, light);
+    ctx.fillRect(-R, -R, size, size);
+    if (paint.kind === 'picture') finishPicture(ctx, R, paint, light);
+  }
+  return canvas;
 }

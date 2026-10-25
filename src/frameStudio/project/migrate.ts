@@ -5,7 +5,8 @@
 
 import { FRAME_STYLES, SHAPES } from '../../render/catalog';
 import { isValidHex } from '../../render/color';
-import { cellsLayer, chainLayer, LAYER_PHASE9, DEFAULT_STAGE, fractureLayer, gearsLayer, growthLayer, knotworkLayer, NEW_EFFECT, NEW_LAYER, NO_RADIAL, REPEAT_PHASE7, newId, textureLayer } from './defaults';
+import { cellsLayer, chainLayer, LAYER_PHASE9, DEFAULT_STAGE, fractureLayer, gearsLayer, growthLayer, knotworkLayer, NEW_EFFECT, NEW_LAYER, NO_RADIAL, REPEAT_PHASE7, REPEAT_V10, newId, textureLayer } from './defaults';
+import { PICTURE_IDS } from './pictures';
 import {
   BEVEL_PROFILES,
   BLEND_MODES,
@@ -31,6 +32,7 @@ import {
   TEXTURE_KINDS,
   TEXTURE_PLACES,
   type Effect,
+  WAVE_SHAPES,
   type FrameProject,
   type GradientStop,
   type Layer,
@@ -74,6 +76,23 @@ function addPhase4Fields(layer: unknown): unknown {
     if (Array.isArray(paint.stops) && (paint.kind === 'linear' || paint.kind === 'acrossBand')) paint.stops = paint.stops.map((s) => (isObj(s) ? { opacity: 1, ...s } : s));
     out.paint = paint;
   }
+  return out;
+}
+
+/**
+ * Version 9 → 10: shaped and raised waves on lines; second colours, counts in
+ * multiples, wandering and paint fills on repeats; ornaments as shapes and
+ * paint fills on shapes and paths. All off, so old designs look the same; the
+ * new textures, ornaments and the photo paint are new kinds.
+ */
+function addVersion10Fields(layer: unknown): unknown {
+  if (!isObj(layer) || !KNOWN_TYPES.has(layer.type as string)) return layer;
+  const out: Obj = { ...layer };
+  if (Array.isArray(layer.children)) out.children = layer.children.map(addVersion10Fields);
+  if (layer.type === 'line') Object.assign(out, { waveShape: 'sine', raised: false }, layer);
+  if (layer.type === 'repeat') Object.assign(out, REPEAT_V10, layer);
+  if (layer.type === 'shape') Object.assign(out, { element: 'heart', detail: null }, layer);
+  if (layer.type === 'shape' || layer.type === 'path') Object.assign(out, { fillPaint: null, paintEach: false }, layer);
   return out;
 }
 
@@ -143,6 +162,8 @@ const MIGRATIONS: Record<number, (p: Obj) => Obj> = {
   7: (p) => ({ ...p, schemaVersion: 8 }),
   // Version 8 → 9 (Phase 10): the lighting rig is off when a file leaves it out, so nothing changes.
   8: (p) => ({ ...p, schemaVersion: 9 }),
+  // Version 9 → 10: the second branch's ornaments, textures, wave shapes and paint fills, all off.
+  9: (p) => ({ ...p, schemaVersion: 10, layers: Array.isArray(p.layers) ? p.layers.map(addVersion10Fields) : p.layers }),
 };
 
 export function parseProject(input: unknown): ParseResult {
@@ -253,6 +274,16 @@ function checkPaint(v: unknown, fallback: Paint): Paint {
       return { kind: 'linear', angle: num(o.angle, 45, -360, 360), stops: checkStops(o.stops, fbStops), followLight: bool(o.followLight, false) };
     case 'acrossBand':
       return { kind: 'acrossBand', stops: checkStops(o.stops, fbStops) };
+    case 'picture':
+      return {
+        kind: 'picture',
+        picture: oneOf(o.picture, PICTURE_IDS, PICTURE_IDS[0]),
+        scale: num(o.scale, 3, 0.2, 40),
+        angle: num(o.angle, 0, -360, 360),
+        bend: bool(o.bend, true),
+        tint: hexOrNull(o.tint, null),
+        lighting: num(o.lighting, 0.5, 0, 1),
+      };
     case 'ring': {
       const stops = Array.isArray(o.stops)
         ? o.stops
@@ -385,8 +416,13 @@ function checkStyle(o: Obj, d: PlacedStyle): PlacedStyle {
     outlineWidth: num(o.outlineWidth, d.outlineWidth, 0, 0.5),
     raised: bool(o.raised, d.raised),
     glow: hexOrNull(o.glow, d.glow),
+    fillPaint: checkFillPaint(o.fillPaint),
+    paintEach: bool(o.paintEach, d.paintEach),
   };
 }
+
+/** A fill paint: a paint, or null for the plain colour. */
+const checkFillPaint = (v: unknown): Paint | null => (isObj(v) ? checkPaint(v, { kind: 'solid', color: '#ffffff' }) : null);
 
 const MAX_POINTS = 500;
 
@@ -460,6 +496,8 @@ function checkLayer(l: unknown, index: number, warnings: string[], ids: Set<stri
         waves: Math.round(num(o.waves, d.waves, 1, 200)),
         wavePhase: num(o.wavePhase, d.wavePhase, 0, 1),
         waveFit: num(o.waveFit, d.waveFit, 0, 20),
+        waveShape: oneOf(o.waveShape, WAVE_SHAPES, d.waveShape),
+        raised: bool(o.raised, d.raised),
       };
     }
     case 'shape': {
@@ -474,6 +512,8 @@ function checkLayer(l: unknown, index: number, warnings: string[], ids: Set<stri
         sides: Math.round(num(o.sides, d.sides, 3, 24)),
         innerRatio: num(o.innerRatio, d.innerRatio, 0.05, 1),
         corner: num(o.corner, d.corner, 0, 1),
+        element: oneOf(o.element, ELEMENT_KINDS, d.element),
+        detail: hexOrNull(o.detail, d.detail),
       };
     }
     case 'path': {
@@ -712,6 +752,11 @@ function checkLayer(l: unknown, index: number, warnings: string[], ids: Set<stri
         setting: oneOf(o.setting, GEM_SETTINGS, d.setting),
         settingColor: hex(o.settingColor, d.settingColor),
         settingEffects: checkEffects(o.settingEffects, common.name, warnings),
+        detail: hexOrNull(o.detail, d.detail),
+        multipleOf: Math.round(num(o.multipleOf, d.multipleOf, 1, 24)),
+        wander: num(o.wander, d.wander, 0, 2),
+        fillPaint: checkFillPaint(o.fillPaint),
+        paintEach: bool(o.paintEach, d.paintEach),
       };
     }
   }

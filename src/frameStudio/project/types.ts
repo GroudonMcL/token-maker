@@ -12,9 +12,11 @@
 // half-size from its centre (DESIGN.md §4.4).
 
 import type { FrameStyle, ShapeId } from '../../render/catalog';
+import { ICON_GLYPHS, type IconKind } from './iconGlyphs';
+import type { PictureId } from './pictures';
 
 export const PROJECT_FORMAT = 'frame-studio-project';
-export const SCHEMA_VERSION = 9;
+export const SCHEMA_VERSION = 10;
 
 export interface FrameProject {
   format: typeof PROJECT_FORMAT;
@@ -324,7 +326,15 @@ export type Paint =
    * hand-sampled colours). With `followLight` the colours turn with the
    * stage's light (the angles are for a light at the top left).
    */
-  | { kind: 'ring'; stops: RingStop[]; followLight: boolean };
+  | { kind: 'ring'; stops: RingStop[]; followLight: boolean }
+  /**
+   * A photo texture (project/pictures.ts), tiled `scale` band widths to a
+   * tile and turned `angle` degrees. With `bend` its tiles follow the band
+   * round the token (on band fills); `tint` recolours it keeping its light
+   * and dark; `lighting` (0–1) lightens the side facing the stage's light
+   * and darkens the other. Version 10.
+   */
+  | { kind: 'picture'; picture: PictureId; scale: number; angle: number; bend: boolean; tint: string | null; lighting: number };
 
 /** Fills part of the band, between two "across" positions. */
 export interface BandFillLayer extends LayerBase {
@@ -353,9 +363,16 @@ export interface LineLayer extends LayerBase {
   wavePhase: number;
   /** Fit the waves to the band (version 7): one wave every this many band widths, so the number changes with the band; 0 = use `waves`. */
   waveFit: number;
+  /** The shape of the waves (version 10). */
+  waveShape: WaveShape;
+  /** A small shadow falling away from the light, as on raised ornaments (version 10). */
+  raised: boolean;
 }
 
-export const ELEMENT_KINDS = [
+export const WAVE_SHAPES = ['sine', 'zigzag', 'scallop', 'square'] as const;
+export type WaveShape = (typeof WAVE_SHAPES)[number];
+
+export const DRAWN_ELEMENT_KINDS = [
   'bead',
   'circle',
   'diamond',
@@ -379,8 +396,34 @@ export const ELEMENT_KINDS = [
   // Version 7:
   'tooth',
   'gash',
+  // Version 10: the details of Token Maker's frames…
+  'fletching',
+  'bardNote',
+  'watchEye',
+  'cog',
+  'sprig',
+  // …and more ornaments.
+  'heart',
+  'crescent',
+  'flame',
+  'fleur',
+  'shield',
+  'sun',
+  'snowflake',
+  'crown',
+  'jewel',
+  'drop',
+  'shell',
+  'spiral',
+  'paw',
+  'feather',
+  'knot',
+  'skull',
+  'arrow',
 ] as const;
-export type ElementKind = (typeof ELEMENT_KINDS)[number];
+/** Every ornament: Frame Studio's own, then the icons from game-icons.net (version 10). */
+export const ELEMENT_KINDS = [...DRAWN_ELEMENT_KINDS, ...ICON_GLYPHS.map((g) => g.id)] as readonly ElementKind[];
+export type ElementKind = (typeof DRAWN_ELEMENT_KINDS)[number] | IconKind;
 
 /** One shape repeated evenly round the band: beads, studs, runes, gems… */
 export interface RepeatLayer extends LayerBase {
@@ -453,6 +496,17 @@ export interface RepeatLayer extends LayerBase {
   settingColor: string;
   /** The setting's own effects (a metal style), applied to the setting alone. */
   settingEffects: Effect[];
+  // Version 10:
+  /** The second colour of elements made of two parts (an eye's white, a cog's hub, a gash's lit edge…). null = worked out from `fill`. */
+  detail: string | null;
+  /** Round the number to a multiple of this (2 keeps it even, so alternating patterns meet up all the way round). */
+  multipleOf: number;
+  /** Each element moves in or out by a random amount (picked by `seed`), up to half this many band widths either way. */
+  wander: number;
+  /** Fill with a paint (a gradient, colours round the ring, a photo texture…) instead of `fill`; null = `fill`. */
+  fillPaint: Paint | null;
+  /** The paint fills each element on its own (the whole token's paint shrunk into each), rather than running across the token. */
+  paintEach: boolean;
 }
 
 export const REPEAT_ORIENTS = ['along', 'upright'] as const;
@@ -513,9 +567,13 @@ export interface PlacedStyle {
   facetTable: number;
   /** How steep the faces are (0.2–3). */
   facetDepth: number;
+  /** Fill with a paint instead of `fill` (see RepeatLayer.fillPaint); only used when `fill` isn't null. Version 10. */
+  fillPaint: Paint | null;
+  /** The paint fills this shape (and each mirrored copy) on its own, rather than running across the token. Version 10. */
+  paintEach: boolean;
 }
 
-export const SHAPE_KINDS = ['circle', 'rectangle', 'polygon', 'star'] as const;
+export const SHAPE_KINDS = ['circle', 'rectangle', 'polygon', 'star', 'ornament'] as const;
 export type ShapeKind = (typeof SHAPE_KINDS)[number];
 
 /** One shape (circle, rectangle, polygon or star) placed on the band or freely. */
@@ -528,6 +586,10 @@ export interface ShapeLayer extends LayerBase, Placement, PlacedStyle {
   innerRatio: number;
   /** Rectangle: corner rounding, 0–1 of half the shorter side. */
   corner: number;
+  /** Ornament: which of the repeat shapes it is (a heart, a fleur-de-lis…). Version 10. */
+  element: ElementKind;
+  /** Ornament: its second colour (see RepeatLayer.detail). Version 10. */
+  detail: string | null;
 }
 
 /**
@@ -555,7 +617,28 @@ export interface PathLayer extends LayerBase, Placement, PlacedStyle {
   taperEnd: number;
 }
 
-export const TEXTURE_KINDS = ['marble', 'hammered', 'wear', 'wood', 'stone', 'scatter', 'rope', 'scales', 'cracks'] as const;
+export const TEXTURE_KINDS = [
+  'marble',
+  'hammered',
+  'wear',
+  'wood',
+  'stone',
+  'scatter',
+  'rope',
+  'scales',
+  'cracks',
+  // Version 10
+  'veins',
+  'brushed',
+  'woven',
+  'chainmail',
+  'rust',
+  'frost',
+  'bark',
+  'sparkle',
+  'crackle',
+  'knurl',
+] as const;
 export type TextureKind = (typeof TEXTURE_KINDS)[number];
 
 export const TEXTURE_PLACES = ['everywhere', 'shaded', 'lit'] as const;

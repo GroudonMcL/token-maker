@@ -140,6 +140,7 @@ A checklist of build phases, following [`BUILD-PROMPTS.md`](BUILD-PROMPTS.md). D
 - [x] Tests: a design looks exactly the same here as in Frame Studio on every shape, thickness, spacing and token size; the migration and checks; the panel, the library and presets; Playwright on desktop, tablet and phone
 - **Done when:** a design made in Frame Studio opens as a frame here from its `.framestudio.json` file ✔
 - [x] Copy brought up to Frame Studio 0.10.0 (Phases 6–10 and the themed borders; it reads Frame Studio files up to format 9, so effects, generators, text and the 21 themed borders draw here as they do there); a test draws every themed border in both and they match pixel for pixel
+- [x] Copy brought up to Frame Studio's format 10 (the last four conversions, more ornaments and textures, game-icons ornaments, photo textures, paint fills): a design's photo textures load with the token's other pictures, before exports too, and the frame redraws when one arrives; a test draws a design with photos, icons and paint fills in both apps and they match pixel for pixel, and a Playwright test opens one on desktop, tablet and phone
 
 ## Later (not phases yet)
 

@@ -3,6 +3,7 @@
 
 import { FRAME_PRESETS, framePresetById } from '../../render/catalog';
 import { frameAccent } from '../../render/frames';
+import { pictureById, type PictureId } from './pictures';
 import { bevel, glow, material, shadow, styleEffects, wear } from './styles';
 
 export { EFFECT_NAMES, NEW_EFFECT } from './effectDefaults';
@@ -78,7 +79,7 @@ export function bandFillLayer(): BandFillLayer {
 }
 
 export function lineLayer(): LineLayer {
-  return { ...base('Line'), type: 'line', at: 0.5, width: 0.06, paint: { kind: 'solid', color: '#2a1a0a' }, dash: 'solid', glow: null, waveAmplitude: 0, waves: 12, wavePhase: 0, waveFit: 0 };
+  return { ...base('Line'), type: 'line', at: 0.5, width: 0.06, paint: { kind: 'solid', color: '#2a1a0a' }, dash: 'solid', glow: null, waveAmplitude: 0, waves: 12, wavePhase: 0, waveFit: 0, waveShape: 'sine', raised: false };
 }
 
 export function repeatLayer(): RepeatLayer {
@@ -111,8 +112,12 @@ export function repeatLayer(): RepeatLayer {
     shaded: true,
     show: [],
     ...REPEAT_PHASE7,
+    ...REPEAT_V10,
   };
 }
+
+/** What a repeat gets from version 10 on, all off: one colour, any count, no wandering, no paint. */
+export const REPEAT_V10 = { detail: null, multipleOf: 1, wander: 0, fillPaint: null, paintEach: false } satisfies Partial<RepeatLayer>;
 
 /** What a repeat gets from version 6 on, all off: on the band, no variation, Phase 6's brilliant cut, no setting. */
 export const REPEAT_PHASE7 = {
@@ -168,7 +173,25 @@ export const TEXTURES: TexturePreset[] = [
   { id: 'rope', name: 'Rope', description: 'Twisted strands, like Monk’s cord.', layer: { kind: 'rope', name: 'Rope', color: '#a07a48', seed: 0xbead }, band: '#a07a48' },
   { id: 'scales', name: 'Dragon scales', description: 'Overlapping scales in staggered rows, like Sorcerer.', layer: { kind: 'scales', name: 'Scales', color: '#3f8a5a' }, band: '#3f8a5a' },
   { id: 'cracks', name: 'Magma cracks', description: 'Glowing wandering cracks, like Magma.', layer: { kind: 'cracks', name: 'Magma cracks', color: '#ff5a1a', seed: 0x1a7a }, band: '#2a1e1c' },
+  { id: 'veins', name: 'Veined marble', description: 'Stamped’s veins, flecks and marbling, kept to the shaded side.', layer: { kind: 'veins', name: 'Veined marble', color: '#d7671f', where: 'shaded', seed: 0x5eed }, band: '#b5561a' },
+  { id: 'brushed', name: 'Brushed metal', description: 'Fine streaks running round the band, like brushed steel.', layer: { kind: 'brushed', name: 'Brushed metal', color: '#9aa0aa', seed: 0xb705 }, band: '#9aa0aa' },
+  { id: 'woven', name: 'Basket weave', description: 'Strands woven over and under, like wicker or cloth.', layer: { kind: 'woven', name: 'Basket weave', color: '#c49a5a', seed: 1 }, band: '#7a5a30' },
+  { id: 'chainmail', name: 'Chainmail', description: 'Rows of interlinked steel rings.', layer: { kind: 'chainmail', name: 'Chainmail', color: '#a8aeb8', seed: 1 }, band: '#2e3138' },
+  { id: 'rust', name: 'Rust', description: 'Patches of rust with pits and specks, on old iron.', layer: { kind: 'rust', name: 'Rust', color: '#8a3b12', seed: 0x2057 }, band: '#5e5a56' },
+  { id: 'frost', name: 'Frost', description: 'A cold haze and ice crystals growing in from both edges.', layer: { kind: 'frost', name: 'Frost', color: '#e6f6ff', seed: 0xf205 }, band: '#5a7a9a' },
+  { id: 'bark', name: 'Bark', description: 'Deep rough fissures, like an old tree.', layer: { kind: 'bark', name: 'Bark', color: '#6a4a2c', seed: 0xba2c }, band: '#6a4a2c' },
+  { id: 'sparkle', name: 'Sparkles', description: 'Twinkling four-pointed sparkles and glints.', layer: { kind: 'sparkle', name: 'Sparkles', color: '#fff6d0', seed: 0x5a2c }, band: '#2a2450' },
+  { id: 'gold-sparkle', name: 'Gold dust', description: 'Sparkles on gold, for a fey or royal shimmer.', layer: { kind: 'sparkle', name: 'Gold dust', color: '#fffbe6', amount: 1.6, scale: 0.7, seed: 0x901d }, band: '#c9a24a' },
+  { id: 'crackle', name: 'Crackle glaze', description: 'A web of fine cracks, like old porcelain or dried mud.', layer: { kind: 'crackle', name: 'Crackle glaze', color: '#d8cfb8', seed: 0xc4ac }, band: '#d8cfb8' },
+  { id: 'knurl', name: 'Knurled grip', description: 'Crossing diagonal grooves, like the grip of a tool.', layer: { kind: 'knurl', name: 'Knurled grip', color: '#8a8f99', seed: 1 }, band: '#8a8f99' },
 ];
+
+/** A band fill of a photo texture (version 6), bent round the band and lit like the rest. */
+export function photoBand(picture: PictureId): BandFillLayer {
+  // Photos whose grain runs up and down are turned to run along the band.
+  const angle = picture === 'bark' || picture === 'medieval-wood' ? 90 : 0;
+  return { ...bandFillLayer(), name: pictureById(picture)?.name ?? 'Photo texture', paint: { kind: 'picture', picture, scale: 3, angle, bend: true, tint: null, lighting: 0.5 } };
+}
 
 /** A texture layer from the library. */
 export function textureFromPreset(preset: TexturePreset): TextureLayer {
@@ -182,10 +205,10 @@ export function textureBand(preset: TexturePreset): BandFillLayer {
 
 /** A new shape or path sits at the top of the band, upright, one band width tall. */
 export const DEFAULT_PLACEMENT: Placement = { place: 'band', along: 0, across: 0.5, x: 0, y: -0.8, size: 0.8, stretch: 1, rotation: 0, mirror: 'none', ...NO_RADIAL };
-const DEFAULT_STYLE: PlacedStyle = { fill: '#5fa8d3', shaded: true, outline: '#1a1008', outlineWidth: 0.06, raised: true, glow: null, faceted: false, facetTable: 0.5, facetDepth: 1 };
+const DEFAULT_STYLE: PlacedStyle = { fill: '#5fa8d3', shaded: true, outline: '#1a1008', outlineWidth: 0.06, raised: true, glow: null, faceted: false, facetTable: 0.5, facetDepth: 1, fillPaint: null, paintEach: false };
 
 export function shapeLayer(): ShapeLayer {
-  return { ...base('Shape'), type: 'shape', ...DEFAULT_PLACEMENT, ...DEFAULT_STYLE, shape: 'polygon', sides: 6, innerRatio: 0.45, corner: 0 };
+  return { ...base('Shape'), type: 'shape', ...DEFAULT_PLACEMENT, ...DEFAULT_STYLE, shape: 'polygon', sides: 6, innerRatio: 0.45, corner: 0, element: 'heart', detail: null };
 }
 
 /** A new path has no points: it is drawn by clicking on the canvas. */
@@ -577,5 +600,72 @@ export const LAYERED_TEMPLATES: LayeredTemplate[] = [
         { ...growthLayer('vine'), name: 'Creeper', at: 0.45, count: 1, waveLength: 2.6, amplitude: 0.3, thickness: 0.035, branching: 0.2, extraSpacing: 1.1, extraSize: 0.4, color: '#2e4a1c', extraColor: '#5a8a32', seed: 9, effects: [shadow({ distance: 0.04, blur: 0.05, opacity: 0.6 })] },
       ];
     },
+  },
+  // More to build with (from the Phase 6–7 branch, version 10): new ornaments, textures and wave shapes.
+  {
+    id: 'moon-stars',
+    name: 'Moon & stars',
+    description: 'Midnight blue with sparkles, crescent moons and stars in turn, and a scalloped silver edge.',
+    make: () => [
+      { ...bandFillLayer(), name: 'Midnight', paint: { kind: 'lit', color: '#1f2a5a', light: 0.6, dark: 0.75, pressed: false, highlight: '#5a6ab0' } },
+      { ...textureLayer('sparkle'), name: 'Sparkles', color: '#fff6d0', seed: 0x5a2c, amount: 0.8, scale: 0.8 },
+      { ...lineLayer(), name: 'Scalloped edge', at: 0.08, width: 0.04, paint: { kind: 'solid', color: '#d8dcf0' }, waveAmplitude: 0.06, waveFit: 0.45, waveShape: 'scallop' },
+      { ...repeatLayer(), name: 'Moons', element: 'crescent', count: 8, at: 0.55, size: 0.5, fill: '#f4e7a8', glow: '#fff2b0', show: [true, false] },
+      { ...repeatLayer(), name: 'Stars', element: 'star', count: 8, at: 0.55, size: 0.36, fill: '#f4e7a8', glow: '#fff2b0', show: [false, true] },
+      { ...lineLayer(), name: 'Inner rim', at: 0.985, width: 0.03, paint: { kind: 'solid', color: '#0a0e24' } },
+    ],
+  },
+  {
+    id: 'frostbound',
+    name: 'Frostbound',
+    description: 'Icy steel with frost, snowflakes and a zigzag line.',
+    make: () => [
+      { ...bandFillLayer(), name: 'Ice', paint: { kind: 'lit', color: '#6f93b8', light: 0.9, dark: 0.7, pressed: false, highlight: '#f0faff' } },
+      { ...textureLayer('frost'), name: 'Frost', color: '#e6f6ff', seed: 0xf205 },
+      { ...lineLayer(), name: 'Zigzag', at: 0.5, width: 0.035, paint: { kind: 'solid', color: '#dff4ff' }, waveAmplitude: 0.3, waveFit: 0.5, waveShape: 'zigzag', glow: '#9fd8ff' },
+      { ...repeatLayer(), name: 'Snowflakes', element: 'snowflake', count: 6, at: 0.5, size: 0.62, fill: '#ffffff', outlineWidth: 0.07, raised: false, glow: '#9fd8ff' },
+      { ...lineLayer(), name: 'Outer rim', at: 0.02, width: 0.04, paint: { kind: 'solid', color: '#f0faff' } },
+      { ...lineLayer(), name: 'Inner rim', at: 0.985, width: 0.03, paint: { kind: 'solid', color: '#1a2a3a' } },
+    ],
+  },
+  {
+    id: 'celtic',
+    name: 'Celtic knots',
+    description: 'Green and gold, with knots, a woven cord and battlement edges.',
+    make: () => [
+      { ...bandFillLayer(), name: 'Green band', paint: { kind: 'lit', color: '#2f6a3c', light: 0.7, dark: 0.8, pressed: false, highlight: null } },
+      { ...lineLayer(), name: 'Battlements', at: 0.12, width: 0.05, paint: { kind: 'solid', color: '#d9b45a' }, waveAmplitude: 0.05, waveFit: 0.3, waveShape: 'square' },
+      { ...lineLayer(), name: 'Cord', at: 0.55, width: 0.08, paint: { kind: 'solid', color: '#d9b45a' }, waveAmplitude: 0.18, waveFit: 0.7, raised: true },
+      { ...lineLayer(), name: 'Cord (other strand)', at: 0.55, width: 0.08, paint: { kind: 'solid', color: '#b8923a' }, waveAmplitude: 0.18, waveFit: 0.7, wavePhase: 0.5, raised: true },
+      { ...repeatLayer(), name: 'Knots', element: 'knot', count: 8, at: 0.55, size: 0.7, fill: '#f0d080', detail: '#5a3a10', outlineWidth: 0.08 },
+      { ...lineLayer(), name: 'Inner rim', at: 0.985, width: 0.03, paint: { kind: 'solid', color: '#10200f' } },
+    ],
+  },
+  {
+    id: 'royal',
+    name: 'Royal',
+    description: 'Crimson and gold: gold dust, fleurs-de-lis between gems, and a crown at the top.',
+    make: () => [
+      { ...bandFillLayer(), name: 'Crimson', paint: { kind: 'lit', color: '#8a1a2a', light: 0.75, dark: 0.8, pressed: false, highlight: null } },
+      { ...lineLayer(), name: 'Outer gold', at: 0.06, width: 0.1, paint: { kind: 'lit', color: '#d4a64a', light: 0.95, dark: 0.8, pressed: false, highlight: '#fff6c8' } },
+      { ...lineLayer(), name: 'Inner gold', at: 0.94, width: 0.1, paint: { kind: 'lit', color: '#d4a64a', light: 0.95, dark: 0.8, pressed: false, highlight: '#fff6c8' } },
+      { ...repeatLayer(), name: 'Fleurs-de-lis', element: 'fleur', count: 8, at: 0.5, size: 0.8, fill: '#e2b85a', show: [false, true] },
+      { ...repeatLayer(), name: 'Gems', element: 'jewel', count: 8, at: 0.5, size: 0.42, stretch: 0.8, fill: '#2a5ad8', show: [true, false] },
+      { ...shapeLayer(), name: 'Crown', shape: 'ornament', element: 'crown', across: 0.1, size: 1.1, stretch: 1.3, fill: '#e2b85a', outline: '#5a3a10', outlineWidth: 0.04, detail: '#a01a2a' },
+    ],
+  },
+  {
+    id: 'grim-iron',
+    name: 'Grim iron',
+    description: 'Rusty iron over chainmail, with skulls and paw prints in turn.',
+    make: () => [
+      { ...bandFillLayer(), name: 'Iron', paint: { kind: 'lit', color: '#55524f', light: 0.6, dark: 0.8, pressed: false, highlight: null } },
+      { ...textureLayer('chainmail'), name: 'Chainmail', color: '#9aa0aa', from: 0.2, to: 0.8, seed: 1 },
+      { ...textureLayer('rust'), name: 'Rust', color: '#8a3b12', seed: 0x2057 },
+      { ...lineLayer(), name: 'Outer band', at: 0.08, width: 0.16, paint: { kind: 'lit', color: '#55524f', light: 0.7, dark: 0.8, pressed: false, highlight: null } },
+      { ...lineLayer(), name: 'Inner band', at: 0.92, width: 0.16, paint: { kind: 'lit', color: '#55524f', light: 0.7, dark: 0.8, pressed: false, highlight: null } },
+      { ...repeatLayer(), name: 'Skulls', element: 'skull', count: 6, at: 0.5, size: 0.75, stretch: 0.85, fill: '#e8dcc0', show: [true, false] },
+      { ...repeatLayer(), name: 'Paw prints', element: 'paw', count: 6, at: 0.5, size: 0.55, fill: '#c9b48a', shaded: false, raised: false, opacity: 0.75, show: [false, true] },
+    ],
   },
 ];

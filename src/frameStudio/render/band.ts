@@ -67,10 +67,14 @@ export function spacedAlong(points: Point[], count: number, offset = 0): Perimet
 }
 
 /** How many elements a repeat gets: an exact count, or as many as fit at a spacing (in band widths). */
-export function repeatCount(g: FrameGeometry, across: number, mode: 'count' | 'spacing', count: number, spacing: number, snap: boolean): number {
+export function repeatCount(g: FrameGeometry, across: number, mode: 'count' | 'spacing', count: number, spacing: number, snap: boolean, multipleOf = 1): number {
   const outline = outlineAt(g, across);
   if (outline.length === 0) return 0;
-  const n = mode === 'count' ? count : Math.max(1, Math.round(perimeterLength(outline) / Math.max(1, spacing * bandWidthPx(g))));
+  const m = Math.max(1, Math.round(multipleOf));
+  const n =
+    mode === 'count'
+      ? Math.max(m, Math.round(count / m) * m)
+      : Math.max(m, Math.round(perimeterLength(outline) / Math.max(1, spacing * bandWidthPx(g) * m)) * m);
   return snap ? ornamentCount(g.shape, n) : n;
 }
 

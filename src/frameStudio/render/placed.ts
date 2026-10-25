@@ -10,8 +10,9 @@ import type { PathLayer, PathPoint, PlacedLayer, ShapeLayer } from '../project/t
 import { ribbon, tracePoly } from './geometry';
 import { bandWidthPx, outlineAt, spacedAlong } from './band';
 import type { Ctx } from './canvas';
-import { shadedFill } from './elements';
+import { drawElement, paintPattern, shadedFill } from './elements';
 import { drawFacets, flattenPath } from './facets';
+import { paintCanvas } from './paint';
 import { lightVector, raisedFrom, turn } from './light';
 
 /**
@@ -117,6 +118,8 @@ function traceShape(ctx: Ctx, layer: ShapeLayer, w: number, h: number): void {
       ctx.arcTo(-x, -y, x, -y, r);
       break;
     }
+    case 'ornament':
+      break;
     case 'polygon':
     case 'star': {
       const n = layer.shape === 'star' ? layer.sides * 2 : layer.sides;
@@ -136,6 +139,8 @@ function shapePoints(layer: ShapeLayer, w: number, h: number): Point[] {
   const x = w / 2;
   const y = h / 2;
   switch (layer.shape) {
+    // An ornament's outline isn't a polygon; its oval box stands in for it.
+    case 'ornament':
     case 'circle':
       return Array.from({ length: 16 }, (_v, i) => {
         const a = -Math.PI / 2 + (i * Math.PI * 2) / 16;
@@ -192,13 +197,14 @@ export function tracePath(ctx: Ctx, points: PathPoint[], closed: boolean, ux: nu
 }
 
 /** Draws a shape or path layer, with its mirrored copies, lit from `light`. */
-export function drawPlaced(ctx: Ctx, layer: PlacedLayer, g: FrameGeometry, light: number): void {
+export function drawPlaced(ctx: Ctx, layer: PlacedLayer, g: FrameGeometry, light: number, size = g.R * 2): void {
   const all = placements(layer, g);
   if (all.length === 0) return;
   const h = all[0].uy * 2;
   const w = all[0].ux * 2;
   if (layer.type === 'path' && layer.stroke > 0) return drawStroke(ctx, layer, all, light, g);
   const canFill = layer.fill !== null && (layer.type === 'shape' || (layer.closed && layer.points.length > 2));
+  const paint = layer.fill !== null && layer.fillPaint ? { canvas: paintCanvas(layer.fillPaint, g, light, size), each: layer.paintEach } : null;
   ctx.save();
   if (layer.raised) raisedFrom(ctx, layer.place === 'band' ? bandWidthPx(g) : g.R * 0.14, light);
   if (layer.glow) {
@@ -212,6 +218,22 @@ export function drawPlaced(ctx: Ctx, layer: PlacedLayer, g: FrameGeometry, light
     ctx.translate(t.x, t.y);
     ctx.rotate(t.angle);
     ctx.scale(t.sx, t.sy);
+    if (layer.type === 'shape' && layer.shape === 'ornament') {
+      // One of the repeat shapes, drawn by the same code (it draws its own outline).
+      const v = turn(lightVector(light), -t.angle);
+      drawElement(ctx, layer.element, h, layer.stretch, {
+        fill: layer.fill ?? 'rgba(0, 0, 0, 0)',
+        outline: layer.outline,
+        outlineWidth: layer.outlineWidth,
+        rune: 0,
+        light: { x: v.x * t.sx, y: v.y * t.sy },
+        shaded: layer.shaded,
+        detail: layer.detail,
+        paint,
+      });
+      ctx.restore();
+      continue;
+    }
     if (layer.type === 'shape') traceShape(ctx, layer, w, h);
     else tracePath(ctx, layer.points, layer.closed, t.ux, t.uy);
     if (canFill) {
@@ -228,7 +250,7 @@ export function drawPlaced(ctx: Ctx, layer: PlacedLayer, g: FrameGeometry, light
         // Back to the outline, for the stroke.
         if (layer.type === 'shape') traceShape(ctx, layer, w, h);
         else tracePath(ctx, layer.points, layer.closed, t.ux, t.uy);
-      } else if (layer.shaded) {
+      } else if (layer.shaded || paint) {
         // The light as seen from inside this copy (turned and flipped with it).
         const v = turn(lightVector(light), -t.angle);
         const box = layer.type === 'path' ? localBounds(layer) : { minX: -1, maxX: 1, minY: -1, maxY: 1 };
@@ -236,7 +258,8 @@ export function drawPlaced(ctx: Ctx, layer: PlacedLayer, g: FrameGeometry, light
         const bh = Math.max(1, (box.maxY - box.minY) * t.uy);
         ctx.save();
         ctx.translate(((box.minX + box.maxX) / 2) * t.ux, ((box.minY + box.maxY) / 2) * t.uy);
-        shadedFill(ctx, layer.fill!, bw, bh, { x: v.x * t.sx, y: v.y * t.sy });
+        const fill = paint ? paintPattern(ctx, paint, ctx.getTransform(), bw, bh) : layer.fill!;
+        shadedFill(ctx, fill, bw, bh, { x: v.x * t.sx, y: v.y * t.sy }, 'nonzero', layer.shaded);
         ctx.restore();
       } else {
         ctx.fillStyle = layer.fill!;

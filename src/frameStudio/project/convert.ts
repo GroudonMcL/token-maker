@@ -10,10 +10,22 @@
 import { framePresetById, type FrameStyle } from '../../render/catalog';
 import { mix, shade } from '../../render/color';
 import { frameAccent } from '../../render/frames';
+import { seededRandom } from '../../render/frameKit';
 import { bandFillLayer, createProject, gearsLayer, groupLayer, growthLayer, knotworkLayer, lineLayer, newId, repeatLayer, textureLayer } from './defaults';
+import { STAMPED_OUTER, STAMPED_STEP, stampedStops } from './stamped';
 import { shadow } from './styles';
 import { cloneAllWithNewIds } from './tree';
 import type { BandFillLayer, FrameProject, GroupLayer, Layer, LegacyFrameLayer, LineLayer, RepeatLayer, TextureKind, TextureLayer } from './types';
+
+/**
+ * Token Maker's random sizes for each of a frame's ornaments, in its order
+ * (seededRandom(seed), one number each, from `min` to `max` times the size),
+ * as a repeat's alternating sizes: the first eight, as many as any shape gets.
+ */
+function tokenMakerSizes(seed: number, min: number, max: number): number[] {
+  const random = seededRandom(seed);
+  return Array.from({ length: 8 }, () => min + random() * (max - min));
+}
 
 /** The colours a frame is drawn in: its colour and, for frames with own-coloured details, the highlights colour. */
 export interface FrameColours {
@@ -275,6 +287,50 @@ const CONVERTERS: Partial<Record<FrameStyle, Converter>> = {
 
   sorcerer: ({ color }) => stack({ base: color, light: 0.75, dark: 0.8, highlight: null, step: 0.25 }, [texture('scales', 'Scales', { color })], []),
 
+  // Version 10: the last four frames, with the ornaments and textures made for them.
+
+  // Stamped: its own colours round the ring (not the metal lighting), a step 45 % wide, and veins on the dark side.
+  stamped: ({ color }) => [
+    { ...bandFillLayer(), name: 'Band', paint: { kind: 'ring', stops: stampedStops(STAMPED_OUTER, color), followLight: true } },
+    { ...bandFillLayer(), name: 'Pressed-in step', from: 0.55, to: 1, paint: { kind: 'ring', stops: stampedStops(STAMPED_STEP, color), followLight: true } },
+    texture('veins', 'Veins and marbling', { color, seed: 0x5eed, where: 'shaded' }),
+    line('Crease', 0.55, 0.03, '#190500', 0.55),
+    ...rims(),
+  ],
+
+  fletching: ({ color, accent }) => {
+    const red = mix(color, accent ?? frameAccent('fletching')!, 0.5);
+    // Open chevrons from 42 % of the band out to 42 % in, 32 % long, with lines 9 % thick.
+    const chevrons = { element: 'fletching' as const, mode: 'spacing' as const, spacing: 0.4, snapToCorners: false, at: 0.45, size: 0.84, stretch: 0.32 / 0.84, outlineWidth: 0.09 / 0.84, shaded: false, clip: 'band' as const };
+    return stack(
+      { base: color, light: 0.6, dark: 0.75, highlight: null, step: 0.25 },
+      [
+        repeat('Pale fletching', { ...chevrons, fill: shade(color, 0.5), opacity: 0.55, show: [true, true, false, false] }),
+        repeat('Red fletching', { ...chevrons, fill: red, opacity: 0.7, show: [false, false, true, true] }),
+        line('Shaft', 0.45, 0.04, shade(color, -0.7), 0.7, { clip: 'band' }),
+      ],
+      [],
+    );
+  },
+
+  notes: ({ color, accent }) =>
+    stack(
+      { base: color, light: 0.7, dark: 0.8, highlight: null, step: 0.3 },
+      [marble(color, 0xba7d, 0.6), groove(0.25, color, 0.04, 'Stave line 1'), groove(0.4, color, 0.04, 'Stave line 2'), groove(0.55, color, 0.04, 'Stave line 3')],
+      [
+        // Token Maker's notes, wandering in and out and single or paired at random, in its order.
+        repeat('Notes', { element: 'bardNote', mode: 'spacing', spacing: 1.7, snapToCorners: false, at: 0.5, size: 1, fill: accent ?? frameAccent('notes')!, shaded: false, raised: true, wander: 0.625, seed: 0xba7e }),
+      ],
+    ),
+
+  eyes: ({ color, accent }) => {
+    const base = shade(color, -0.2);
+    return stack({ base, light: 0.5, dark: 0.75, highlight: null, step: 0.25 }, [marble(base, 0xe7e, 1.4)], [
+      // Each eye a little bigger or smaller (85–105 % of half the band), at random.
+      repeat('Eyes', { element: 'watchEye', count: 6, snapToCorners: true, at: 0.48, size: 0.95, stretch: 1.3, fill: accent ?? frameAccent('eyes')!, raised: true, altSizes: tokenMakerSizes(0xe7e5, 0.85 / 0.95, 1.05 / 0.95), outlineWidth: 0.05 / 0.95 }),
+    ]);
+  },
+
   // Phase 8: the frames that waited for generators.
 
   // Druid: wood, with a vine winding round it and leaves on alternate sides.
@@ -370,6 +426,8 @@ export const CONVERSION_NOTES: Partial<Record<FrameStyle, string>> = {
   braid: 'The strands really weave over and under (the original lays one strand over the other all the way round).',
   claws: 'The gashes all lean the same way (the original tilts each a little differently).',
   clockwork: 'The gears turn with the band and their shadows are softer.',
+  fletching: 'The fletching sits a hair further along the band.',
+  eyes: 'The eyes are lit from the light you choose, and their shadows are a little softer.',
 };
 
 /** "Not quite the same: …" for a frame whose conversion differs a little, or '' when it doesn't. */

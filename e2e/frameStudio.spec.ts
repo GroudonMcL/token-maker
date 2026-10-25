@@ -8,6 +8,8 @@ import { readFileSync } from 'node:fs';
 
 const JEWELLED = 'e2e/fixtures/designs/jewelled.framestudio.json';
 const NIGHT_SKY = 'e2e/fixtures/designs/night-sky.framestudio.json';
+// Version 10: a photo-texture band and dragon-head icons filled with the gold photo.
+const PHOTOS = 'e2e/fixtures/designs/photos-and-icons.framestudio.json';
 const GOBLIN = 'e2e/fixtures/goblin-boss.png';
 
 async function fresh(page: Page) {
@@ -41,8 +43,8 @@ async function framePanel(page: Page, isMobile: boolean) {
   return panel;
 }
 
-/** The exported PNG's pixel at fractions of its width and height. */
-async function exportPixel(page: Page, isMobile: boolean, fx: number, fy: number): Promise<number[]> {
+/** The exported PNG's pixels at fractions of its width and height. */
+async function exportPixels(page: Page, isMobile: boolean, points: [number, number][]): Promise<number[][]> {
   const download = page.waitForEvent('download');
   if (isMobile) await page.locator('.bottom-sheet__summary').getByRole('button', { name: 'Export' }).click();
   else await page.locator('.bottom-bar').getByRole('button', { name: 'Export PNG' }).click();
@@ -50,7 +52,12 @@ async function exportPixel(page: Page, isMobile: boolean, fx: number, fy: number
   const c = createCanvas(img.width, img.height);
   const ctx = c.getContext('2d');
   ctx.drawImage(img, 0, 0);
-  return [...ctx.getImageData(Math.round(fx * img.width), Math.round(fy * img.height), 1, 1).data];
+  return points.map(([fx, fy]) => [...ctx.getImageData(Math.round(fx * img.width), Math.round(fy * img.height), 1, 1).data]);
+}
+
+/** The exported PNG's pixel at fractions of its width and height. */
+async function exportPixel(page: Page, isMobile: boolean, fx: number, fy: number): Promise<number[]> {
+  return (await exportPixels(page, isMobile, [[fx, fy]]))[0];
 }
 
 test('open a Frame Studio design as the frame, change the band, reload and export', async ({ page, isMobile }) => {
@@ -90,6 +97,24 @@ test('open a Frame Studio design as the frame, change the band, reload and expor
   await expect(panel.getByRole('radio', { name: 'Jewelled' })).toHaveAttribute('aria-checked', 'true');
   await expect(panel.getByRole('radio', { name: 'Night sky' })).toBeVisible();
   expect(await exportPixel(page, m, 0.5, 0.17)).toEqual(after);
+});
+
+test('a design with photo textures and icons is drawn with the photos themselves, not stand-in colours', async ({ page, isMobile }) => {
+  test.setTimeout(90_000);
+  const m = !!isMobile;
+  await fresh(page);
+  await page.getByTestId('file-input').first().setInputFiles(GOBLIN);
+  await expect(page.locator('.bottom-bar, .bottom-sheet__summary').getByRole('button', { name: /^Export/ }).first()).toBeEnabled();
+  const panel = await framePanel(page, m);
+  await panel.getByRole('radio', { name: 'Frame Studio' }).click();
+  await panel.getByTestId('design-file-input').setInputFiles(PHOTOS);
+  await expect(panel.getByRole('radio', { name: 'Photos and icons' })).toHaveAttribute('aria-checked', 'true');
+  // A short run of pixels across the band at the left, between the icons: the brick photo
+  // makes them differ; its stand-in (one average colour, lit) would make them almost the same.
+  const run = await exportPixels(page, m, Array.from({ length: 8 }, (_v, i): [number, number] => [0.06 + i * 0.006, 0.42]));
+  for (const p of run) expect(p[3]).toBe(255);
+  const spread = Math.max(...run.map((p) => p[0] + p[1] + p[2])) - Math.min(...run.map((p) => p[0] + p[1] + p[2]));
+  expect(spread).toBeGreaterThan(40);
 });
 
 test('a file that is not a design is refused with a message', async ({ page, isMobile }) => {
