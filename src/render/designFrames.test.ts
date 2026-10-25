@@ -10,6 +10,7 @@ import { migrateDocument } from '../document/migrate';
 import { computeInsets, outputSize } from '../document/sizing';
 import type { TokenDocument } from '../document/types';
 import { editableProject } from '../frameStudio/project/convert';
+import { THEMED_TEMPLATES, themedProject } from '../frameStudio/project/themedTemplates';
 import { setCanvasFactory as setFrameStudioCanvas } from '../frameStudio/render/canvas';
 import { renderProject } from '../frameStudio/render/renderProject';
 import { readFrameDesign, type FrameProject } from '../frameStudio/share/frameDesign';
@@ -27,6 +28,13 @@ const fixture = (name: string): FrameProject => {
   if (!r.ok) throw new Error(r.error);
   return r.project;
 };
+
+/** A themed border from Frame Studio's template picker, as its saved file reads back. */
+function themed(id: string): FrameProject {
+  const r = readFrameDesign(JSON.parse(JSON.stringify(themedProject(THEMED_TEMPLATES.find((t) => t.id === id)!))));
+  if (!r.ok) throw new Error(r.error);
+  return r.project;
+}
 
 /** A token that is only its frame: no art, no backing, no shadows. */
 function frameOnly(project: FrameProject, patch: (d: TokenDocument) => void = () => {}): TokenDocument {
@@ -58,6 +66,8 @@ const designs: [string, FrameProject][] = [
   ['Jewelled (a Phase 2 file)', fixture('jewelled')],
   ['Night sky (a Phase 3 file)', fixture('night-sky')],
   ['Paladin as editable layers, lit from the bottom right', { ...editableProject('paladin')!, stage: { ...editableProject('paladin')!.stage, light: 45 } }],
+  ['Enamel and gold (a themed border with effects)', themed('enamel-gold')],
+  ['Clockwork (a themed border with generators)', themed('clockwork')],
 ];
 
 describe('Frame Studio designs as frames', () => {
@@ -67,6 +77,16 @@ describe('Frame Studio designs as frames', () => {
       const a = inTokenMaker(doc);
       const b = inFrameStudio(doc);
       expect(a.every((v, i) => v === b[i]), s.id).toBe(true);
+    }
+  });
+
+  it('every themed border opens and draws as in Frame Studio', () => {
+    for (const t of THEMED_TEMPLATES) {
+      const doc = frameOnly(themed(t.id));
+      const a = inTokenMaker(doc, 128);
+      const b = inFrameStudio(doc, 128);
+      expect(a.some((v) => v !== 0), t.id).toBe(true);
+      expect(a.every((v, i) => v === b[i]), t.id).toBe(true);
     }
   });
 

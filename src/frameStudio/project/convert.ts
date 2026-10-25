@@ -10,8 +10,9 @@
 import { framePresetById, type FrameStyle } from '../../render/catalog';
 import { mix, shade } from '../../render/color';
 import { frameAccent } from '../../render/frames';
-import { bandFillLayer, createProject, groupLayer, lineLayer, newId, repeatLayer, textureLayer } from './defaults';
-import { cloneWithNewIds } from './tree';
+import { bandFillLayer, createProject, gearsLayer, groupLayer, growthLayer, knotworkLayer, lineLayer, newId, repeatLayer, textureLayer } from './defaults';
+import { shadow } from './styles';
+import { cloneAllWithNewIds } from './tree';
 import type { BandFillLayer, FrameProject, GroupLayer, Layer, LegacyFrameLayer, LineLayer, RepeatLayer, TextureKind, TextureLayer } from './types';
 
 /** The colours a frame is drawn in: its colour and, for frames with own-coloured details, the highlights colour. */
@@ -273,7 +274,79 @@ const CONVERTERS: Partial<Record<FrameStyle, Converter>> = {
   },
 
   sorcerer: ({ color }) => stack({ base: color, light: 0.75, dark: 0.8, highlight: null, step: 0.25 }, [texture('scales', 'Scales', { color })], []),
+
+  // Phase 8: the frames that waited for generators.
+
+  // Druid: wood, with a vine winding round it and leaves on alternate sides.
+  vines: ({ color }) => {
+    const base = mix(color, '#4a3320', 0.55);
+    return stack({ base, light: 0.5, dark: 0.75, highlight: null, step: 0.25 }, [texture('wood', 'Wood grain', { color: base, seed: 0x0a4 })], [
+      {
+        ...growthLayer('vine'),
+        name: 'Vine',
+        waveLength: 1.8,
+        amplitude: 0.22,
+        gnarl: 0,
+        thickness: 0.1,
+        branching: 0,
+        extra: 'leaves',
+        extraSpacing: 0.9,
+        extraSize: 0.36 * 2.3,
+        color: shade(color, -0.35),
+        extraColor: color,
+        effects: [RAISED(0.45)],
+      },
+    ]);
+  },
+
+  // Knotwork: dark marbled metal with two strands woven round it.
+  braid: ({ color }) => {
+    const base = shade(color, -0.55);
+    return stack({ base, light: 0.4, dark: 0.7, highlight: null, step: 0 }, [
+      marble(base, 0xb4a1, 0.5),
+      { ...knotworkLayer(), name: 'Knotwork', waveLength: 0.9, amplitude: 0.25, width: 0.17, color: shade(color, 0.1), outline: '#000000', outlineWidth: 0.035, outlineOpacity: 0.6, shine: true, clip: 'band' },
+    ], []);
+  },
+
+  // Barbarian: hide, battle-worn, with three-claw gashes.
+  claws: ({ color }) =>
+    stack(
+      { base: color, light: 0.5, dark: 0.75, highlight: null, step: 0.3 },
+      [
+        hammered('Hide', color, 10, 0.25, 0.5, 0xc1a),
+        texture('wear', 'Battle wear', { color, seed: 0xba4 }),
+        repeat('Claw gashes', { element: 'gash', count: 6, snapToCorners: true, at: 0.5, size: 1.65, rotation: 40.1, seed: 0xc1a3, fill: '#140500', outline: shade(color, 0.5), shaded: false, clip: 'band' }),
+      ],
+      [],
+    ),
+
+  // Artificer: brass, its inner edge cut into gear teeth, with little gears on the band.
+  clockwork: ({ color }) =>
+    stack({ base: color, light: 0.9, dark: 0.8, highlight: '#fff1c0', step: 0.3 }, [marble(color, 0xc10c, 0.5)], [
+      repeat('Gear teeth', { element: 'tooth', mode: 'spacing', spacing: 0.6, snapToCorners: false, at: 1, size: 0.35, stretch: 0.34 / 0.35, fill: color, raised: true }),
+      {
+        ...gearsLayer(),
+        name: 'Gears',
+        count: 6,
+        at: 0.45,
+        size: 0.36 * 1.3 * 2,
+        teeth: 8,
+        toothDepth: 1 - 1 / 1.3,
+        toothShape: 'pointed',
+        spokes: 0,
+        hub: 0.25,
+        domed: true,
+        shaded: false,
+        color: shade(color, 0.2),
+        effects: [RAISED(0.55)],
+      },
+    ]),
 };
+
+/** Token Maker's raised shadow (raised(), w × 0.05 and 0.08 away, blurred w × 0.16) as a shadow effect. */
+function RAISED(opacity: number) {
+  return shadow({ opacity, distance: 0.094, blur: 0.11 });
+}
 
 /**
  * How each conversion differs from the original, in a sentence, where it
@@ -293,6 +366,10 @@ export const CONVERSION_NOTES: Partial<Record<FrameStyle, string>> = {
   riveted: 'The bright flecks in the metal are a little softer.',
   beads: 'Next to the big bead at the top, one more small bead makes way on some shapes.',
   stitched: 'The stitches are flat bars with square ends.',
+  vines: 'The leaves are shaded by the light you choose.',
+  braid: 'The strands really weave over and under (the original lays one strand over the other all the way round).',
+  claws: 'The gashes all lean the same way (the original tilts each a little differently).',
+  clockwork: 'The gears turn with the band and their shadows are softer.',
 };
 
 /** "Not quite the same: …" for a frame whose conversion differs a little, or '' when it doesn't. */
@@ -310,7 +387,7 @@ export const CONVERTIBLE_STYLES = Object.keys(CONVERTERS) as FrameStyle[];
 /** A frame's parts as editable layers, bottom first, or null if it has no converter yet. Every call gives fresh ids. */
 export function convertFrame(style: FrameStyle, colours: FrameColours): Layer[] | null {
   const convert = CONVERTERS[style];
-  return convert ? convert(colours).map((l) => cloneWithNewIds(l, newId)) : null;
+  return convert ? cloneAllWithNewIds(convert(colours), newId) : null;
 }
 
 /**
@@ -322,7 +399,7 @@ export function convertLegacyLayer(layer: LegacyFrameLayer): GroupLayer | null {
   const children = convertFrame(layer.style, { color: layer.color, accent: layer.accent });
   if (!children) return null;
   const { id: _id, type: _t, presetId: _p, style: _s, color: _c, accent: _a, ...common } = layer;
-  return { ...common, id: newId(), type: 'group', children, collapsed: false };
+  return { ...common, id: newId(), type: 'group', children, collapsed: false, combine: 'normal' };
 }
 
 /** The editable layers of a Token Maker frame preset in its own colours (for the template picker). */

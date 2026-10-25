@@ -4,8 +4,8 @@
 // checks and migrations as a project file, and a newer Frame Studio's layers
 // are kept rather than dropped.
 
-import { parseProject, serializeProject } from './migrate';
-import { PROJECT_FORMAT, SCHEMA_VERSION, type FrameProject, type Layer, type StageSettings } from './types';
+import { checkEffects, parseProject, serializeProject } from './migrate';
+import { PROJECT_FORMAT, SCHEMA_VERSION, type Effect, type FrameProject, type Layer, type StageSettings } from './types';
 
 export const PROJECT_EXTENSION = '.framestudio.json';
 export const LIBRARY_EXTENSION = '.framestudio-library.json';
@@ -54,10 +54,16 @@ export function parseLayers(input: unknown): LayerSetResult {
   return { ok: true, set: { name, layers, stage }, warnings: result.warnings };
 }
 
-/** The text of a library file holding these items. */
-export function serializeLibrary(sets: LayerSet[]): string {
+/** A style of your own (version 9): a named stack of effects. */
+export interface SavedStyle {
+  name: string;
+  effects: Effect[];
+}
+
+/** The text of a library file holding these items (and, since version 9, your own styles). */
+export function serializeLibrary(sets: LayerSet[], styles: SavedStyle[] = []): string {
   const items = sets.map((s) => JSON.parse(serializeLayers(s)) as unknown);
-  return JSON.stringify({ format: LIBRARY_FORMAT, schemaVersion: SCHEMA_VERSION, items }, null, 2) + '\n';
+  return JSON.stringify({ format: LIBRARY_FORMAT, schemaVersion: SCHEMA_VERSION, items, ...(styles.length ? { styles: styles.map(({ name, effects }) => ({ name, effects })) } : {}) }, null, 2) + '\n';
 }
 
 /**
@@ -65,28 +71,35 @@ export function serializeLibrary(sets: LayerSet[]): string {
  * file is read as one item (a project's layers, named after it). Items that
  * can't be read are left out, with a warning each.
  */
-export function parseLibrary(input: unknown): { ok: true; sets: LayerSet[]; warnings: string[] } | { ok: false; error: string } {
+export function parseLibrary(input: unknown): { ok: true; sets: LayerSet[]; styles: SavedStyle[]; warnings: string[] } | { ok: false; error: string } {
   const raw = asObj(input);
   if (!raw) return { ok: false, error: "This isn't a Frame Studio library file (it isn't valid JSON)." };
   if (raw.format === LAYERS_FORMAT || raw.format === PROJECT_FORMAT) {
     const one = parseLayers(raw);
-    return one.ok ? { ok: true, sets: [one.set], warnings: one.warnings } : one;
+    return one.ok ? { ok: true, sets: [one.set], styles: [], warnings: one.warnings } : one;
   }
-  if (raw.format !== LIBRARY_FORMAT || !Array.isArray(raw.items)) return { ok: false, error: "This isn't a Frame Studio library file." };
+  if (raw.format !== LIBRARY_FORMAT || !Array.isArray(raw.items ?? [])) return { ok: false, error: "This isn't a Frame Studio library file." };
   if (typeof raw.schemaVersion === 'number' && raw.schemaVersion > SCHEMA_VERSION) {
     return { ok: false, error: `This library was made with a newer Frame Studio (format ${raw.schemaVersion}); this one reads up to ${SCHEMA_VERSION}.` };
   }
   const sets: LayerSet[] = [];
   const warnings: string[] = [];
-  raw.items.forEach((item, i) => {
+  ((raw.items as unknown[] | undefined) ?? []).forEach((item, i) => {
     const one = parseLayers(isObj(item) ? { schemaVersion: raw.schemaVersion, ...item } : item);
     if (one.ok) {
       sets.push(one.set);
       warnings.push(...one.warnings);
     } else warnings.push(`Item ${i + 1} couldn't be read: ${one.error}`);
   });
-  if (sets.length === 0) return { ok: false, error: 'There is nothing in this library file that can be read.' };
-  return { ok: true, sets, warnings };
+  const styles: SavedStyle[] = Array.isArray(raw.styles)
+    ? raw.styles.filter(isObj).flatMap((st) => {
+        const name = typeof st.name === 'string' && st.name.trim() ? st.name.trim().slice(0, 60) : 'Style';
+        const effects = checkEffects(st.effects, name, warnings);
+        return effects.length ? [{ name, effects }] : [];
+      })
+    : [];
+  if (sets.length === 0 && styles.length === 0) return { ok: false, error: 'There is nothing in this library file that can be read.' };
+  return { ok: true, sets, styles, warnings };
 }
 
 /** A project holding a set's layers on its stage (for thumbnails). */

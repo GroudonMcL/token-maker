@@ -139,6 +139,7 @@ A checklist of build phases, following [`BUILD-PROMPTS.md`](BUILD-PROMPTS.md). D
 - [x] Help tips with before/after pictures for the new controls (`npm run help-images`)
 - [x] Tests: a design looks exactly the same here as in Frame Studio on every shape, thickness, spacing and token size; the migration and checks; the panel, the library and presets; Playwright on desktop, tablet and phone
 - **Done when:** a design made in Frame Studio opens as a frame here from its `.framestudio.json` file ✔
+- [x] Copy brought up to Frame Studio 0.10.0 (Phases 6–10 and the themed borders; it reads Frame Studio files up to format 9, so effects, generators, text and the 21 themed borders draw here as they do there); a test draws every themed border in both and they match pixel for pixel
 
 ## Later (not phases yet)
 
